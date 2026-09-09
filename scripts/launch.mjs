@@ -1,4 +1,4 @@
-import {existsSync,readFileSync} from 'node:fs';
+import {existsSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
@@ -13,6 +13,6 @@ if(!existsSync(join(web,'node_modules','vite','bin','vite.js'))){console.error('
 const task=process.argv[2]||'dev';
 function run(relative,args=[]){const r=spawnSync(runtime,[join(web,relative),...args],{cwd:web,stdio:'inherit',env:process.env});if(r.error){console.error(r.error.message);process.exit(1);}if(r.status!==0)process.exit(r.status||1);}
 if(task==='build'){run('node_modules/typescript/bin/tsc',['--noEmit']);run('node_modules/vite/bin/vite.js',['build']);}
-else if(task==='verify'){run('node_modules/tsx/dist/cli.mjs',['scripts/verify-core.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-workflows.ts']);}
+else if(task==='verify'){run('node_modules/tsx/dist/cli.mjs',['scripts/verify-core.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-workflows.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-interaction.ts']);}
 else if(task==='start'){if(!existsSync(join(web,'dist','index.html'))){console.error('请先运行 npm run build。');process.exit(1);}run('node_modules/vite/bin/vite.js',['preview','--host','0.0.0.0','--port','3000']);}
 else run('node_modules/vite/bin/vite.js',['--host','0.0.0.0','--port','3000']);
