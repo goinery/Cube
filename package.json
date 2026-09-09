@@ -1,0 +1,13 @@
+{
+  "name": "axis-cube-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AXIS / 03 — interactive magnetic cube studio",
+  "scripts": {
+    "dev": "node scripts/launch.mjs dev",
+    "build": "node scripts/launch.mjs build",
+    "start": "node scripts/launch.mjs start",
+    "verify": "node scripts/launch.mjs verify",
+    "setup": "npm install --prefix web"
+  }
+}
