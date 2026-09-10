@@ -122,7 +122,6 @@ export function registerCubeTools() {
         context.registerTool(tool, { signal: lifecycle.signal }),
       ).catch(() => {});
     } catch {
-      /* Optional browser capability; the visible controls remain available. */
     }
   }
   return () => lifecycle.abort();

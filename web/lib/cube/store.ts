@@ -55,7 +55,7 @@ export const defaultSettings = (): Settings => ({
   easing: 'magnetic',
   roughness: 0.3,
   autoRotate: false,
-  lightFollowCamera: false,
+  lightFollowCamera: true,
   lightAzimuth: -31,
   lightElevation: 50,
   lightIntensity: 2.8,
@@ -159,6 +159,18 @@ export function settings(update: Partial<Settings>) {
   if (state.solving) return;
   patch({ settings: { ...state.settings, ...update } });
 }
+let autoRotateBeforePresentation = false;
+export function setPresentation(on: boolean) {
+  if (on === state.presentation) return;
+  if (on) autoRotateBeforePresentation = state.settings.autoRotate;
+  patch({
+    presentation: on,
+    settings: {
+      ...state.settings,
+      autoRotate: on ? true : autoRotateBeforePresentation,
+    },
+  });
+}
 export function setAppearance(appearance: Appearance) {
   if (state.solving) return;
   patch({ appearance, artVersion: state.artVersion + 1 });
@@ -184,7 +196,6 @@ export function allowMoves(moves: string[]): boolean {
   notify('有转层尚未对齐，不能转动垂直层。请沿原轴拖动对齐，或开启磁力归位。');
   return false;
 }
-/** Commit complete quarter turns and retain the exact fractional pose separately. */
 export function finishLayerTurn(axis: number, layer: number, angle: number) {
   if (
     state.solving ||

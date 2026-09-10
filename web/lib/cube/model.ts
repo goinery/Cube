@@ -1,4 +1,3 @@
-/** Integer, right-handed cubie coordinates. Visual parameters never enter this module. */
 export type Vec = [number, number, number];
 export type Face = 'U' | 'R' | 'F' | 'D' | 'L' | 'B';
 export const FACES: Face[] = ['U', 'R', 'F', 'D', 'L', 'B'];
@@ -233,7 +232,6 @@ export function scramble(length = 25): string[] {
   }
   return moves;
 }
-/** Reorient a cube with slice / wide / whole turns to fixed solver centers. */
 export function uprightMoves(state: CubeState): string[] {
   const q: { state: CubeState; moves: string[] }[] = [{ state, moves: [] }],
     seen = new Set<string>();

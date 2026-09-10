@@ -103,7 +103,6 @@ function sameMatrices(
     matrix.elements.forEach((v, i) => near(actual.get(id)!.elements[i], v));
 }
 
-// Ray-test the actual curved, beveled caps: broad corners face the center only.
 const material = new MeshBasicMaterial();
 for (let row = 0; row < 3; row++)
   for (let col = 0; col < 3; col++) {
@@ -153,7 +152,6 @@ for (const face of FACES) {
       const tile = projected.clone().multiply(world);
       near(new Vector3().setFromMatrixPosition(tile).z, 0);
       near(new Vector3(0, 0, 1).transformDirection(tile).z, -1);
-      // 辅助面与对应面成镜像：贴片留在同一平面内，左右相反、上下不变。
       const pair = mirrored.clone().multiply(world),
         a = new Vector3().setFromMatrixPosition(tile),
         b = new Vector3().setFromMatrixPosition(pair);
@@ -162,7 +160,6 @@ for (const face of FACES) {
       near(b.y, a.y);
     }
 }
-// A vertical half-turn in progress must deform the underside and bring adjacent caps into view.
 const held: PartialTurns = { axis: 0, angles: [0, 0, Math.PI / 4] };
 const tilted = matrices(solved(), held);
 for (const face of ['D', 'B'] as Face[]) {
@@ -308,7 +305,6 @@ for (const token of ['x', 'y', 'z', "x'", "y'", "z'", 'x2', 'y2', 'z2']) {
   finishLayerTurn(0, -1, -0.24);
   const start = getState();
   const expected = matrices(turn(solved(), token));
-  // Compare rotated held physical coordinates against the rotated exact state + transformed offsets.
   const global = matrices(turn(solved(), token))
     .get('U4')!
     .clone()

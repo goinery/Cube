@@ -434,7 +434,6 @@ export default function Viewport() {
           p.kind === 'center' ? 0.95 : 0.65,
         );
         stickers.set(s.id, shell);
-        // Coloured snap tabs extend from each cap into the black shell.
         if (p.kind !== 'center') {
           const clips = new T.Group();
           const clipMaterial = material.clone();
@@ -482,8 +481,6 @@ export default function Viewport() {
       time: number;
     }
     let drag: Drag | null = null;
-    // Separate depth pass keeps the underside mapping above the ground shadow,
-    // while preserving depth between its own independently moving tiles.
     const mappingScene = new T.Scene();
     const ghostMaterials = new Map<string, T.MeshBasicMaterial>();
     for (const [id] of stickers)
@@ -1000,6 +997,15 @@ export default function Viewport() {
             `${p.kind === 'corner' ? '角块' : p.kind === 'edge' ? '棱块' : '中心块'} · ${id} · 当前坐标 ${p.pos.join(' / ')}`,
           );
         }
+      } else if (
+        down &&
+        down.orbit &&
+        !drag &&
+        Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8 &&
+        getState().selected.length &&
+        !getState().solving
+      ) {
+        patch({ selected: [] });
       }
       down = null;
       pinch = null;
@@ -1130,7 +1136,6 @@ export default function Viewport() {
             }
           }
         }
-        // Drag/spring angles already include the held offset; programmed moves are relative.
         if (drag || a?.magnetic)
           angle -= heldAngle(s.partialTurns, axis, layers[0]);
         const q = new T.Quaternion().setFromAxisAngle(
@@ -1190,7 +1195,6 @@ export default function Viewport() {
             .copy(mesh.geometry.boundingBox!)
             .applyMatrix4(mesh.matrixWorld),
         );
-      // Drop the floor immediately as a layer tilts down, then ease it back toward contact.
       const floorHeight = surfaceBounds.min.y - 0.065;
       ground.position.y = Math.min(
         floorHeight,
@@ -1257,11 +1261,9 @@ export default function Viewport() {
         const length = Math.hypot(dx, dy),
           nx = dx / length,
           ny = dy / length;
-        // 辅助面放在魔方之后：主视图的魔方始终绘制在投影面之前，
-        // 任何角度都不会被映射挡住，同时仍在没有深度写入的地面阴影之上。
-        const behind = camera.position
+        const behind = controls.target
             .clone()
-            .sub(controls.target)
+            .sub(camera.position)
             .normalize()
             .multiplyScalar(radius * 2 + 2.4)
             .add(controls.target)
@@ -1284,7 +1286,6 @@ export default function Viewport() {
         const q = new T.Quaternion().setFromUnitVectors(normal, adjusted),
           basis = new T.Matrix4().makeBasis(v3(f.r), v3(f.u), normal);
         g.mesh.quaternion.setFromRotationMatrix(basis).premultiply(q);
-        // Keep the auxiliary faces within their screen slots even when exploded or zoomed.
         const viewHeight =
           2 *
           camera.position.distanceTo(target) *
@@ -1293,7 +1294,6 @@ export default function Viewport() {
           Math.min(viewHeight * 0.22, viewHeight * camera.aspect * 0.23) /
           (radius * 2);
         g.mesh.scale.setScalar(scale);
-        // 辅助面与对应面成镜像关系：转层在投影上呈现左右相反的方向。
         const transform = projectionTransform(
           face,
           radius,
@@ -1351,7 +1351,6 @@ export default function Viewport() {
       }
       renderer.render(scene, camera);
       if (s.view === 'hidden' && !s.presentation) {
-        // 沿用主渲染的深度缓冲：辅助面在魔方之后，不会被主视图挡住。
         renderer.autoClear = false;
         renderer.render(mappingScene, camera);
         renderer.autoClear = true;

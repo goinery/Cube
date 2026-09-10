@@ -1,4 +1,3 @@
-// Optional pixel verification using @napi-rs/canvas; it is not a runtime dependency.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import {

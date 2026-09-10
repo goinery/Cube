@@ -28,7 +28,6 @@ const target = new Vector3(1, -2, 3),
 camera.position.copy(target).add(new Vector3(0, 0, 10));
 camera.lookAt(target);
 const initial = camera.position.clone();
-// Two full vertical revolutions, passing through both poles without clamping or up resets.
 for (let i = 1; i <= 720; i++) {
   rotateView(camera, target, 0, Math.PI / 180);
   assert.ok(Math.abs(camera.position.distanceTo(target) - 10) < 1e-8);
@@ -101,7 +100,7 @@ console.log(
 );
 
 const settings = defaultSettings();
-assert.equal(settings.lightFollowCamera, false);
+assert.equal(settings.lightFollowCamera, true);
 const a = new Quaternion(),
   b = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), Math.PI);
 assert.deepEqual(
@@ -127,7 +126,7 @@ for (const key of [
   'lightFollowCamera',
 ])
   delete (legacy.settings as unknown as Record<string, unknown>)[key];
-assert.equal(validateProject(legacy).settings.lightFollowCamera, false);
+assert.equal(validateProject(legacy).settings.lightFollowCamera, true);
 assert.equal(validateProject(legacy).settings.lightIntensity, 2.8);
 console.log(
   'PASS world-fixed lighting, optional camera following, settings roundtrip and legacy defaults',
@@ -178,7 +177,6 @@ for (const piece of pieces) {
   root.updateMatrixWorld(true);
   assert.ok(foot);
   const radial = new Vector3(...piece.home).normalize();
-  // Look down the foot's actual central bore; flanges/rims must not cap the opening.
   const origin = foot.position.clone().addScaledVector(radial, -0.4);
   assert.equal(
     new Raycaster(origin, radial).intersectObject(foot, true).length,

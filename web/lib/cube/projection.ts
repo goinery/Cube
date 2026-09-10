@@ -1,7 +1,6 @@
 import { Matrix4, Vector3 } from 'three';
 import { FACE, type Face } from './model';
 
-/** A rigid copy of each live tile, viewed from outside its auxiliary face. */
 export function projectionTransform(
   face: Face,
   radius: number,
@@ -17,7 +16,6 @@ export function projectionTransform(
     .multiply(inverse);
 }
 
-/** Adjacent tiles enter continuously as a layer turns toward this face. */
 export function facesProjection(world: Matrix4, face: Face) {
   const normal = new Vector3(0, 0, 1).transformDirection(world);
   return normal.dot(new Vector3(...FACE[face].n)) > 0.001;

@@ -162,7 +162,7 @@ export function validateProject(value: unknown): Project {
   }
   settings.showMagnets = p.settings?.showMagnets !== false;
   settings.autoRotate = false;
-  settings.lightFollowCamera = p.settings?.lightFollowCamera === true;
+  settings.lightFollowCamera = p.settings?.lightFollowCamera !== false;
   const scramble =
     typeof p.scramble === 'string' ? parseAlgorithm(p.scramble).join(' ') : '';
   let partialTurns: PartialTurns | null = null;

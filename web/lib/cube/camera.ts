@@ -3,7 +3,6 @@ import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 export const PRODUCT_DIRECTION = new Vector3(1, 0.65, 1).normalize();
 export const PRODUCT_OCCUPANCY = 0.68;
 
-/** Rotate the viewing frame itself: there is no world-up reset or polar clamp. */
 export function rotateView(
   camera: PerspectiveCamera,
   target: Vector3,
@@ -33,7 +32,6 @@ export function zoomView(
   camera.position.copy(target).add(offset);
 }
 
-/** Interpolate orientation and distance separately, including opposite views. */
 export function transitionView(
   camera: PerspectiveCamera,
   target: Vector3,

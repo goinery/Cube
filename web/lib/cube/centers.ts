@@ -14,8 +14,6 @@ import {
   type CubeState,
   type Basis,
 } from './model';
-// Supercube center orientations form a group of 2048 states. Generators are
-// ordinary legal turns; no sticker or center is ever silently rotated in place.
 const encode = (a: number[]) => a.reduce((n, v, i) => n + v * 4 ** i, 0);
 const decode = (n: number) => FACES.map((_, i) => Math.floor(n / 4 ** i) % 4);
 function orientations(cube: CubeState) {

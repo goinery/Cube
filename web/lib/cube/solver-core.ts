@@ -1,6 +1,4 @@
 import Cube from 'cubejs';
-// The package's `module` field points to a legacy UMD build with a different
-// export shape. Use its CommonJS entry consistently in Node and browser Workers.
 import cfop from 'rubiks-cube-solver/lib/index.common.js';
 import {
   apply,

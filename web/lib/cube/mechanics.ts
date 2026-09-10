@@ -42,7 +42,6 @@ function bore(shape: T.Shape, x: number, y: number, radius: number) {
   shape.holes.push(hole);
 }
 
-/** An inward panel narrows into the stem; its recess is open all the way through. */
 function innerPanel(magnet: boolean) {
   const s = new T.Shape();
   s.moveTo(-0.4, 0.45);
@@ -119,7 +118,6 @@ function tube(outer: number, inner: number, depth: number) {
   ).rotateX(Math.PI / 2);
 }
 
-/** Paired magnets share their two tangential coordinates in the assembled cube. */
 export function magnetMounts(piece: Piece) {
   const mounts: { position: T.Vector3; normal: T.Vector3 }[] = [];
   for (let axis = 0; axis < 3; axis++) {
@@ -140,7 +138,6 @@ export function magnetMounts(piece: Piece) {
   return mounts;
 }
 
-/** Shared tooling, separate corner/edge load paths and moulded retention feet. */
 export function createMechanics(materials: Materials) {
   const panel = innerPanel(true),
     plainPanel = sidePanel();
@@ -189,7 +186,6 @@ export function createMechanics(materials: Materials) {
       backingMesh.position.copy(normal).multiplyScalar(0.375);
       backingMesh.quaternion.setFromUnitVectors(Z, normal);
       chassis.add(backingMesh);
-      // Inner walls meet the adjoining pieces, with a rounded relief at the core.
       const other = occupied.filter((a) => a.axis !== axis);
       const u = new T.Vector3().setComponent(other[0].axis, other[0].sign);
       const v =
@@ -201,7 +197,6 @@ export function createMechanics(materials: Materials) {
         materials.body,
       );
       if (piece.kind === 'corner') {
-        // Swap tangent axes if needed to preserve the panel's outward winding.
         if (u.clone().cross(v).dot(normal) > 0) {
           const temp = u.clone();
           u.copy(v);

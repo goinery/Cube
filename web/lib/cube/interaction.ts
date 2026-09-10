@@ -3,7 +3,6 @@ import { moveSpec, rotate, type Vec } from './model';
 export const QUARTER = Math.PI / 2;
 export interface PartialTurns {
   axis: number;
-  /** Residual angles for layers -1, 0, +1, relative to the exact cube state. */
   angles: [number, number, number];
 }
 export function layerFace(axis: number, layer: number): string {
@@ -22,7 +21,6 @@ export function canTurn(partial: PartialTurns | null, token: string): boolean {
     move.layers.length === 3
   );
 }
-/** Whole-cube rotations carry held slices into the new coordinate frame. */
 export function partialAfterMove(
   partial: PartialTurns | null,
   token: string,
@@ -56,7 +54,6 @@ export const heldAngle = (
   layer: number,
 ) => (partial?.axis === axis ? partial.angles[layer + 1] : 0);
 
-/** Integrate a damped torsional spring in bounded substeps, independently of frame rate. */
 export function stepMagnet(
   angle: number,
   velocity: number,
@@ -76,7 +73,6 @@ export function stepMagnet(
   }
   return { angle, velocity };
 }
-/** The preview is continuous. Only this release decision becomes a legal move. */
 export function magneticTarget(angle: number, velocity = 0): number {
   const progress = angle / QUARTER;
   let quarter = Math.round(progress);
@@ -97,7 +93,6 @@ export function magneticEase(t: number): number {
     ? 1
     : 1 - Math.exp(-9 * t) * (Math.cos(12 * t) + 0.75 * Math.sin(12 * t));
 }
-/** Fits the actual projected bounds, so 0.75 means 75% of the limiting viewport dimension. */
 export function fitDistance(
   camera: PerspectiveCamera,
   box: Box3,

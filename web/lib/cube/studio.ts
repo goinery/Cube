@@ -15,7 +15,6 @@ import {
   Vector3,
 } from 'three';
 
-/** Fine moulded hexagonal relief on the internal black shells. */
 export function createChassisRelief(anisotropy: number) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -46,7 +45,6 @@ export function createChassisRelief(anisotropy: number) {
   return texture;
 }
 
-/** Broad softboxes provide continuous highlights without reflecting room furniture. */
 export class StudioEnvironment extends Scene {
   constructor() {
     super();
@@ -96,7 +94,6 @@ export class StudioEnvironment extends Scene {
   }
 }
 
-/** Seamless, mipmapped injection-mould grain: height in R and roughness in G. */
 export function createPlasticGrain(anisotropy: number) {
   const size = 128,
     noise = new Float32Array(size * size);

@@ -34,6 +34,7 @@ import {
   pause,
   patch,
   settings,
+  setPresentation,
   perform,
   undo,
   redo,
@@ -90,7 +91,6 @@ export default function CubeApp() {
     sectionRefs = useRef<Partial<Record<Mode, HTMLElement | null>>>({}),
     pendingJump = useRef<{ mode: Mode; until: number } | null>(null),
     deferredJump = useRef<Mode | null>(null);
-  /** 区块相对滚动窗口顶部的距离。 */
   function offsetIn(node: HTMLElement) {
     return (
       node.getBoundingClientRect().top -
@@ -100,7 +100,6 @@ export default function CubeApp() {
   function scrollerAnimates() {
     return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
-  /** 把滑动窗口滚到对应区块。 */
   function scrollToSection(id: Mode, smooth = true) {
     const scroller = scrollRef.current,
       node = sectionRefs.current[id];
@@ -113,7 +112,6 @@ export default function CubeApp() {
       behavior: motion ? 'smooth' : 'auto',
     });
   }
-  /** 顶部菜单：跳转到对应区块；移动端会先展开控制面板。 */
   function jumpTo(id: Mode) {
     if (!panelOpen) {
       deferredJump.current = id;
@@ -122,7 +120,6 @@ export default function CubeApp() {
     }
     scrollToSection(id);
   }
-  /** 稳定引用，避免滚动时反复挂载/卸载区块节点。 */
   const attachSection = useCallback((node: HTMLElement | null) => {
     if (node) sectionRefs.current[node.dataset.section as Mode] = node;
   }, []);
@@ -153,7 +150,7 @@ export default function CubeApp() {
       )
         return;
       if (e.key === 'Escape') {
-        patch({ presentation: false });
+        setPresentation(false);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -212,7 +209,6 @@ export default function CubeApp() {
     deferredJump.current = null;
     scrollToSection(id, false);
   }, [panelOpen]);
-  /** 当前可视区块即操作模式；求解期间保持锁定，结束后自动跟上。 */
   useEffect(() => {
     if (s.solving || s.mode === visible) return;
     patch({ mode: visible });
@@ -274,7 +270,7 @@ export default function CubeApp() {
             disabled={s.solving}
             title="展示模式"
             aria-label="展示模式"
-            onClick={() => patch({ presentation: !s.presentation })}
+            onClick={() => setPresentation(!s.presentation)}
           >
             <Eye size={18} />
           </button>
@@ -821,7 +817,7 @@ export default function CubeApp() {
                 />
                 <button
                   className="wide-button"
-                  onClick={() => patch({ presentation: true })}
+                  onClick={() => setPresentation(true)}
                 >
                   进入展示模式 <Expand size={17} />
                 </button>

@@ -7,7 +7,6 @@ import {
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Sticker } from './model';
 
-/** Radii in top-left, top-right, bottom-right, bottom-left order. */
 export function tileRadii(row: number, col: number): number[] {
   if (row === 1 && col === 1) return [0.29, 0.29, 0.29, 0.29];
   const small = 0.035,
@@ -19,7 +18,6 @@ export function tileRadii(row: number, col: number): number[] {
   return [small, small, small, small];
 }
 
-/** Weld the duplicated extrusion vertices so bevels share continuous normals. */
 export function smoothBevels(geometry: BufferGeometry) {
   geometry.deleteAttribute('normal');
   const smooth = mergeVertices(geometry, 0.00001);
@@ -32,7 +30,6 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
   const [tl, tr, br, bl] = tileRadii(sticker.row, sticker.col);
   const h = 0.484,
     shape = new Shape();
-  // Broad inner corners on edge caps meet the rounded center; outer corners stay square.
   shape.moveTo(-h + bl, -h);
   shape.lineTo(h - br, -h);
   shape.quadraticCurveTo(h, -h, h, -h + br);
@@ -65,7 +62,6 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
   const positionsSmooth = smooth.getAttribute('position');
   const colors = new Float32Array(positionsSmooth.count * 3);
   for (let i = 0; i < positionsSmooth.count; i++) {
-    // The face retains the exact chosen color; the recessed rim has more depth.
     const depth = Math.max(
       0,
       Math.min(1, (positionsSmooth.getZ(i) + 0.036) / 0.072),

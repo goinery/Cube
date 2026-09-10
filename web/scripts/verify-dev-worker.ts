@@ -13,8 +13,6 @@ import {
 } from '../lib/cube/model';
 import type { Solution, SolveMode } from '../lib/cube/solver-core';
 
-// Load the actual Vite-served ESM graph without Node's require/module globals.
-// Node/production bundle tests alone do not catch development Worker import failures.
 const temporaryRoot = resolve(tmpdir());
 const cacheDir = await mkdtemp(join(temporaryRoot, 'axis-dev-worker-'));
 const server = await createServer({

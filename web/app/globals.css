@@ -641,10 +641,39 @@ h3 {
   color: #adb9a4;
   gap: 12px;
 }
-.control-label output {
+.control-label .value-input {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   font-family: var(--font-mono);
   font-size: 12px;
   color: #c7d5ad;
+}
+.value-input input {
+  width: 64px;
+  min-height: 26px;
+  padding: 3px 6px;
+  text-align: right;
+  font: inherit;
+  color: inherit;
+  background: #ffffff08;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  outline: 0;
+}
+.value-input input:hover:not(:disabled) {
+  border-color: #ffffff16;
+}
+.value-input input:focus {
+  border-color: #94aa80;
+  background: #ffffff12;
+}
+.value-input input:disabled {
+  opacity: 0.45;
+}
+.value-input i {
+  font-style: normal;
+  color: #8b9c7f;
 }
 .range-control {
   padding: 12px 0 17px;
@@ -1996,7 +2025,6 @@ h3 {
   background: #c7d5ad04;
   border-radius: 7px;
 }
-/* Neutral graphite surfaces keep the engineered object in focus. */
 .panel-section textarea,
 .text-design input {
   background: #15191a;
