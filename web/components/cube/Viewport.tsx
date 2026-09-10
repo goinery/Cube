@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
   FACE,
@@ -32,9 +31,23 @@ import {
   layerFace,
   stepMagnet,
 } from '@/lib/cube/interaction';
-import { createTileGeometry, smoothBevels } from '@/lib/cube/geometry';
+import { createTileGeometry } from '@/lib/cube/geometry';
+import { createMechanics } from '@/lib/cube/mechanics';
+import {
+  PRODUCT_DIRECTION,
+  PRODUCT_OCCUPANCY,
+  rotateView,
+  zoomView,
+  lightDirection,
+  lightRotation,
+  transitionView,
+} from '@/lib/cube/camera';
 import { projectionTransform, facesProjection } from '@/lib/cube/projection';
-import { createPlasticGrain, StudioEnvironment } from '@/lib/cube/studio';
+import {
+  createPlasticGrain,
+  createChassisRelief,
+  StudioEnvironment,
+} from '@/lib/cube/studio';
 
 interface ComponentPart {
   object: T.Object3D;
@@ -97,18 +110,15 @@ export default function Viewport() {
     );
     el.appendChild(renderer.domElement);
     const scene = new T.Scene(),
-      camera = new T.PerspectiveCamera(36, 1, 0.005, 200);
-    camera.position.set(6, 4.8, 7.5);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.085;
-    controls.enablePan = false;
-    controls.minDistance = 0.08;
-    controls.maxDistance = 100;
-    controls.rotateSpeed = 0.65;
-    controls.zoomSpeed = 0.7;
-    controls.touches.ONE = T.TOUCH.ROTATE;
-    controls.touches.TWO = T.TOUCH.DOLLY_ROTATE;
+      camera = new T.PerspectiveCamera(30, 1, 0.005, 200);
+    camera.position.copy(PRODUCT_DIRECTION).multiplyScalar(10);
+    const controls = {
+      target: new T.Vector3(),
+      update: () => {
+        camera.lookAt(controls.target);
+        camera.updateMatrixWorld(true);
+      },
+    };
     const environment = new StudioEnvironment();
     const pmrem = new T.PMREMGenerator(renderer),
       env = pmrem.fromScene(environment, 0.035);
@@ -160,8 +170,8 @@ export default function Viewport() {
       roughnessMap: grain,
     });
     const railMaterial = new T.MeshStandardMaterial({
-      color: '#c0c8c5',
-      roughness: 0.43,
+      color: '#e3e9df',
+      roughness: 0.26,
       metalness: 0,
     });
     const darkMetal = new T.MeshStandardMaterial({
@@ -232,34 +242,25 @@ export default function Viewport() {
       stickers = new Map<string, T.Mesh>(),
       hitMeshes: T.Mesh[] = [],
       textures = new Map<string, T.CanvasTexture>();
+    const clipMaterials = new Map<string, T.MeshPhysicalMaterial>();
     const shellGeometries = new Map<string, T.BufferGeometry>();
-    const frameShape = new T.Shape();
-    frameShape.moveTo(-0.43, -0.43);
-    frameShape.lineTo(0.43, -0.43);
-    frameShape.lineTo(0.43, 0.43);
-    frameShape.lineTo(-0.43, 0.43);
-    frameShape.closePath();
-    const frameHole = new T.Path();
-    frameHole.moveTo(-0.29, -0.29);
-    frameHole.lineTo(-0.29, 0.29);
-    frameHole.lineTo(0.29, 0.29);
-    frameHole.lineTo(0.29, -0.29);
-    frameHole.closePath();
-    frameShape.holes.push(frameHole);
-    const cageFrame = smoothBevels(
-      new T.ExtrudeGeometry(frameShape, {
-        depth: 0.055,
-        bevelEnabled: true,
-        bevelThickness: 0.014,
-        bevelSize: 0.014,
-        bevelSegments: 3,
-        steps: 1,
-      }),
+    const relief = createChassisRelief(
+      renderer.capabilities.getMaxAnisotropy(),
     );
-    cageFrame.center();
-    const jointGeo = new T.SphereGeometry(0.12, 16, 12),
-      magnetGeo = new T.CylinderGeometry(0.072, 0.072, 0.026, 20),
-      housingGeo = new T.CylinderGeometry(0.1, 0.11, 0.07, 20);
+    const chassisMaterial = plastic.clone();
+    chassisMaterial.color.set('#1d2428');
+    chassisMaterial.roughness = 0.34;
+    chassisMaterial.bumpMap = relief;
+    chassisMaterial.map = relief;
+    chassisMaterial.bumpScale = 0.02;
+    const buildMechanics = createMechanics({
+      body: chassisMaterial,
+      plastic,
+      guide: railMaterial,
+      magnet: magnetMaterial,
+      socket: sleeveMaterial,
+    });
+    const clipGeo = new RoundedBoxGeometry(0.065, 0.055, 0.14, 2, 0.012);
     for (const p of getState().cube) {
       const root = new T.Group(),
         parts: ComponentPart[] = [];
@@ -297,77 +298,8 @@ export default function Viewport() {
         });
         return object;
       }
-      // Distinct load-bearing chassis: trihedral corner, elongated edge, circular center carriage.
       if (p.kind !== 'center') {
-        const chassis = new T.Group();
-        for (const sticker of p.stickers) {
-          const f = FACE[sticker.face],
-            frame = new T.Mesh(cageFrame, plastic);
-          frame.quaternion.setFromRotationMatrix(
-            new T.Matrix4().makeBasis(v3(f.r), v3(f.u), v3(f.n)),
-          );
-          frame.position.copy(v3(f.n).multiplyScalar(0.32));
-          chassis.add(frame);
-          const a = v3(f.n).multiplyScalar(0.26),
-            b = radial.clone().multiplyScalar(-0.33),
-            rib = new T.Mesh(
-              new T.CylinderGeometry(0.055, 0.072, a.distanceTo(b), 12),
-              plastic,
-            );
-          rib.position.copy(a.clone().add(b).multiplyScalar(0.5));
-          rib.quaternion.copy(orient(a.clone().sub(b)));
-          chassis.add(rib);
-        }
-        const spine = new T.Mesh(
-          p.kind === 'corner'
-            ? new T.IcosahedronGeometry(0.22, 1)
-            : new RoundedBoxGeometry(0.39, 0.25, 0.32, 3, 0.055),
-          plastic,
-        );
-        spine.position.copy(radial.clone().multiplyScalar(-0.18));
-        spine.quaternion.copy(orient(radial));
-        chassis.add(spine);
-        chassis.userData.primary = true;
-        part(chassis, radial.clone().multiplyScalar(-0.045), radial, 0.08);
-        const neck = new T.Mesh(
-          new T.CylinderGeometry(
-            p.kind === 'corner' ? 0.13 : 0.2,
-            0.105,
-            0.4,
-            20,
-          ),
-          plastic,
-        );
-        neck.quaternion.copy(orient(radial));
-        part(neck, radial.clone().multiplyScalar(-0.48), radial, -0.12);
-        const foot = new T.Mesh(
-          p.kind === 'corner'
-            ? new T.SphereGeometry(
-                0.22,
-                20,
-                12,
-                0,
-                Math.PI * 2,
-                0,
-                Math.PI * 0.72,
-              )
-            : new RoundedBoxGeometry(0.47, 0.17, 0.31, 3, 0.08),
-          railMaterial,
-        );
-        foot.quaternion.copy(orient(radial));
-        part(foot, radial.clone().multiplyScalar(-0.67), radial, -0.32);
-        const track = new T.Mesh(
-          new T.TorusGeometry(
-            p.kind === 'corner' ? 0.18 : 0.235,
-            0.033,
-            8,
-            24,
-            Math.PI * 1.5,
-          ),
-          darkMetal,
-        );
-        track.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), radial);
-        part(track, radial.clone().multiplyScalar(-0.61), radial, -0.22);
+        buildMechanics(p, part);
       } else {
         const carriage = new T.Mesh(
           new T.LatheGeometry(
@@ -502,57 +434,24 @@ export default function Viewport() {
           p.kind === 'center' ? 0.95 : 0.65,
         );
         stickers.set(s.id, shell);
-        // Inner shell bosses establish a physical attachment to the skeleton.
+        // Coloured snap tabs extend from each cap into the black shell.
         if (p.kind !== 'center') {
-          const boss = new T.Mesh(jointGeo, plastic);
-          part(boss, normal.clone().multiplyScalar(0.27), normal, 0.4);
-        }
-      }
-      if (p.kind !== 'center') {
-        // Magnets live at shared corner-edge interfaces, in separate retaining cups.
-        for (let axis = 0; axis < 3; axis++)
-          if (p.kind === 'corner' ? p.home[axis] !== 0 : p.home[axis] === 0) {
-            const signs = p.kind === 'corner' ? [-p.home[axis]] : [-1, 1];
-            for (const sign of signs) {
-              const dir = new T.Vector3().setComponent(axis, sign),
-                loc = dir
-                  .clone()
-                  .multiplyScalar(0.468)
-                  .add(radial.clone().multiplyScalar(0.02));
-              const cup = new T.Mesh(housingGeo, sleeveMaterial);
-              cup.quaternion.copy(orient(dir));
-              part(cup, loc, dir, 0.3);
-              const magnet = new T.Mesh(magnetGeo, magnetMaterial);
-              magnet.quaternion.copy(orient(dir));
-              part(
-                magnet,
-                loc.clone().addScaledVector(dir, 0.018),
-                dir,
-                0.53,
-                true,
-              );
-            }
+          const clips = new T.Group();
+          const clipMaterial = material.clone();
+          clipMaterial.vertexColors = false;
+          clipMaterials.set(s.id, clipMaterial);
+          for (const x of [-0.29, 0.29]) {
+            const clip = new T.Mesh(clipGeo, clipMaterial);
+            clip.position.set(x, 0.22, 0);
+            clips.add(clip);
           }
-        if (p.kind === 'corner') {
-          const magnet = new T.Mesh(magnetGeo, magnetMaterial);
-          magnet.quaternion.copy(orient(radial));
-          const stalk = new T.Mesh(
-            new T.CylinderGeometry(0.065, 0.105, 0.46, 18),
-            plastic,
-          );
-          stalk.quaternion.copy(orient(radial));
-          part(stalk, radial.clone().multiplyScalar(-0.97), radial, -0.36);
-          part(
-            magnet,
-            radial.clone().multiplyScalar(-1.23),
-            radial,
-            -0.47,
-            true,
-          );
+          clips.quaternion.copy(shell.quaternion);
+          part(clips, normal.clone().multiplyScalar(0.33), normal, 0.65);
         }
       }
       models.set(p.id, { root, parts, source: p });
     }
+    const targetOrientation = new T.Quaternion();
     let lastArt = -1,
       currentExplode = getState().settings.explode,
       targetCamera: T.Vector3 | null = null,
@@ -626,6 +525,7 @@ export default function Viewport() {
           if (disposed || getState().artVersion !== version) return;
           const material = mesh.material as T.MeshPhysicalMaterial;
           const art = s.appearance.stickers[id];
+          clipMaterials.get(id)?.color.set(art.color);
           textures.get(id)?.dispose();
           if (
             art.group ||
@@ -743,37 +643,48 @@ export default function Viewport() {
       }
       return box;
     }
-    function moveCameraToFit(direction: T.Vector3, objects?: T.Object3D[]) {
+    function moveCameraToFit(
+      direction: T.Vector3,
+      objects?: T.Object3D[],
+      occupancy = 0.75,
+      up = camera.up,
+    ) {
       if (getState().solving) return;
       layoutPieces(getState().settings.explode);
       const box = boundsOf(objects || [...models.values()].map((m) => m.root)),
         target = box.getCenter(new T.Vector3()),
         distance = fitDistance(
-          camera,
+          Object.assign(camera.clone(), { up: up.clone() }),
           box,
           direction,
           target,
-          objects?.length === 1 ? 0.9 : 0.75,
+          objects?.length === 1 ? 0.9 : occupancy,
         );
       targetLookAt = target;
       targetCamera = target
         .clone()
         .addScaledVector(direction.clone().normalize(), distance);
+      const destination = camera.clone();
+      destination.position.copy(targetCamera);
+      destination.up.copy(up);
+      destination.lookAt(target);
+      targetOrientation.copy(destination.quaternion);
     }
     cameraActions.fit = () => {
       moveCameraToFit(camera.position.clone().sub(controls.target));
     };
     cameraActions.reset = () => {
       if (getState().solving) return;
-      camera.up.set(0, 1, 0);
-      moveCameraToFit(new T.Vector3(6, 4.8, 7.5));
+      moveCameraToFit(
+        PRODUCT_DIRECTION,
+        undefined,
+        PRODUCT_OCCUPANCY,
+        new T.Vector3(0, 1, 0),
+      );
     };
     cameraActions.face = (face) => {
       if (getState().solving) return;
-      camera.up.copy(v3(FACE[face].u));
-      moveCameraToFit(
-        v3(FACE[face].n).addScaledVector(v3(FACE[face].u), 0.0001),
-      );
+      moveCameraToFit(v3(FACE[face].n), undefined, 0.75, v3(FACE[face].u));
     };
     cameraActions.focus = () => {
       const id = getState().selected[0],
@@ -798,6 +709,7 @@ export default function Viewport() {
     cameraActions.reset();
     if (targetCamera) {
       camera.position.copy(targetCamera);
+      camera.up.set(0, 1, 0).applyQuaternion(targetOrientation);
       controls.target.copy(targetLookAt!);
       targetCamera = null;
       targetLookAt = null;
@@ -813,11 +725,17 @@ export default function Viewport() {
       orbit: boolean;
     } | null = null;
     const activePointers = new Map<number, { x: number; y: number }>();
-    let pinch: { distance: number; x: number; y: number } | null = null;
+    let pinch: {
+      distance: number;
+      x: number;
+      y: number;
+      angle: number;
+    } | null = null;
     function pinchState() {
       const [a, b] = [...activePointers.values()];
       return {
         distance: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)),
+        angle: Math.atan2(b.y - a.y, b.x - a.x),
         x: (a.x + b.x) / 2,
         y: (a.y + b.y) / 2,
       };
@@ -881,7 +799,6 @@ export default function Viewport() {
       if (activePointers.size > 1) {
         finishDrag(true);
         down = null;
-        controls.enabled = false;
         pinch = pinchState();
         renderer.domElement.setPointerCapture(e.pointerId);
         e.stopImmediatePropagation();
@@ -893,18 +810,15 @@ export default function Viewport() {
           !hit ||
           Boolean(hit.object.userData.component) ||
           ['camera', 'explode'].includes(s.mode) ||
-          e.button !== 0;
+          e.button !== 0 ||
+          e.shiftKey;
       if (s.busy && !orbit) {
         e.stopImmediatePropagation();
         return;
       }
-      controls.enabled = orbit;
-      if (orbit) camera.up.set(0, 1, 0);
       down = { x: e.clientX, y: e.clientY, id: e.pointerId, hit, orbit };
-      if (!orbit) {
-        renderer.domElement.setPointerCapture(e.pointerId);
-        e.stopImmediatePropagation();
-      }
+      renderer.domElement.setPointerCapture(e.pointerId);
+      e.stopImmediatePropagation();
       targetCamera = null;
       targetLookAt = null;
     }
@@ -916,30 +830,41 @@ export default function Viewport() {
       if (activePointers.has(e.pointerId))
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (activePointers.size > 1 && pinch) {
-        const next = pinchState(),
-          spherical = new T.Spherical().setFromVector3(
-            camera.position.clone().sub(controls.target),
-          );
-        spherical.radius = T.MathUtils.clamp(
-          (spherical.radius * pinch.distance) / next.distance,
-          controls.minDistance,
-          controls.maxDistance,
+        const next = pinchState();
+        zoomView(camera, controls.target, pinch.distance / next.distance);
+        const twist = Math.atan2(
+          Math.sin(next.angle - pinch.angle),
+          Math.cos(next.angle - pinch.angle),
         );
-        spherical.theta -= (next.x - pinch.x) * 0.005;
-        spherical.phi = T.MathUtils.clamp(
-          spherical.phi - (next.y - pinch.y) * 0.005,
-          0.025,
-          Math.PI - 0.025,
+        rotateView(
+          camera,
+          controls.target,
+          (next.x - pinch.x) * 0.005,
+          (next.y - pinch.y) * 0.005,
+          twist,
         );
-        camera.up.set(0, 1, 0);
-        camera.position.setFromSpherical(spherical).add(controls.target);
         pinch = next;
         targetCamera = null;
         targetLookAt = null;
         e.stopImmediatePropagation();
         return;
       }
-      if (!down || down.orbit || down.id !== e.pointerId) return;
+      if (!down || down.id !== e.pointerId) return;
+      if (down.orbit) {
+        const dx = e.clientX - down.x,
+          dy = e.clientY - down.y;
+        rotateView(
+          camera,
+          controls.target,
+          e.shiftKey ? 0 : dx * 0.005,
+          e.shiftKey ? 0 : dy * 0.005,
+          e.shiftKey ? dx * 0.005 : 0,
+        );
+        down.x = e.clientX;
+        down.y = e.clientY;
+        e.stopImmediatePropagation();
+        return;
+      }
       const dx = e.clientX - down.x,
         dy = e.clientY - down.y,
         s = getState();
@@ -1078,14 +1003,12 @@ export default function Viewport() {
       }
       down = null;
       pinch = null;
-      controls.enabled = !getState().solving;
     }
     const cancel = () => {
       finishDrag(true);
       down = null;
       pinch = null;
       activePointers.clear();
-      controls.enabled = !getState().solving;
     };
     const doubleClick = (e: MouseEvent) => {
       if (getState().solving || getState().busy) return;
@@ -1097,6 +1020,22 @@ export default function Viewport() {
         ]);
       }
     };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (getState().solving) return;
+      targetCamera = targetLookAt = null;
+      const delta =
+        e.deltaY *
+        (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1);
+      zoomView(
+        camera,
+        controls.target,
+        Math.exp(T.MathUtils.clamp(delta * 0.001, -1, 1)),
+      );
+    };
+    const onContextMenu = (e: Event) => e.preventDefault();
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+    renderer.domElement.addEventListener('contextmenu', onContextMenu);
     renderer.domElement.addEventListener('dblclick', doubleClick);
     renderer.domElement.addEventListener('pointerdown', onDown, true);
     renderer.domElement.addEventListener('pointermove', onMove, true);
@@ -1107,9 +1046,10 @@ export default function Viewport() {
       lastQuality = '';
     const surfaceBounds = new T.Box3(),
       capBounds = new T.Box3();
-    const surfaceSize = new T.Vector3(),
-      surfaceCenter = new T.Vector3();
-    const keyDirection = key.position.clone().normalize();
+    const surfaceSize = new T.Vector3();
+    const defaultLightDirection = lightDirection(-31, 50);
+    const studioRotation = new T.Quaternion();
+    const lampDistance = 30;
     function render(now: number) {
       if (disposed) return;
       const dt = Math.min((now - last) / 1000, 0.05);
@@ -1208,22 +1148,40 @@ export default function Viewport() {
         targetCamera = null;
         targetLookAt = null;
       }
-      if (targetCamera) {
-        camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 7));
-        if (camera.position.distanceTo(targetCamera) < 0.002)
-          targetCamera = null;
+      if (targetCamera && targetLookAt) {
+        transitionView(
+          camera,
+          controls.target,
+          targetCamera,
+          targetLookAt,
+          targetOrientation,
+          1 - Math.exp(-dt * 7),
+        );
+        if (
+          camera.position.distanceTo(targetCamera) < 0.002 &&
+          camera.quaternion.angleTo(targetOrientation) < 0.001
+        ) {
+          transitionView(
+            camera,
+            controls.target,
+            targetCamera,
+            targetLookAt,
+            targetOrientation,
+            1,
+          );
+          targetCamera = targetLookAt = null;
+        }
       }
-      if (targetLookAt) {
-        controls.target.lerp(targetLookAt, 1 - Math.exp(-dt * 7));
-        if (controls.target.distanceTo(targetLookAt) < 0.001)
-          targetLookAt = null;
-      }
-      if (s.solving) controls.enabled = false;
-      else if (!down && !drag && !pinch) controls.enabled = true;
-      controls.autoRotate =
-        s.settings.autoRotate && !animation && !drag && !s.solving;
-      controls.autoRotateSpeed = 0.7;
-      if (!s.solving) controls.update();
+      if (
+        s.settings.autoRotate &&
+        !animation &&
+        !drag &&
+        !down &&
+        !pinch &&
+        !s.solving
+      )
+        rotateView(camera, controls.target, dt * 0.12, 0);
+      controls.update();
       scene.updateMatrixWorld(true);
       surfaceBounds.makeEmpty();
       for (const mesh of stickers.values())
@@ -1239,17 +1197,31 @@ export default function Viewport() {
         T.MathUtils.damp(ground.position.y, floorHeight, 10, dt),
       );
       surfaceBounds.getSize(surfaceSize);
-      surfaceBounds.getCenter(surfaceCenter);
       const shadowExtent = Math.max(2, surfaceSize.length() * 0.62);
+      studioRotation.copy(
+        lightRotation(
+          s.settings.lightAzimuth,
+          s.settings.lightElevation,
+          s.settings.lightFollowCamera,
+          camera.quaternion,
+        ),
+      );
       key.position
-        .copy(surfaceCenter)
-        .addScaledVector(keyDirection, shadowExtent * 3.5);
-      key.target.position.copy(surfaceCenter);
+        .copy(defaultLightDirection)
+        .applyQuaternion(studioRotation)
+        .multiplyScalar(lampDistance);
+      key.target.position.set(0, 0, 0);
+      key.intensity = s.settings.lightIntensity;
+      rim.position.set(4, 3, -5).applyQuaternion(studioRotation);
+      fill.position.set(-5, 0, 1).applyQuaternion(studioRotation);
+      rim.intensity = (s.settings.lightIntensity * 1.15) / 2.8;
+      fill.intensity = (s.settings.lightIntensity * 0.55) / 2.8;
+      scene.environmentRotation.setFromQuaternion(studioRotation);
       const shadowCamera = key.shadow.camera;
       shadowCamera.left = shadowCamera.bottom = -shadowExtent;
       shadowCamera.right = shadowCamera.top = shadowExtent;
-      shadowCamera.near = shadowExtent;
-      shadowCamera.far = shadowExtent * 6;
+      shadowCamera.near = Math.max(0.1, lampDistance - shadowExtent * 2);
+      shadowCamera.far = lampDistance + shadowExtent * 2;
       shadowCamera.updateProjectionMatrix();
       key.shadow.radius = s.settings.quality === 'low' ? 1.5 : 2.5;
       const direction = camera.position
@@ -1393,7 +1365,8 @@ export default function Viewport() {
       setAnimator(async () => {});
       unsub();
       observer.disconnect();
-      controls.dispose();
+      renderer.domElement.removeEventListener('wheel', onWheel);
+      renderer.domElement.removeEventListener('contextmenu', onContextMenu);
       renderer.domElement.removeEventListener('dblclick', doubleClick);
       if (drag) patch({ busy: false, dragging: false, currentMove: '' });
       renderer.domElement.removeEventListener('pointerdown', onDown, true);
@@ -1416,6 +1389,7 @@ export default function Viewport() {
       textures.forEach((t) => t.dispose());
       ghostMaterials.forEach((m) => m.dispose());
       grain.dispose();
+      relief.dispose();
       key.shadow.dispose();
       env.dispose();
       renderer.dispose();

@@ -493,6 +493,12 @@ h3 {
   margin-top: 20px;
   padding-top: 22px;
 }
+.helper-text {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 6px 0 18px;
+}
 .section-head {
   display: flex;
   justify-content: space-between;

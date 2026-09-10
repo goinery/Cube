@@ -239,7 +239,7 @@ export default function CubeApp() {
                 {s.mode === 'customize'
                   ? '点击贴片多选 · 在右侧编辑外观'
                   : s.mode === 'explode' || s.mode === 'camera'
-                    ? '拖动旋转视角 · 双指或滚轮缩放'
+                    ? '拖动自由旋转 · Shift 拖动滚转 · 双指或滚轮缩放'
                     : s.mode === 'inspect'
                       ? '点击零件查看信息 · 拖动空白旋转视角'
                       : s.settings.magnetStrength === 0
@@ -659,6 +659,46 @@ export default function CubeApp() {
                   max={0.65}
                   onChange={(v) => settings({ roughness: v })}
                 />
+                <section className="panel-section">
+                  <h3>棚拍光源</h3>
+                  <Toggle
+                    label="光源跟随视角"
+                    value={s.settings.lightFollowCamera}
+                    onChange={(v) => settings({ lightFollowCamera: v })}
+                  />
+                  <p className="helper-text">
+                    关闭时光源固定在场景中。可独立调整方向、仰角与亮度。
+                  </p>
+                  <Range
+                    label="光源方向"
+                    value={s.settings.lightAzimuth}
+                    min={-180}
+                    max={180}
+                    step={1}
+                    digits={0}
+                    unit="°"
+                    onChange={(v) => settings({ lightAzimuth: v })}
+                  />
+                  <Range
+                    label="光源仰角"
+                    value={s.settings.lightElevation}
+                    min={-80}
+                    max={80}
+                    step={1}
+                    digits={0}
+                    unit="°"
+                    onChange={(v) => settings({ lightElevation: v })}
+                  />
+                  <Range
+                    label="光源强度"
+                    value={s.settings.lightIntensity}
+                    min={0}
+                    max={5}
+                    step={0.1}
+                    digits={1}
+                    onChange={(v) => settings({ lightIntensity: v })}
+                  />
+                </section>
                 <Choice
                   label="显示品质"
                   value={s.settings.quality}

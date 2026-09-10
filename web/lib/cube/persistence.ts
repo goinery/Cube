@@ -142,6 +142,9 @@ export function validateProject(value: unknown): Project {
     roughness: [0.18, 0.65],
     magnetStrength: [0, 2],
     magnetDamping: [0.05, 2],
+    lightAzimuth: [-180, 180],
+    lightElevation: [-80, 80],
+    lightIntensity: [0, 5],
   };
   const settings = defaultSettings();
   for (const [k, [min, max]] of Object.entries(limits)) {
@@ -159,6 +162,7 @@ export function validateProject(value: unknown): Project {
   }
   settings.showMagnets = p.settings?.showMagnets !== false;
   settings.autoRotate = false;
+  settings.lightFollowCamera = p.settings?.lightFollowCamera === true;
   const scramble =
     typeof p.scramble === 'string' ? parseAlgorithm(p.scramble).join(' ') : '';
   let partialTurns: PartialTurns | null = null;

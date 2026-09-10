@@ -36,6 +36,10 @@ export interface Settings {
   easing: 'smooth' | 'magnetic' | 'linear';
   roughness: number;
   autoRotate: boolean;
+  lightFollowCamera: boolean;
+  lightAzimuth: number;
+  lightElevation: number;
+  lightIntensity: number;
   quality: 'auto' | 'high' | 'low';
   showMagnets: boolean;
   magnetStrength: number;
@@ -51,6 +55,10 @@ export const defaultSettings = (): Settings => ({
   easing: 'magnetic',
   roughness: 0.3,
   autoRotate: false,
+  lightFollowCamera: false,
+  lightAzimuth: -31,
+  lightElevation: 50,
+  lightIntensity: 2.8,
   quality: 'auto',
   showMagnets: true,
   magnetStrength: 1,

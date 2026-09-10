@@ -2,6 +2,7 @@ import {
   BackSide,
   BoxGeometry,
   Color,
+  CanvasTexture,
   DataTexture,
   LinearFilter,
   LinearMipmapLinearFilter,
@@ -13,6 +14,37 @@ import {
   Scene,
   Vector3,
 } from 'three';
+
+/** Fine moulded hexagonal relief on the internal black shells. */
+export function createChassisRelief(anisotropy: number) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#a0a0a0';
+  ctx.fillRect(0, 0, 512, 512);
+  const radius = 32,
+    height = Math.sqrt(3) * radius;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#555555';
+  for (let col = -1; col < 12; col++)
+    for (let row = -1; row < 11; row++) {
+      const x = col * radius * 1.5,
+        y = (row + (col % 2) / 2) * height;
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const angle = (i * Math.PI) / 3;
+        const px = x + Math.cos(angle) * (radius - 3),
+          py = y + Math.sin(angle) * (radius - 3);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+  const texture = new CanvasTexture(canvas);
+  texture.anisotropy = Math.min(anisotropy, 8);
+  return texture;
+}
 
 /** Broad softboxes provide continuous highlights without reflecting room furniture. */
 export class StudioEnvironment extends Scene {
