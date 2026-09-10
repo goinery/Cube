@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Layers3,
@@ -20,7 +20,6 @@ import {
   ChevronDown,
   Focus,
 } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Viewport from './Viewport';
 import FaceMaps from './FaceMaps';
 import Player from './Player';
@@ -69,12 +68,69 @@ const modeTitles: Record<Mode, [string, string]> = {
   camera: ['CAMERA / STUDIO', '换个角度，发现更多。'],
   inspect: ['INSPECT / LIVE', '每个零件，各就其位。'],
 };
+function sectionHeading(id: Mode) {
+  const index = modes.findIndex(([m]) => m === id) + 1;
+  return (
+    <div className="panel-heading">
+      <span className="eyebrow">
+        {String(index).padStart(2, '0')} · {modeTitles[id][0]}
+      </span>
+      <h2>{modeTitles[id][1]}</h2>
+    </div>
+  );
+}
 export default function CubeApp() {
   const s = useCube(),
     [algorithm, setAlgorithm] = useState("R U R' U'"),
     [modifier, setModifier] = useState(''),
     [animateScramble, setAnimateScramble] = useState(true),
-    [panelOpen, setPanelOpen] = useState(true);
+    [panelOpen, setPanelOpen] = useState(true),
+    [visible, setVisible] = useState<Mode>('play');
+  const scrollRef = useRef<HTMLDivElement>(null),
+    sectionRefs = useRef<Partial<Record<Mode, HTMLElement | null>>>({}),
+    pendingJump = useRef<{ mode: Mode; until: number } | null>(null),
+    deferredJump = useRef<Mode | null>(null);
+  /** 区块相对滚动窗口顶部的距离。 */
+  function offsetIn(node: HTMLElement) {
+    return (
+      node.getBoundingClientRect().top -
+      (scrollRef.current?.getBoundingClientRect().top || 0)
+    );
+  }
+  function scrollerAnimates() {
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  /** 把滑动窗口滚到对应区块。 */
+  function scrollToSection(id: Mode, smooth = true) {
+    const scroller = scrollRef.current,
+      node = sectionRefs.current[id];
+    if (!node || !scroller) return;
+    setVisible(id);
+    const motion = smooth && scrollerAnimates();
+    pendingJump.current = motion ? { mode: id, until: Date.now() + 1400 } : null;
+    scroller.scrollTo({
+      top: scroller.scrollTop + offsetIn(node) - 2,
+      behavior: motion ? 'smooth' : 'auto',
+    });
+  }
+  /** 顶部菜单：跳转到对应区块；移动端会先展开控制面板。 */
+  function jumpTo(id: Mode) {
+    if (!panelOpen) {
+      deferredJump.current = id;
+      setPanelOpen(true);
+      return;
+    }
+    scrollToSection(id);
+  }
+  /** 稳定引用，避免滚动时反复挂载/卸载区块节点。 */
+  const attachSection = useCallback((node: HTMLElement | null) => {
+    if (node) sectionRefs.current[node.dataset.section as Mode] = node;
+  }, []);
+  const blockProps = (id: Mode) => ({
+    className: `panel-block${visible === id ? ' active' : ''}`,
+    'data-section': id,
+    ref: attachSection,
+  });
   useEffect(registerCubeTools, []);
   useEffect(() => {
     let disposed = false,
@@ -120,6 +176,47 @@ export default function CubeApp() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    let frame = 0;
+    const sync = () => {
+      frame = 0;
+      const pending = pendingJump.current;
+      if (pending) {
+        const node = sectionRefs.current[pending.mode];
+        if (node && Date.now() < pending.until && Math.abs(offsetIn(node)) > 2)
+          return;
+        pendingJump.current = null;
+      }
+      const line = Math.max(30, scroller.clientHeight * 0.32);
+      let next: Mode = 'play';
+      for (const [id] of modes) {
+        const node = sectionRefs.current[id];
+        if (node && offsetIn(node) <= line) next = id;
+      }
+      setVisible(next);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(sync);
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+  useEffect(() => {
+    if (!panelOpen) return;
+    const id = deferredJump.current || visible;
+    deferredJump.current = null;
+    scrollToSection(id, false);
+  }, [panelOpen]);
+  /** 当前可视区块即操作模式；求解期间保持锁定，结束后自动跟上。 */
+  useEffect(() => {
+    if (s.solving || s.mode === visible) return;
+    patch({ mode: visible });
+  }, [s.solving, s.mode, visible]);
   function newScramble() {
     if (s.busy || s.solving) return;
     const moves = scramble();
@@ -289,32 +386,23 @@ export default function CubeApp() {
             {panelOpen ? '收起控制面板' : '展开控制面板'}
             <ChevronDown size={16} />
           </button>
-          <Tabs
-            className="mode-tabs"
-            value={s.mode}
-            onValueChange={(v) => {
-              if (s.solving) return;
-              patch({ mode: v as Mode });
-              setPanelOpen(true);
-            }}
-          >
-            <TabsList>
-              {modes.map(([id, label, Icon]) => (
-                <TabsTrigger key={id} value={id} disabled={s.solving}>
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          <div className="panel-scroll">
-            <div className="panel-heading">
-              <span className="eyebrow">{modeTitles[s.mode][0]}</span>
-              <h2>{modeTitles[s.mode][1]}</h2>
-            </div>
-            {(s.mode === 'play' ||
-              s.mode === 'explode' ||
-              s.mode === 'solver') && (
+          <nav className="panel-nav" aria-label="面板导航">
+            {modes.map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                className={visible === id ? 'active' : ''}
+                aria-current={visible === id ? 'true' : undefined}
+                onClick={() => jumpTo(id)}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="panel-scroll" ref={scrollRef}>
+            <section {...blockProps('play')}>
+              {sectionHeading('play')}
               <section className="panel-section magnetic-controls">
                 <div className="section-head">
                   <h3>磁力与手感</h3>
@@ -350,8 +438,6 @@ export default function CubeApp() {
                   </p>
                 )}
               </section>
-            )}
-            {s.mode === 'play' && (
               <>
                 <div className="quick-actions">
                   <button
@@ -488,8 +574,9 @@ export default function CubeApp() {
                   </button>
                 </section>
               </>
-            )}
-            {s.mode === 'explode' && (
+            </section>
+            <section {...blockProps('explode')}>
+              {sectionHeading('explode')}
               <>
                 <div className="engineering-card">
                   <Layers3 size={27} />
@@ -606,8 +693,17 @@ export default function CubeApp() {
                   </p>
                 </div>
               </>
-            )}
-            {s.mode === 'camera' && (
+            </section>
+            <section {...blockProps('customize')}>
+              {sectionHeading('customize')}
+              <CustomizePanel />
+            </section>
+            <section {...blockProps('solver')}>
+              {sectionHeading('solver')}
+              <SolverPanel />
+            </section>
+            <section {...blockProps('camera')}>
+              {sectionHeading('camera')}
               <>
                 <div className="camera-grid">
                   {FACES.map((f) => (
@@ -731,8 +827,9 @@ export default function CubeApp() {
                 </button>
                 <p className="microcopy">按 Esc 或右上角眼睛按钮退出展示。</p>
               </>
-            )}
-            {s.mode === 'inspect' && (
+            </section>
+            <section {...blockProps('inspect')}>
+              {sectionHeading('inspect')}
               <>
                 <div className="inspection-state">
                   <span className="live-dot" />
@@ -791,10 +888,7 @@ export default function CubeApp() {
                   转动、撤销与求解共用同一个物理状态；拆解、材质与镜头独立于状态。
                 </p>
               </>
-            )}
-            {s.mode === 'customize' && <CustomizePanel />}
-            {s.mode === 'solver' && <SolverPanel />}
-            <Player />
+            </section>
             <div className="panel-footer">
               <span>AXIS ENGINE</span>
               <span>
@@ -802,6 +896,7 @@ export default function CubeApp() {
               </span>
             </div>
           </div>
+          <Player />
         </aside>
       </div>
       <footer className="app-footer">

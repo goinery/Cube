@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import {
   Play,
   Pause,
@@ -7,6 +8,7 @@ import {
   StepBack,
   Copy,
   Check,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useCube,
@@ -21,13 +23,14 @@ import {
 import { Range } from './Controls';
 export default function Player() {
   const s = useCube(),
-    p = s.player;
+    p = s.player,
+    [open, setOpen] = useState(true);
   if (!p) return null;
   const stage =
     p.stages.find((x) => p.index >= x.start && p.index < x.end) ||
     (p.index === p.moves.length ? p.stages.at(-1) : undefined);
   return (
-    <section className="player" inert={s.solving}>
+    <section className={`player${open ? '' : ' compact'}`} inert={s.solving}>
       <div className="section-head">
         <div>
           <span className="eyebrow">SEQUENCE PLAYER</span>
@@ -37,6 +40,15 @@ export default function Player() {
           {p.index}
           <span> / {p.moves.length}</span>
         </span>
+        <button
+          className="player-collapse"
+          aria-expanded={open}
+          aria-label={open ? '收起播放器' : '展开播放器'}
+          title={open ? '收起播放器' : '展开播放器'}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronDown size={16} />
+        </button>
       </div>
       {p.stages.length > 0 && (
         <div className="stage-list">
