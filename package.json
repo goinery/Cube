@@ -5,7 +5,7 @@
   "description": "AXIS / 03 — interactive magnetic cube studio",
   "scripts": {
     "dev": "node scripts/launch.mjs dev",
-    "build": "node scripts/launch.mjs build",
+    "build": "npm run setup && node scripts/launch.mjs build",
     "start": "node scripts/launch.mjs start",
     "verify": "node scripts/launch.mjs verify",
     "setup": "npm install --prefix web"
