@@ -23,10 +23,14 @@ import type { CubeState } from '@/lib/cube/model';
 import type { Appearance } from '@/lib/cube/appearance';
 import type { Solution, SolveMode } from '@/lib/cube/solver-core';
 import { Toggle } from './Controls';
+import Player from './Player';
 interface Blocked {
   report: Preflight;
   cube: CubeState;
   appearance: Appearance;
+}
+function reducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 export default function SolverPanel() {
   const s = useCube(),
@@ -35,7 +39,8 @@ export default function SolverPanel() {
     [blocked, setBlocked] = useState<Blocked | null>(null),
     [result, setResult] = useState<Solution | null>(null);
   const worker = useRef<Worker | null>(null),
-    timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    timer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    playerRef = useRef<HTMLDivElement>(null);
   useEffect(
     () => () => {
       worker.current?.terminate();
@@ -127,6 +132,13 @@ export default function SolverPanel() {
           r.stages,
         );
         void play();
+        requestAnimationFrame(() =>
+          playerRef.current?.scrollIntoView({
+            block: 'nearest',
+            inline: 'nearest',
+            behavior: reducedMotion() ? 'auto' : 'smooth',
+          }),
+        );
       }
     };
     w.onerror = () => {
@@ -228,6 +240,9 @@ export default function SolverPanel() {
           </div>
         </div>
       )}
+      <div className="solver-player" ref={playerRef}>
+        <Player />
+      </div>
       <div className="cfop-guide">
         <span className="eyebrow">THE FOUR STAGES</span>
         {[

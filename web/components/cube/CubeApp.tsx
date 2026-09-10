@@ -17,12 +17,10 @@ import {
   MousePointer2,
   Keyboard,
   Copy,
-  ChevronDown,
   Focus,
 } from 'lucide-react';
 import Viewport from './Viewport';
 import FaceMaps from './FaceMaps';
-import Player from './Player';
 import CustomizePanel from './CustomizePanel';
 import SolverPanel from './SolverPanel';
 import { startAutosave } from '@/lib/cube/persistence';
@@ -69,6 +67,26 @@ const modeTitles: Record<Mode, [string, string]> = {
   camera: ['CAMERA / STUDIO', '换个角度，发现更多。'],
   inspect: ['INSPECT / LIVE', '每个零件，各就其位。'],
 };
+const phoneLayout =
+  '(max-width: 760px), (max-height: 530px) and (orientation: landscape)';
+const railLayout = '(max-height: 530px) and (orientation: landscape)';
+const STAGE_RAIL_RESERVE = 320;
+interface SheetStyle extends React.CSSProperties {
+  '--sheet-h'?: string;
+  '--sheet-w'?: string;
+}
+interface SheetDrag {
+  origin: number;
+  size: number;
+  bar: number;
+  max: number;
+  horizontal: boolean;
+  moved: boolean;
+  next: number;
+}
+function matches(query: string) {
+  return typeof window !== 'undefined' && window.matchMedia(query).matches;
+}
 function sectionHeading(id: Mode) {
   const index = modes.findIndex(([m]) => m === id) + 1;
   return (
@@ -85,12 +103,21 @@ export default function CubeApp() {
     [algorithm, setAlgorithm] = useState("R U R' U'"),
     [modifier, setModifier] = useState(''),
     [animateScramble, setAnimateScramble] = useState(true),
-    [panelOpen, setPanelOpen] = useState(true),
+    [sheet, setSheet] = useState(() => matches(phoneLayout)),
+    [rail, setRail] = useState(() => matches(railLayout)),
+    [panelOpen, setPanelOpen] = useState(() => !matches(phoneLayout)),
+    [sheetHeight, setSheetHeight] = useState<number | null>(null),
     [visible, setVisible] = useState<Mode>('play');
   const scrollRef = useRef<HTMLDivElement>(null),
     sectionRefs = useRef<Partial<Record<Mode, HTMLElement | null>>>({}),
     pendingJump = useRef<{ mode: Mode; until: number } | null>(null),
-    deferredJump = useRef<Mode | null>(null);
+    deferredJump = useRef<Mode | null>(null),
+    panelRef = useRef<HTMLElement>(null),
+    handleRef = useRef<HTMLButtonElement>(null),
+    navRef = useRef<HTMLElement>(null),
+    dragState = useRef<SheetDrag | null>(null),
+    lastSheet = useRef<number | null>(null),
+    pointerTap = useRef(false);
   function offsetIn(node: HTMLElement) {
     return (
       node.getBoundingClientRect().top -
@@ -120,6 +147,82 @@ export default function CubeApp() {
     }
     scrollToSection(id);
   }
+  function sheetMetrics(panel: HTMLElement) {
+    const workspace = panel.parentElement,
+      horizontal = rail,
+      bar = horizontal
+        ? parseFloat(
+            getComputedStyle(panel).getPropertyValue('--rail-width'),
+          ) || 42
+        : (handleRef.current?.offsetHeight ?? 0) +
+          (navRef.current?.offsetHeight ?? 0),
+      span = horizontal
+        ? (workspace?.clientWidth ?? 0)
+        : (workspace?.clientHeight ?? 0),
+      stage = workspace?.querySelector('.stage'),
+      reserve = horizontal
+        ? STAGE_RAIL_RESERVE
+        : parseFloat(stage ? getComputedStyle(stage).minHeight : '') || 250;
+    return { bar, max: Math.max(bar + 80, span - reserve), horizontal };
+  }
+  function openSheet(height: number | null) {
+    if (height !== null) lastSheet.current = height;
+    setSheetHeight(height);
+    setPanelOpen(true);
+  }
+  function closeSheet() {
+    setSheetHeight(null);
+    setPanelOpen(false);
+  }
+  function startDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    const panel = panelRef.current;
+    if (!sheet || !panel) return;
+    const { bar, max, horizontal } = sheetMetrics(panel),
+      size = horizontal ? panel.offsetWidth : panel.offsetHeight;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointerTap.current = false;
+    dragState.current = {
+      origin: horizontal ? e.clientX : e.clientY,
+      size,
+      bar,
+      max,
+      horizontal,
+      moved: false,
+      next: size,
+    };
+    setSheetHeight(size);
+    setPanelOpen(true);
+  }
+  function moveDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragState.current;
+    if (!drag) return;
+    const delta = (drag.horizontal ? e.clientX : e.clientY) - drag.origin;
+    if (Math.abs(delta) > 5) drag.moved = true;
+    drag.next = Math.min(drag.max, Math.max(drag.bar, drag.size - delta));
+    setSheetHeight(Math.round(drag.next));
+  }
+  function endDrag(cancelled = false) {
+    const drag = dragState.current;
+    if (!drag) return;
+    dragState.current = null;
+    pointerTap.current = true;
+    if (cancelled) {
+      if (drag.size <= drag.bar + 1) closeSheet();
+      else openSheet(Math.round(drag.size));
+      return;
+    }
+    if (!drag.moved) {
+      if (drag.size <= drag.bar + 1) openSheet(lastSheet.current);
+      else closeSheet();
+      return;
+    }
+    if (drag.next <= drag.bar + 24) closeSheet();
+    else openSheet(Math.round(drag.next));
+  }
+  function toggleSheet() {
+    if (panelOpen) closeSheet();
+    else openSheet(lastSheet.current);
+  }
   const attachSection = useCallback((node: HTMLElement | null) => {
     if (node) sectionRefs.current[node.dataset.section as Mode] = node;
   }, []);
@@ -129,6 +232,23 @@ export default function CubeApp() {
     ref: attachSection,
   });
   useEffect(registerCubeTools, []);
+  useEffect(() => {
+    const sheetQuery = window.matchMedia(phoneLayout),
+      railQuery = window.matchMedia(railLayout),
+      sync = () => {
+        setSheet(sheetQuery.matches);
+        setRail(railQuery.matches);
+        setSheetHeight(null);
+        dragState.current = null;
+        lastSheet.current = null;
+      };
+    sheetQuery.addEventListener('change', sync);
+    railQuery.addEventListener('change', sync);
+    return () => {
+      sheetQuery.removeEventListener('change', sync);
+      railQuery.removeEventListener('change', sync);
+    };
+  }, []);
   useEffect(() => {
     let disposed = false,
       cleanup: (() => void) | undefined;
@@ -227,7 +347,13 @@ export default function CubeApp() {
     } else applyInstant(moves, 'Scramble');
   }
   const solved = !s.partialTurns && isSolved(s.cube),
-    locked = s.busy || s.solving;
+    locked = s.busy || s.solving,
+    panelStyle: SheetStyle | undefined =
+      sheet && sheetHeight !== null
+        ? rail
+          ? { '--sheet-w': `${sheetHeight}px` }
+          : { '--sheet-h': `${sheetHeight}px` }
+        : undefined;
   return (
     <main
       className={`cube-app ${s.presentation ? 'presentation' : ''} ${panelOpen ? '' : 'panel-collapsed'}`}
@@ -372,17 +498,31 @@ export default function CubeApp() {
             </div>
           )}
         </section>
-        <aside className="control-panel">
+        <aside className="control-panel" ref={panelRef} style={panelStyle}>
           <button
             className="mobile-handle"
+            ref={handleRef}
             aria-expanded={panelOpen}
-            onClick={() => setPanelOpen(!panelOpen)}
+            aria-label={
+              panelOpen
+                ? '收起控制面板，可拖动调整面板高度'
+                : '展开控制面板，可拖动调整面板高度'
+            }
+            onPointerDown={startDrag}
+            onPointerMove={moveDrag}
+            onPointerUp={() => endDrag()}
+            onPointerCancel={() => endDrag(true)}
+            onClick={() => {
+              if (pointerTap.current) {
+                pointerTap.current = false;
+                return;
+              }
+              toggleSheet();
+            }}
           >
-            <span />
-            {panelOpen ? '收起控制面板' : '展开控制面板'}
-            <ChevronDown size={16} />
+            <span className="handle-bar" />
           </button>
-          <nav className="panel-nav" aria-label="面板导航">
+          <nav className="panel-nav" ref={navRef} aria-label="面板导航">
             {modes.map(([id, label, Icon]) => (
               <button
                 key={id}
@@ -892,7 +1032,6 @@ export default function CubeApp() {
               </span>
             </div>
           </div>
-          <Player />
         </aside>
       </div>
       <footer className="app-footer">

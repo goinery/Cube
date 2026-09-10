@@ -771,15 +771,11 @@ h3 {
   color: #657d54;
 }
 .player {
-  flex-shrink: 0;
-  max-height: 46%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-top: 1px solid #ffffff14;
-  background: #191c1d;
-  padding: 16px 25px 12px;
-  scrollbar-width: thin;
-  scrollbar-color: #414742 transparent;
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid #ffffff14;
+  border-radius: 12px;
+  background: #171a1c;
 }
 .player .section-head {
   margin-bottom: 10px;
@@ -1372,6 +1368,7 @@ h3 {
 }
 @media (max-width: 760px) {
   .cube-app {
+    --stage-reserve: 300px;
     min-height: 0;
     height: 100dvh;
   }
@@ -1405,7 +1402,7 @@ h3 {
     flex-direction: column;
   }
   .stage {
-    min-height: 300px;
+    min-height: var(--stage-reserve, 300px);
     flex: 1;
   }
   .stage-heading {
@@ -1496,9 +1493,8 @@ h3 {
   }
   .control-panel {
     width: 100%;
-    height: 43dvh;
-    min-height: 235px;
-    max-height: 520px;
+    height: var(--sheet-h, 43dvh);
+    max-height: calc(100dvh - 58px - var(--stage-reserve, 300px));
     flex-shrink: 0;
     border-top: 1px solid #48553d;
     border-radius: 19px 19px 0 0;
@@ -1508,20 +1504,27 @@ h3 {
   }
   .mobile-handle {
     display: flex;
-    height: 23px;
-    min-height: 23px;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    font-size: 0;
-    color: #778e68;
+    height: 32px;
+    min-height: 32px;
+    flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
   }
-  .mobile-handle > span {
-    width: 31px;
+  .mobile-handle:active {
+    cursor: grabbing;
+  }
+  .mobile-handle .handle-bar {
+    width: 34px;
     height: 3px;
     background: #5c7150;
     border-radius: 3px;
   }
-  .mobile-handle svg {
-    display: none;
+  .mobile-handle:active .handle-bar {
+    background: #7d9867;
   }
   .panel-nav {
     padding: 0 13px 8px;
@@ -1537,8 +1540,7 @@ h3 {
     height: 15px;
   }
   .player {
-    max-height: 42%;
-    padding: 13px 22px 10px;
+    padding: 13px 14px 12px;
   }
   .panel-scroll {
     padding: 21px 22px 24px;
@@ -1554,11 +1556,11 @@ h3 {
     font-size: 9px;
   }
   .panel-collapsed .control-panel {
-    height: 74px;
-    min-height: 74px;
+    height: auto;
+    min-height: 0;
+    max-height: none;
   }
-  .panel-collapsed .panel-scroll,
-  .panel-collapsed .player {
+  .panel-collapsed .panel-scroll {
     display: none;
   }
   .app-footer {
@@ -1603,7 +1605,7 @@ h3 {
     min-height: 45px;
   }
   .control-panel {
-    height: 44dvh;
+    height: var(--sheet-h, 44dvh);
   }
   .stage-heading h1 {
     font-size: 21px;
@@ -1627,7 +1629,9 @@ h3 {
     flex-direction: row;
   }
   .control-panel {
-    width: 310px;
+    --rail-width: 42px;
+    width: var(--sheet-w, 310px);
+    max-width: calc(100% - 320px);
     height: auto;
     max-height: none;
     min-height: 0;
@@ -1636,7 +1640,28 @@ h3 {
     border-top: 0;
   }
   .mobile-handle {
-    display: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 26px;
+    min-height: 26px;
+    flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+  .mobile-handle:active {
+    cursor: grabbing;
+  }
+  .mobile-handle .handle-bar {
+    width: 30px;
+    height: 3px;
+    background: #5c7150;
+    border-radius: 3px;
+  }
+  .mobile-handle:active .handle-bar {
+    background: #7d9867;
   }
   .stage {
     min-height: 0;
@@ -1671,12 +1696,24 @@ h3 {
     top: 15px;
   }
   .panel-collapsed .control-panel {
+    width: var(--rail-width);
+    min-width: var(--rail-width);
+    max-width: var(--rail-width);
     height: auto;
     min-height: 0;
   }
-  .panel-collapsed .panel-scroll,
-  .panel-collapsed .player {
-    display: block;
+  .panel-collapsed .mobile-handle {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+  .panel-collapsed .mobile-handle .handle-bar {
+    width: 3px;
+    height: 34px;
+  }
+  .panel-collapsed .panel-nav,
+  .panel-collapsed .panel-scroll {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
