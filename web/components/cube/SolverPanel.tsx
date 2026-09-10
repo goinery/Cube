@@ -18,19 +18,21 @@ import {
   pause,
   getState,
 } from '@/lib/cube/store';
-import {
-  checkBeforeSolve,
-  cubeFingerprint,
-  type Preflight,
-} from '@/lib/cube/preflight';
+import { checkBeforeSolve, type Preflight } from '@/lib/cube/preflight';
+import type { CubeState } from '@/lib/cube/model';
+import type { Appearance } from '@/lib/cube/appearance';
 import type { Solution, SolveMode } from '@/lib/cube/solver-core';
 import { Toggle } from './Controls';
+interface Blocked {
+  report: Preflight;
+  cube: CubeState;
+  appearance: Appearance;
+}
 export default function SolverPanel() {
   const s = useCube(),
     [mode, setMode] = useState<SolveMode>('fast'),
-    [pictures, setPictures] = useState(true),
-    [check, setCheck] = useState<Preflight | null>(null),
-    [checkedArt, setCheckedArt] = useState(-1),
+    [pictures, setPictures] = useState<boolean | null>(null),
+    [blocked, setBlocked] = useState<Blocked | null>(null),
     [result, setResult] = useState<Solution | null>(null);
   const worker = useRef<Worker | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,30 +44,20 @@ export default function SolverPanel() {
     },
     [],
   );
+  const block =
+    blocked &&
+    !s.partialTurns &&
+    blocked.cube === s.cube &&
+    blocked.appearance === s.appearance
+      ? blocked.report
+      : null;
+  const restorePictures = pictures ?? true;
+  const misaligned = Boolean(s.partialTurns);
   function cancel() {
     worker.current?.terminate();
     worker.current = null;
     if (timer.current) clearTimeout(timer.current);
     patch({ solving: false, solveStatus: '' });
-  }
-  function inspect() {
-    const current = getState();
-    if (current.busy || current.solving) return;
-    if (current.partialTurns) {
-      notify('请先将错位转层对齐，再检测求解。');
-      return;
-    }
-    pause();
-    const report = checkBeforeSolve(
-      current.cube,
-      current.history,
-      current.cursor,
-      current.appearance,
-    );
-    setCheckedArt(current.artVersion);
-    setCheck(report);
-    setPictures(report.recommendPictures);
-    setResult(null);
   }
   function solve() {
     const current = getState();
@@ -74,16 +66,28 @@ export default function SolverPanel() {
       notify('请先将错位转层对齐，再开始求解。');
       return;
     }
+    const report = checkBeforeSolve(
+      current.cube,
+      current.history,
+      current.cursor,
+      current.appearance,
+    );
+    const usePictures = pictures ?? report.recommendPictures;
     if (
-      !check ||
-      check.fingerprint !== cubeFingerprint(current.cube) ||
-      checkedArt !== current.artVersion
+      !report.valid ||
+      !report.needed ||
+      (report.colorSolved && !usePictures)
     ) {
-      inspect();
+      setBlocked({
+        report,
+        cube: current.cube,
+        appearance: current.appearance,
+      });
+      setResult(null);
       return;
     }
-    if (!check.valid || !check.needed || (check.colorSolved && !pictures))
-      return;
+    setBlocked(null);
+    if (pictures === null) setPictures(usePictures);
     pause();
     patch({ solving: true, solveStatus: '启动求解器…' });
     setResult(null);
@@ -113,7 +117,6 @@ export default function SolverPanel() {
         const r = e.data.result as Solution;
         cancel();
         setResult(r);
-        setCheck(null);
         loadPlayer(
           r.moves,
           mode === 'cfop'
@@ -131,14 +134,8 @@ export default function SolverPanel() {
       cancel();
       notify('求解器启动失败，请刷新后重试。');
     };
-    w.postMessage({ cube: current.cube, mode, pictures });
+    w.postMessage({ cube: current.cube, mode, pictures: usePictures });
   }
-  const stale = Boolean(
-    check &&
-    (s.partialTurns ||
-      check.fingerprint !== cubeFingerprint(s.cube) ||
-      checkedArt !== s.artVersion),
-  );
   const options: [SolveMode, typeof Zap, string, string][] = [
     ['fast', Zap, 'Fast / 快速', '两阶段搜索，优先速度与稳定性。'],
     ['near', Route, 'Near-optimal / 近优', '尝试更多搜索起点，保留最短候选。'],
@@ -164,32 +161,29 @@ export default function SolverPanel() {
           </button>
         ))}
       </div>
-      {check && (
+      {block && (
         <div
-          className={`preflight ${check.valid ? '' : 'invalid'}`}
+          className={`preflight ${block.valid ? '' : 'invalid'}`}
           aria-live="polite"
         >
           <strong>
-            {stale
-              ? '配置已变化，请重新检测'
-              : check.valid
-                ? '配置合法 · 检查完成'
-                : '配置检查未通过'}
+            {!block.valid
+              ? '配置检查未通过'
+              : block.pictureSolved
+                ? '无需计算'
+                : '需开启图片方向还原'}
           </strong>
-          <p>{check.message}</p>
+          <p>{block.message}</p>
           <small>
-            颜色{check.colorSolved ? '已复原' : '待复原'} · 贴片方向
-            {check.pictureSolved ? '已复原' : '待复原'} · {check.images}{' '}
-            个图片贴片 / {check.groups} 个拼图组
+            颜色{block.colorSolved ? '已复原' : '待复原'} · 贴片方向
+            {block.pictureSolved ? '已复原' : '待复原'} · {block.images}{' '}
+            个图片贴片 / {block.groups} 个拼图组
           </small>
-          {check.colorSolved && !pictures && (
-            <p>仅还原颜色时，无需计算。开启图片方向还原可继续。</p>
-          )}
         </div>
       )}
       <Toggle
         label="同时还原图片方向"
-        value={pictures}
+        value={restorePictures}
         onChange={setPictures}
         disabled={s.solving}
       />
@@ -198,25 +192,10 @@ export default function SolverPanel() {
       </p>
       <button
         className="primary-button solve-button"
-        disabled={
-          s.busy ||
-          s.solving ||
-          Boolean(s.partialTurns) ||
-          Boolean(
-            check &&
-            !stale &&
-            (!check.valid || !check.needed || (check.colorSolved && !pictures)),
-          )
-        }
+        disabled={s.busy || s.solving || misaligned}
         onClick={solve}
       >
-        <span>
-          {!check || stale
-            ? '检测并建议解法'
-            : !check.needed
-              ? '无需计算'
-              : '开始计算 · 完成后自动播放'}
-        </span>
+        <span>开始求解 · 自动播放</span>
         {s.solving ? (
           <LoaderCircle className="spin" size={18} />
         ) : (
