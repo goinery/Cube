@@ -469,6 +469,11 @@ h3 {
 .secondary-button:hover:not(:disabled) {
   background: #ffffff06;
 }
+.wide-button.replay-stop {
+  border-color: #7f9a68;
+  background: #c7d5ad0f;
+  color: #c7d5ad;
+}
 .quick-actions {
   display: flex;
   gap: 10px;

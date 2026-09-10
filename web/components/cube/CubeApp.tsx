@@ -18,6 +18,7 @@ import {
   Keyboard,
   Copy,
   Focus,
+  CircleStop,
 } from 'lucide-react';
 import Viewport from './Viewport';
 import FaceMaps from './FaceMaps';
@@ -42,6 +43,9 @@ import {
   applyInstant,
   allowMoves,
   runAlgorithm,
+  replayHistory,
+  stopReplay,
+  HISTORY_REPLAY_TITLE,
   notify,
   cameraActions,
   restoreHistory,
@@ -146,6 +150,11 @@ export default function CubeApp() {
       return;
     }
     scrollToSection(id);
+  }
+  // 播放器卡片出现或消失会改变面板内容高度，等布局落定后重新对齐当前区块
+  function anchorPanel(id: Mode, change: () => void) {
+    change();
+    requestAnimationFrame(() => scrollToSection(id, false));
   }
   function sheetMetrics(panel: HTMLElement) {
     const workspace = panel.parentElement,
@@ -348,6 +357,12 @@ export default function CubeApp() {
   }
   const solved = !s.partialTurns && isSolved(s.cube),
     locked = s.busy || s.solving,
+    replay =
+      s.player &&
+      s.player.title === HISTORY_REPLAY_TITLE &&
+      (s.player.playing || s.player.index < s.player.moves.length)
+        ? s.player
+        : null,
     panelStyle: SheetStyle | undefined =
       sheet && sheetHeight !== null
         ? rail
@@ -999,18 +1014,23 @@ export default function CubeApp() {
                     <p>选择一个贴片以查看所属零件。</p>
                   )}
                 </div>
-                <button
-                  className="wide-button"
-                  disabled={locked || !s.history.length}
-                  onClick={() => {
-                    const history = s.history.slice(0, s.cursor);
-                    restoreHistory([], 0);
-                    loadPlayer(history, 'History replay');
-                    void play();
-                  }}
-                >
-                  回放操作历史 <ArrowUpRight size={16} />
-                </button>
+                {replay ? (
+                  <button
+                    className="wide-button replay-stop"
+                    onClick={() => anchorPanel('inspect', stopReplay)}
+                  >
+                    终止回放 · {replay.index} / {replay.moves.length}
+                    <CircleStop size={16} />
+                  </button>
+                ) : (
+                  <button
+                    className="wide-button"
+                    disabled={locked || !s.history.length}
+                    onClick={() => anchorPanel('inspect', replayHistory)}
+                  >
+                    回放操作历史 <ArrowUpRight size={16} />
+                  </button>
+                )}
                 <button
                   className="wide-button"
                   disabled={

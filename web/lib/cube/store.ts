@@ -420,6 +420,21 @@ export function restoreHistory(history: string[], cursor: number) {
     partialTurns: null,
   });
 }
+export const HISTORY_REPLAY_TITLE = 'History replay';
+export function replayHistory() {
+  if (state.busy || state.solving) return;
+  const moves = state.history.slice(0, state.cursor);
+  if (!moves.length) return;
+  restoreHistory([], 0);
+  loadPlayer(moves, HISTORY_REPLAY_TITLE);
+  void play();
+}
+export function stopReplay() {
+  if (!state.player) return;
+  pause();
+  patch({ player: null });
+  notify('回放已终止，魔方停在当前步骤。');
+}
 export function runAlgorithm(input: string) {
   if (state.busy || state.solving) return;
   try {

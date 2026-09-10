@@ -14,6 +14,9 @@ import {
   play,
   pause,
   restoreHistory,
+  replayHistory,
+  stopReplay,
+  HISTORY_REPLAY_TITLE,
 } from '../lib/cube/store';
 import {
   solved,
@@ -115,6 +118,35 @@ assert.equal(getState().player?.playing, false);
 assert.deepEqual(getState().cube, apply(solved(), ['R']));
 console.log(
   'PASS pause completes exactly the active turn without applying the next one',
+);
+setAnimator(async () => {});
+restoreHistory([], 0);
+const replayed = parseAlgorithm("R U R' U' F2");
+for (const m of replayed) await perform(m);
+let releaseReplay: (() => void) | undefined;
+setAnimator(
+  () =>
+    new Promise<void>((r) => {
+      releaseReplay = r;
+    }),
+);
+replayHistory();
+assert.equal(getState().player?.title, HISTORY_REPLAY_TITLE);
+assert.equal(getState().player?.playing, true);
+releaseReplay!();
+await new Promise((r) => setTimeout(r, 0));
+assert.equal(getState().player?.index, 1);
+stopReplay();
+assert.equal(getState().player, null);
+releaseReplay!();
+await new Promise((r) => setTimeout(r, 0));
+await new Promise((r) => setTimeout(r, 0));
+assert.equal(getState().history.length, 2);
+assert.equal(getState().cursor, getState().history.length);
+assert.deepEqual(getState().cube, apply(solved(), replayed.slice(0, 2)));
+assert.equal(getState().player, null);
+console.log(
+  'PASS history replay starts from solved and terminates mid-sequence without losing applied turns',
 );
 setAnimator(async () => {});
 process.exit(0);
