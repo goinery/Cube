@@ -10,6 +10,7 @@ import {
 } from '@/lib/cube/model';
 import { paintSticker } from '@/lib/cube/appearance';
 import { useCube, selectSticker, cameraActions } from '@/lib/cube/store';
+import { tileRadii } from '@/lib/cube/geometry';
 
 export function StickerTile({
   item,
@@ -22,6 +23,11 @@ export function StickerTile({
 }) {
   const s = useCube(),
     canvas = useRef<HTMLCanvasElement>(null);
+  const radii = tileRadii(item.sticker.row, item.sticker.col);
+  const quarter = ((Math.round(item.angle / 90) % 4) + 4) % 4;
+  const borderRadius = radii
+    .map((_, i) => `${radii[(i - quarter + 4) % 4] * 100}%`)
+    .join(' ');
   useEffect(() => {
     let active = true;
     const c = document.createElement('canvas');
@@ -39,6 +45,7 @@ export function StickerTile({
   return (
     <button
       className={`sticker-tile ${selected ? 'selected' : ''}`}
+      style={{ borderRadius }}
       aria-label={`${item.face} 面第 ${item.row + 1} 行 ${item.col + 1} 列，贴片 ${item.sticker.id}`}
       aria-pressed={selected}
       onClick={onSelect}

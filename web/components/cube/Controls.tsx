@@ -18,6 +18,7 @@ export function Range({
   onChange,
   unit = '',
   digits = 2,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -27,6 +28,7 @@ export function Range({
   onChange: (v: number) => void;
   unit?: string;
   digits?: number;
+  disabled?: boolean;
 }) {
   const id = useId();
   return (
@@ -39,6 +41,7 @@ export function Range({
         </output>
       </div>
       <Slider
+        disabled={disabled}
         aria-labelledby={id}
         min={min}
         max={max}

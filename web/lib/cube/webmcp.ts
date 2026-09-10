@@ -1,4 +1,5 @@
 import { getState, loadPlayer, play } from './store';
+import { canTurnSequence } from './interaction';
 import {
   isPictureSolved,
   isSolved,
@@ -11,7 +12,7 @@ interface PageTool {
   description: string;
   inputSchema: object;
   annotations: { readOnlyHint: boolean; untrustedContentHint: boolean };
-  execute(input: unknown): unknown | Promise<unknown>;
+  execute(input: unknown): unknown;
 }
 interface PageContext {
   registerTool(
@@ -23,8 +24,9 @@ function readCube() {
   const s = getState();
   return {
     facelets: toFaceletString(s.cube),
-    colorSolved: isSolved(s.cube),
-    pictureSolved: isPictureSolved(s.cube),
+    colorSolved: !s.partialTurns && isSolved(s.cube),
+    pictureSolved: !s.partialTurns && isPictureSolved(s.cube),
+    partialTurns: s.partialTurns,
     busy: s.busy,
     solving: s.solving,
     historyIndex: s.cursor,
@@ -93,6 +95,10 @@ export const cubeTools: PageTool[] = [
       if (s.busy || s.solving || s.player?.playing)
         throw new Error(
           'The cube is busy. Wait for playback or solving to finish.',
+        );
+      if (!canTurnSequence(s.partialTurns, moves))
+        throw new Error(
+          'Align the held layers before turning a perpendicular layer.',
         );
       loadPlayer(moves, 'Algorithm');
       await play();

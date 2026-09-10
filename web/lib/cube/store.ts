@@ -10,6 +10,14 @@ import {
   type Face,
 } from './model';
 import { defaultAppearance, type Appearance } from './appearance';
+import {
+  canTurnSequence,
+  partialAfterMove,
+  layerFace,
+  moveForAngle,
+  QUARTER,
+  type PartialTurns,
+} from './interaction';
 export type Mode =
   | 'play'
   | 'camera'
@@ -30,6 +38,8 @@ export interface Settings {
   autoRotate: boolean;
   quality: 'auto' | 'high' | 'low';
   showMagnets: boolean;
+  magnetStrength: number;
+  magnetDamping: number;
 }
 export const defaultSettings = (): Settings => ({
   explode: 0,
@@ -43,6 +53,8 @@ export const defaultSettings = (): Settings => ({
   autoRotate: false,
   quality: 'auto',
   showMagnets: true,
+  magnetStrength: 1,
+  magnetDamping: 0.7,
 });
 export interface Stage {
   name: string;
@@ -65,6 +77,7 @@ export interface AppState {
   cursor: number;
   busy: boolean;
   dragging: boolean;
+  partialTurns: PartialTurns | null;
   mode: Mode;
   view: View;
   settings: Settings;
@@ -93,6 +106,7 @@ let state: AppState = {
   cursor: 0,
   busy: false,
   dragging: false,
+  partialTurns: null,
   mode: 'play',
   view: 'hidden',
   settings: defaultSettings(),
@@ -157,6 +171,42 @@ let animate: Animator = async () => {};
 export function setAnimator(fn: Animator) {
   animate = fn;
 }
+export function allowMoves(moves: string[]): boolean {
+  if (canTurnSequence(state.partialTurns, moves)) return true;
+  notify('有转层尚未对齐，不能转动垂直层。请沿原轴拖动对齐，或开启磁力归位。');
+  return false;
+}
+/** Commit complete quarter turns and retain the exact fractional pose separately. */
+export function finishLayerTurn(axis: number, layer: number, angle: number) {
+  if (
+    state.solving ||
+    ![0, 1, 2].includes(axis) ||
+    ![-1, 0, 1].includes(layer) ||
+    !Number.isFinite(angle) ||
+    (state.partialTurns && state.partialTurns.axis !== axis)
+  )
+    return;
+  const target = Math.round(angle / QUARTER) * QUARTER;
+  const token = moveForAngle(layerFace(axis, layer), target);
+  const residual = angle - target;
+  const angles: PartialTurns['angles'] = state.partialTurns
+    ? [...state.partialTurns.angles]
+    : [0, 0, 0];
+  angles[layer + 1] = Math.abs(residual) < 0.00001 ? 0 : residual;
+  const history = token
+    ? [...state.history.slice(0, state.cursor), token]
+    : state.history;
+  patch({
+    cube: token ? turn(state.cube, token) : state.cube,
+    history,
+    cursor: token ? history.length : state.cursor,
+    partialTurns: angles.some(Boolean) ? { axis, angles } : null,
+    busy: false,
+    dragging: false,
+    currentMove: '',
+    player: null,
+  });
+}
 let playGeneration = 0;
 const manualQueue: string[] = [];
 export function pause() {
@@ -171,6 +221,10 @@ export async function perform(
   if (state.solving || state.dragging) return false;
   if (state.busy) {
     if (source === 'manual' && manualQueue.length < 50) {
+      if (
+        !allowMoves([state.currentMove, ...manualQueue, token].filter(Boolean))
+      )
+        return false;
       pause();
       patch({ player: null });
       manualQueue.push(token);
@@ -178,6 +232,7 @@ export async function perform(
     }
     return false;
   }
+  if (!allowMoves([token])) return false;
   if (source === 'manual') {
     pause();
     patch({ player: null });
@@ -189,12 +244,15 @@ export async function perform(
         token,
         (310 / state.settings.speed) * (token.includes('2') ? 1.25 : 1),
       );
-    const cube = turn(state.cube, token);
-    if (source === 'undo') patch({ cube, cursor: state.cursor - 1 });
-    else if (source === 'redo') patch({ cube, cursor: state.cursor + 1 });
+    const cube = turn(state.cube, token),
+      partialTurns = partialAfterMove(state.partialTurns, token);
+    if (source === 'undo')
+      patch({ cube, partialTurns, cursor: state.cursor - 1 });
+    else if (source === 'redo')
+      patch({ cube, partialTurns, cursor: state.cursor + 1 });
     else {
       const history = [...state.history.slice(0, state.cursor), token];
-      patch({ cube, history, cursor: history.length });
+      patch({ cube, partialTurns, history, cursor: history.length });
     }
     return true;
   } finally {
@@ -226,6 +284,7 @@ export function resetCube() {
     player: null,
     scramble: '',
     scrambleCursor: 0,
+    partialTurns: null,
   });
   notify('魔方已复原，保留当前外观。');
 }
@@ -235,6 +294,7 @@ export function loadPlayer(
   stages: Stage[] = [],
 ) {
   if (state.solving || state.busy) return;
+  if (!allowMoves(moves)) return;
   pause();
   patch({
     player: {
@@ -254,14 +314,15 @@ export async function playerNext() {
   const ok = await perform(p.moves[p.index], 'player');
   if (ok && state.player?.moves === p.moves)
     patch({ player: { ...state.player, index: p.index + 1 } });
+  else if (!ok) pause();
 }
 export async function playerPrevious() {
   if (state.solving) return;
   pause();
   const p = state.player;
   if (!p || state.busy || p.index === 0) return;
-  await perform(inverseMove(p.moves[p.index - 1]), 'undo');
-  patch({ player: { ...p, index: p.index - 1, playing: false } });
+  if (await perform(inverseMove(p.moves[p.index - 1]), 'undo'))
+    patch({ player: { ...p, index: p.index - 1, playing: false } });
 }
 export async function play() {
   if (!state.player || state.busy || state.solving) return;
@@ -284,6 +345,12 @@ export async function seek(index: number) {
   const p = state.player;
   if (!p || state.busy) return;
   const target = Math.max(0, Math.min(p.moves.length, index));
+  const moves =
+    target < p.index
+      ? p.moves.slice(target, p.index).reverse().map(inverseMove)
+      : p.moves.slice(p.index, target);
+  if (!allowMoves(moves)) return;
+  const partialTurns = moves.reduce(partialAfterMove, state.partialTurns);
   if (target < p.index) {
     const count = p.index - target;
     patch({
@@ -292,6 +359,7 @@ export async function seek(index: number) {
         p.moves.slice(target, p.index).reverse().map(inverseMove),
       ),
       cursor: state.cursor - count,
+      partialTurns,
       player: { ...p, index: target, playing: false },
     });
   } else {
@@ -299,6 +367,7 @@ export async function seek(index: number) {
       history = [...state.history.slice(0, state.cursor), ...more];
     patch({
       cube: apply(state.cube, more),
+      partialTurns,
       history,
       cursor: history.length,
       player: { ...p, index: target, playing: false },
@@ -307,11 +376,13 @@ export async function seek(index: number) {
 }
 export function applyInstant(moves: string[], title?: string) {
   if (state.busy || state.solving) return;
+  if (!allowMoves(moves)) return;
   pause();
   const base = state.cursor,
     history = [...state.history.slice(0, state.cursor), ...moves];
   patch({
     cube: apply(state.cube, moves),
+    partialTurns: moves.reduce(partialAfterMove, state.partialTurns),
     history,
     cursor: history.length,
     player: title
@@ -327,6 +398,7 @@ export function restoreHistory(history: string[], cursor: number) {
     history,
     cursor,
     player: null,
+    partialTurns: null,
   });
 }
 export function runAlgorithm(input: string) {
@@ -334,6 +406,7 @@ export function runAlgorithm(input: string) {
   try {
     const moves = parseAlgorithm(input);
     if (!moves.length) throw new Error('请先输入算法。');
+    if (!allowMoves(moves)) return;
     loadPlayer(moves, 'Algorithm');
     void play();
   } catch (e) {

@@ -15,7 +15,8 @@
     "jsx": "react-jsx",
     "incremental": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "cubejs": ["./lib/vendor/cubejs/index.cjs"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],

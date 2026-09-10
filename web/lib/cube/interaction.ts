@@ -1,6 +1,81 @@
 import { Box3, PerspectiveCamera, Vector3 } from 'three';
-import { moveSpec } from './model';
+import { moveSpec, rotate, type Vec } from './model';
 export const QUARTER = Math.PI / 2;
+export interface PartialTurns {
+  axis: number;
+  /** Residual angles for layers -1, 0, +1, relative to the exact cube state. */
+  angles: [number, number, number];
+}
+export function layerFace(axis: number, layer: number): string {
+  return [
+    ['L', 'M', 'R'],
+    ['D', 'E', 'U'],
+    ['B', 'S', 'F'],
+  ][axis][layer + 1];
+}
+export function canTurn(partial: PartialTurns | null, token: string): boolean {
+  const move = moveSpec(token);
+  return (
+    !partial ||
+    !partial.angles.some(Boolean) ||
+    partial.axis === move.axis ||
+    move.layers.length === 3
+  );
+}
+/** Whole-cube rotations carry held slices into the new coordinate frame. */
+export function partialAfterMove(
+  partial: PartialTurns | null,
+  token: string,
+): PartialTurns | null {
+  if (!partial) return null;
+  const move = moveSpec(token);
+  if (move.layers.length !== 3 || move.axis === partial.axis) return partial;
+  const direction: Vec = [0, 0, 0];
+  direction[partial.axis] = 1;
+  const rotated = rotate(direction, move.axis, move.turns);
+  const axis = rotated.findIndex(Boolean),
+    sign = rotated[axis];
+  return {
+    axis,
+    angles:
+      sign > 0
+        ? [...partial.angles]
+        : [-partial.angles[2], -partial.angles[1], -partial.angles[0]],
+  };
+}
+export function canTurnSequence(partial: PartialTurns | null, moves: string[]) {
+  for (const token of moves) {
+    if (!canTurn(partial, token)) return false;
+    partial = partialAfterMove(partial, token);
+  }
+  return true;
+}
+export const heldAngle = (
+  partial: PartialTurns | null,
+  axis: number,
+  layer: number,
+) => (partial?.axis === axis ? partial.angles[layer + 1] : 0);
+
+/** Integrate a damped torsional spring in bounded substeps, independently of frame rate. */
+export function stepMagnet(
+  angle: number,
+  velocity: number,
+  target: number,
+  dt: number,
+  strength: number,
+  damping: number,
+) {
+  if (strength <= 0) return { angle, velocity: 0 };
+  const stiffness = 360 * strength,
+    friction = 2 * Math.sqrt(stiffness) * damping;
+  const steps = Math.max(1, Math.ceil(dt / (1 / 240))),
+    h = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    velocity += ((target - angle) * stiffness - friction * velocity) * h;
+    angle += velocity * h;
+  }
+  return { angle, velocity };
+}
 /** The preview is continuous. Only this release decision becomes a legal move. */
 export function magneticTarget(angle: number, velocity = 0): number {
   const progress = angle / QUARTER;

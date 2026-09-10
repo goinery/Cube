@@ -3,12 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
   FACE,
   COLORS,
   FACES,
-  facelets,
   moveSpec,
   type Vec,
   type Piece,
@@ -19,7 +17,8 @@ import {
   patch,
   subscribe,
   setAnimator,
-  perform,
+  finishLayerTurn,
+  allowMoves,
   selectSticker,
   cameraActions,
   notify,
@@ -29,9 +28,13 @@ import { paintSticker } from '@/lib/cube/appearance';
 import {
   fitDistance,
   magneticTarget,
-  moveForAngle,
-  magneticEase,
+  heldAngle,
+  layerFace,
+  stepMagnet,
 } from '@/lib/cube/interaction';
+import { createTileGeometry, smoothBevels } from '@/lib/cube/geometry';
+import { projectionTransform, facesProjection } from '@/lib/cube/projection';
+import { createPlasticGrain, StudioEnvironment } from '@/lib/cube/studio';
 
 interface ComponentPart {
   object: T.Object3D;
@@ -84,10 +87,10 @@ export default function Viewport() {
     renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
     renderer.setClearColor(0, 0);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = T.PCFSoftShadowMap;
+    renderer.shadowMap.type = T.PCFShadowMap;
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1;
     renderer.domElement.setAttribute(
       'aria-label',
       '交互式 3D 魔方：拖动表面转层，拖动空白旋转视角',
@@ -106,15 +109,15 @@ export default function Viewport() {
     controls.zoomSpeed = 0.7;
     controls.touches.ONE = T.TOUCH.ROTATE;
     controls.touches.TWO = T.TOUCH.DOLLY_ROTATE;
-    const environment = new RoomEnvironment();
+    const environment = new StudioEnvironment();
     const pmrem = new T.PMREMGenerator(renderer),
-      env = pmrem.fromScene(environment, 0.04);
+      env = pmrem.fromScene(environment, 0.035);
     scene.environment = env.texture;
-    scene.environmentIntensity = 0.65;
+    scene.environmentIntensity = 0.85;
     environment.dispose();
     pmrem.dispose();
-    scene.add(new T.HemisphereLight(0xeaf0ff, 0x2b2d34, 2));
-    const key = new T.DirectionalLight(0xfff3df, 4.4);
+    scene.add(new T.HemisphereLight(0xeaf0ff, 0x20242a, 0.85));
+    const key = new T.DirectionalLight(0xfff3e6, 2.8);
     key.position.set(-3, 7, 5);
     key.castShadow = true;
     key.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
@@ -122,69 +125,68 @@ export default function Viewport() {
     key.shadow.camera.right = 9;
     key.shadow.camera.top = 9;
     key.shadow.camera.bottom = -9;
-    key.shadow.normalBias = 0.025;
-    key.shadow.bias = -0.0004;
-    key.shadow.radius = 4;
-    scene.add(key);
-    const rim = new T.DirectionalLight(0xbdcfff, 2.5);
+    key.shadow.normalBias = 0.008;
+    key.shadow.bias = -0.00008;
+    key.shadow.radius = 2.5;
+    scene.add(key, key.target);
+    const rim = new T.DirectionalLight(0xd6e5ff, 1.15);
     rim.position.set(4, 3, -5);
     scene.add(rim);
-    const fill = new T.DirectionalLight(0xffffff, 1.2);
+    const fill = new T.DirectionalLight(0xffffff, 0.55);
     fill.position.set(-5, 0, 1);
     scene.add(fill);
     const ground = new T.Mesh(
       new T.PlaneGeometry(100, 100),
-      new T.ShadowMaterial({ opacity: 0.27 }),
+      new T.ShadowMaterial({
+        color: '#101720',
+        opacity: 0.32,
+        depthWrite: false,
+      }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -1.65;
     ground.receiveShadow = true;
     scene.add(ground);
+    const grain = createPlasticGrain(renderer.capabilities.getMaxAnisotropy());
     const plastic = new T.MeshPhysicalMaterial({
-      color: '#232933',
-      roughness: 0.37,
-      metalness: 0.08,
-      clearcoat: 0.16,
-      clearcoatRoughness: 0.4,
+      color: '#151c23',
+      roughness: 0.46,
+      metalness: 0,
+      ior: 1.48,
+      clearcoat: 0.06,
+      clearcoatRoughness: 0.35,
+      bumpMap: grain,
+      bumpScale: 0.0008,
+      roughnessMap: grain,
     });
     const railMaterial = new T.MeshStandardMaterial({
-      color: '#c8d1cc',
-      roughness: 0.32,
-      metalness: 0.12,
+      color: '#c0c8c5',
+      roughness: 0.43,
+      metalness: 0,
     });
     const darkMetal = new T.MeshStandardMaterial({
-      color: '#52616a',
-      roughness: 0.24,
-      metalness: 0.8,
+      color: '#69747b',
+      roughness: 0.28,
+      metalness: 1,
     });
     const magnetMaterial = new T.MeshStandardMaterial({
-      color: '#b7c4cd',
-      roughness: 0.22,
-      metalness: 0.93,
+      color: '#bfc6cc',
+      roughness: 0.2,
+      metalness: 1,
     });
     const accentMaterial = new T.MeshStandardMaterial({
-      color: '#b1c5a2',
-      roughness: 0.31,
-      metalness: 0.58,
+      color: '#a7b597',
+      roughness: 0.29,
+      metalness: 0.75,
     });
     const sleeveMaterial = new T.MeshPhysicalMaterial({
       color: '#626d73',
-      roughness: 0.36,
-      metalness: 0.05,
+      roughness: 0.4,
+      metalness: 0,
+      ior: 1.48,
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.9,
     });
-    const grainData = new Uint8Array(128 * 128);
-    for (let i = 0; i < grainData.length; i++)
-      grainData[i] =
-        120 + Math.floor((((Math.sin(i * 78.233) * 43758.5453) % 1) + 1) * 8);
-    const grain = new T.DataTexture(grainData, 128, 128, T.RedFormat);
-    grain.wrapS = grain.wrapT = T.RepeatWrapping;
-    grain.repeat.set(4, 4);
-    grain.magFilter = T.LinearFilter;
-    grain.minFilter = T.LinearMipmapLinearFilter;
-    grain.generateMipmaps = true;
-    grain.needsUpdate = true;
     const core = new T.Group();
     scene.add(core);
     const hub = new T.Mesh(new T.IcosahedronGeometry(0.38, 2), plastic);
@@ -230,7 +232,7 @@ export default function Viewport() {
       stickers = new Map<string, T.Mesh>(),
       hitMeshes: T.Mesh[] = [],
       textures = new Map<string, T.CanvasTexture>();
-    const shellGeo = new RoundedBoxGeometry(0.998, 0.998, 0.1, 5, 0.028);
+    const shellGeometries = new Map<string, T.BufferGeometry>();
     const frameShape = new T.Shape();
     frameShape.moveTo(-0.43, -0.43);
     frameShape.lineTo(0.43, -0.43);
@@ -244,14 +246,16 @@ export default function Viewport() {
     frameHole.lineTo(0.29, -0.29);
     frameHole.closePath();
     frameShape.holes.push(frameHole);
-    const cageFrame = new T.ExtrudeGeometry(frameShape, {
-      depth: 0.055,
-      bevelEnabled: true,
-      bevelThickness: 0.014,
-      bevelSize: 0.014,
-      bevelSegments: 3,
-      steps: 1,
-    });
+    const cageFrame = smoothBevels(
+      new T.ExtrudeGeometry(frameShape, {
+        depth: 0.055,
+        bevelEnabled: true,
+        bevelThickness: 0.014,
+        bevelSize: 0.014,
+        bevelSegments: 3,
+        steps: 1,
+      }),
+    );
     cageFrame.center();
     const jointGeo = new T.SphereGeometry(0.12, 16, 12),
       magnetGeo = new T.CylinderGeometry(0.072, 0.072, 0.026, 20),
@@ -474,12 +478,19 @@ export default function Viewport() {
           color: COLORS[s.face],
           roughness: 0.3,
           metalness: 0,
-          clearcoat: 0.27,
-          clearcoatRoughness: 0.35,
+          ior: 1.48,
+          specularIntensity: 0.9,
+          clearcoat: 0.22,
+          clearcoatRoughness: 0.23,
+          vertexColors: true,
           bumpMap: grain,
-          bumpScale: 0.004,
+          bumpScale: 0.0012,
+          roughnessMap: grain,
         });
-        const shell = new T.Mesh(shellGeo, material);
+        const shapeKey = `${s.row},${s.col}`;
+        if (!shellGeometries.has(shapeKey))
+          shellGeometries.set(shapeKey, createTileGeometry(s));
+        const shell = new T.Mesh(shellGeometries.get(shapeKey)!, material);
         shell.quaternion.setFromRotationMatrix(
           new T.Matrix4().makeBasis(v3(f.r), v3(f.u), normal),
         );
@@ -543,7 +554,6 @@ export default function Viewport() {
       models.set(p.id, { root, parts, source: p });
     }
     let lastArt = -1,
-      lastCube = getState().cube,
       currentExplode = getState().settings.explode,
       targetCamera: T.Vector3 | null = null,
       targetLookAt: T.Vector3 | null = null,
@@ -554,16 +564,18 @@ export default function Viewport() {
         from: number;
         to: number;
         magnetic?: boolean;
+        angle?: number;
+        velocity?: number;
         start: number;
         duration: number;
         resolve: () => void;
       } | null = null;
-    let releasedPreview: { from: number; to: number } | null = null;
     interface Drag {
       face: string;
       axis: number;
       layers: number[];
       angle: number;
+      initialAngle: number;
       sx: number;
       sy: number;
       pixelsPerRadian: number;
@@ -571,65 +583,37 @@ export default function Viewport() {
       time: number;
     }
     let drag: Drag | null = null;
-    const painted = new Map<string, HTMLCanvasElement>();
-    const ghostFaces = new Map<
-      Face,
-      { mesh: T.Mesh; texture: T.CanvasTexture; canvas: HTMLCanvasElement }
-    >();
-    const ghostGeo = new T.PlaneGeometry(3.02, 3.02);
-    for (const face of FACES) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 768;
-      canvas.height = 768;
-      const texture = new T.CanvasTexture(canvas);
-      texture.colorSpace = T.SRGBColorSpace;
-      texture.anisotropy = 4;
-      const mesh = new T.Mesh(
-        ghostGeo,
+    // Separate depth pass keeps the underside mapping above the ground shadow,
+    // while preserving depth between its own independently moving tiles.
+    const mappingScene = new T.Scene();
+    const ghostMaterials = new Map<string, T.MeshBasicMaterial>();
+    for (const [id] of stickers)
+      ghostMaterials.set(
+        id,
         new T.MeshBasicMaterial({
-          map: texture,
           side: T.DoubleSide,
           transparent: true,
-          opacity: 0.83,
-          depthWrite: false,
+          opacity: 0.92,
         }),
       );
-      mesh.userData = { mapping: true, face };
+    const ghostFaces = new Map<
+      Face,
+      { mesh: T.Group; tiles: Map<string, T.Mesh> }
+    >();
+    for (const face of FACES) {
+      const mesh = new T.Group(),
+        tiles = new Map<string, T.Mesh>();
       mesh.visible = false;
-      scene.add(mesh);
-      hitMeshes.push(mesh);
-      ghostFaces.set(face, { mesh, texture, canvas });
-      const border = new T.LineSegments(
-        new T.EdgesGeometry(ghostGeo),
-        new T.LineBasicMaterial({
-          color: '#b2c5a3',
-          transparent: true,
-          opacity: 0.45,
-        }),
-      );
-      border.userData.ignoreBounds = true;
-      mesh.add(border);
-    }
-    function refreshGhosts() {
-      const fs = facelets(getState().cube);
-      for (const [face, g] of ghostFaces) {
-        const ctx = g.canvas.getContext('2d')!;
-        ctx.clearRect(0, 0, 768, 768);
-        for (const item of fs[face]) {
-          const image = painted.get(item.sticker.id);
-          ctx.save();
-          ctx.translate(item.col * 256 + 128, item.row * 256 + 128);
-          ctx.rotate((item.angle * Math.PI) / 180);
-          if (image) ctx.drawImage(image, -128, -128, 256, 256);
-          else {
-            ctx.fillStyle =
-              getState().appearance.stickers[item.sticker.id].color;
-            ctx.fillRect(-128, -128, 256, 256);
-          }
-          ctx.restore();
-        }
-        g.texture.needsUpdate = true;
+      mappingScene.add(mesh);
+      for (const [id, source] of stickers) {
+        const tile = new T.Mesh(source.geometry, ghostMaterials.get(id));
+        tile.matrixAutoUpdate = false;
+        tile.userData = { ...source.userData, mapping: true, face };
+        mesh.add(tile);
+        tiles.set(id, tile);
+        hitMeshes.push(tile);
       }
+      ghostFaces.set(face, { mesh, tiles });
     }
     async function updateArt() {
       const s = getState(),
@@ -657,12 +641,15 @@ export default function Viewport() {
           } else {
             material.map = null;
             material.color.set(material.map ? '#ffffff' : art.color);
+            textures.delete(id);
           }
-          painted.set(id, canvas);
+          const ghost = ghostMaterials.get(id)!;
+          ghost.map = material.map;
+          ghost.color.copy(material.color);
+          ghost.needsUpdate = true;
           material.needsUpdate = true;
         }),
       );
-      if (!disposed && getState().artVersion === version) refreshGhosts();
     }
     const outlineMaterial = new T.MeshBasicMaterial({
       color: '#d5e6ae',
@@ -672,7 +659,7 @@ export default function Viewport() {
     });
     const selectedOutlines = new Map<string, T.Mesh>();
     for (const [id, mesh] of stickers) {
-      const outline = new T.Mesh(shellGeo, outlineMaterial);
+      const outline = new T.Mesh(mesh.geometry, outlineMaterial);
       outline.userData.ignoreBounds = true;
       outline.scale.set(1.07, 1.07, 1.08);
       outline.visible = false;
@@ -688,23 +675,15 @@ export default function Viewport() {
     setAnimator(
       (token, duration) =>
         new Promise((resolve) => {
-          const spec = moveSpec(token),
-            released = releasedPreview;
-          releasedPreview = null;
+          const spec = moveSpec(token);
           animation = {
             token,
             axis: spec.axis,
             layers: spec.layers,
-            from: released?.from || 0,
-            to: released?.to ?? (spec.turns * Math.PI) / 2,
-            magnetic: Boolean(released),
+            from: 0,
+            to: (spec.turns * Math.PI) / 2,
             start: performance.now(),
-            duration: released
-              ? Math.max(
-                  140,
-                  Math.min(320, Math.abs(released.to - released.from) * 190),
-                )
-              : duration,
+            duration,
             resolve,
           };
         }),
@@ -731,8 +710,18 @@ export default function Viewport() {
             v3(FACE[sticker.face].n),
             s.settings.stickerOffset,
           );
-          (mesh.material as T.MeshPhysicalMaterial).roughness =
-            s.settings.roughness;
+          const material = mesh.material as T.MeshPhysicalMaterial;
+          material.roughness = s.settings.roughness;
+          material.clearcoatRoughness = 0.16 + s.settings.roughness * 0.25;
+        }
+        if (s.partialTurns) {
+          const axis = s.partialTurns.axis;
+          const q = new T.Quaternion().setFromAxisAngle(
+            new T.Vector3().setComponent(axis, 1),
+            heldAngle(s.partialTurns, axis, p.pos[axis]),
+          );
+          m.root.position.applyQuaternion(q);
+          m.root.quaternion.premultiply(q);
         }
       }
     }
@@ -840,47 +829,48 @@ export default function Viewport() {
         (-(e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(
-        hitMeshes.filter((m) => m.visible),
-        false,
-      )[0];
-      if (hit?.object.userData.mapping && hit.uv) {
-        const face = hit.object.userData.face as Face,
-          g = ghostFaces.get(face)!;
-        const u = g.texture.repeat.x < 0 ? 1 - hit.uv.x : hit.uv.x,
-          col = Math.min(2, Math.max(0, Math.floor(u * 3))),
-          row = Math.min(2, Math.max(0, Math.floor((1 - hit.uv.y) * 3))),
-          item = facelets(getState().cube)[face][row * 3 + col];
-        hit.object.userData.sticker = item.sticker.id;
-        hit.object.userData.piece = item.piece.id;
-      }
-      return hit;
+      const visible = hitMeshes.filter((m) => m.visible && m.parent?.visible);
+      return (
+        raycaster.intersectObjects(
+          visible.filter((m) => m.userData.mapping),
+          false,
+        )[0] ??
+        raycaster.intersectObjects(
+          visible.filter((m) => !m.userData.mapping),
+          false,
+        )[0]
+      );
+    }
+    function settleLayer(
+      axis: number,
+      layer: number,
+      from: number,
+      velocity = 0,
+    ) {
+      const face = layerFace(axis, layer),
+        to = magneticTarget(from, velocity / 1000);
+      patch({ busy: true, dragging: true, currentMove: face + ' · 磁力归位' });
+      animation = {
+        token: face,
+        axis,
+        layers: [layer],
+        from,
+        to,
+        angle: from,
+        velocity,
+        magnetic: true,
+        start: performance.now(),
+        duration: 0,
+        resolve: () => finishLayerTurn(axis, layer, to),
+      };
     }
     function finishDrag(cancelled = false) {
       if (!drag) return;
-      const d = drag,
-        target = cancelled ? 0 : magneticTarget(d.angle, d.velocity),
-        token = cancelled ? null : moveForAngle(d.face, target);
+      const d = drag;
       drag = null;
-      if (token) {
-        releasedPreview = { from: d.angle, to: target };
-        patch({ busy: false, dragging: false });
-        void perform(token);
-      } else {
-        patch({ dragging: true, currentMove: d.face + ' · 磁力归位' });
-        animation = {
-          token: d.face,
-          axis: d.axis,
-          layers: d.layers,
-          from: d.angle,
-          to: target,
-          magnetic: true,
-          start: performance.now(),
-          duration: 230,
-          resolve: () =>
-            patch({ busy: false, dragging: false, currentMove: '' }),
-        };
-      }
+      if (cancelled || getState().settings.magnetStrength === 0)
+        finishLayerTurn(d.axis, d.layers[0], d.angle);
+      else settleLayer(d.axis, d.layers[0], d.angle, d.velocity * 1000);
     }
     function onDown(e: PointerEvent) {
       if (getState().solving) {
@@ -965,8 +955,7 @@ export default function Viewport() {
           piece = s.cube.find((p) => p.id === hit.object.userData.piece)!;
         const normal = new T.Vector3(0, 0, 1)
           .applyQuaternion(hit.object.getWorldQuaternion(new T.Quaternion()))
-          .toArray()
-          .map(Math.round) as Vec;
+          .toArray() as Vec;
         let best: {
           score: number;
           face: string;
@@ -976,7 +965,7 @@ export default function Viewport() {
           pixels: number;
         } | null = null;
         for (let axis = 0; axis < 3; axis++)
-          if (!normal[axis]) {
+          if (Math.abs(normal[axis]) < 0.97) {
             const axial = new T.Vector3().setComponent(axis, 1),
               tangent = axial.clone().cross(hit.point),
               pa = hit.point.clone().project(camera),
@@ -1019,12 +1008,22 @@ export default function Viewport() {
               };
           }
         if (!best) return;
+        if (!allowMoves([best.face])) {
+          down = null;
+          return;
+        }
         const spec = moveSpec(best.face);
+        const initialAngle = heldAngle(
+          s.partialTurns,
+          best.axis,
+          spec.layers[0],
+        );
         drag = {
           face: best.face,
           axis: best.axis,
           layers: spec.layers,
-          angle: 0,
+          angle: initialAngle,
+          initialAngle,
           sx: best.sx,
           sy: best.sy,
           pixelsPerRadian: Math.max(30, best.pixels),
@@ -1041,7 +1040,8 @@ export default function Viewport() {
       }
       const now = performance.now(),
         angle = T.MathUtils.clamp(
-          (dx * drag.sx + dy * drag.sy) / drag.pixelsPerRadian,
+          drag.initialAngle +
+            (dx * drag.sx + dy * drag.sy) / drag.pixelsPerRadian,
           -Math.PI * 2,
           Math.PI * 2,
         );
@@ -1054,7 +1054,7 @@ export default function Viewport() {
     }
     function onUp(e: PointerEvent) {
       activePointers.delete(e.pointerId);
-      if (drag) {
+      if (drag && down?.id === e.pointerId) {
         if (performance.now() - drag.time > 90) drag.velocity = 0;
         finishDrag();
       } else if (
@@ -1105,11 +1105,34 @@ export default function Viewport() {
     let last = performance.now(),
       visibilityAt = 0,
       lastQuality = '';
+    const surfaceBounds = new T.Box3(),
+      capBounds = new T.Box3();
+    const surfaceSize = new T.Vector3(),
+      surfaceCenter = new T.Vector3();
+    const keyDirection = key.position.clone().normalize();
     function render(now: number) {
       if (disposed) return;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       const s = getState();
+      if (
+        !animation &&
+        !drag &&
+        !down &&
+        !pinch &&
+        !s.busy &&
+        !s.solving &&
+        s.settings.magnetStrength > 0 &&
+        s.partialTurns
+      ) {
+        const index = s.partialTurns.angles.findIndex((angle) => angle !== 0);
+        if (index >= 0)
+          settleLayer(
+            s.partialTurns.axis,
+            index - 1,
+            s.partialTurns.angles[index],
+          );
+      }
       currentExplode = T.MathUtils.damp(
         currentExplode,
         s.settings.explode,
@@ -1130,21 +1153,46 @@ export default function Viewport() {
           axis = drag?.axis || 0,
           layers = drag?.layers || [];
         if (a) {
-          const raw = Math.min(1, (now - a.start) / a.duration);
-          let t = raw;
-          if (a.magnetic) t = magneticEase(raw);
-          else if (s.settings.easing === 'smooth')
-            t = raw * raw * (3 - 2 * raw);
-          else if (s.settings.easing === 'magnetic')
-            t = 1 - Math.pow(1 - raw, 3);
-          angle = a.from + (a.to - a.from) * t;
           axis = a.axis;
           layers = a.layers;
-          if (raw === 1) {
-            animation = null;
-            a.resolve();
+          if (a.magnetic) {
+            const next = stepMagnet(
+              a.angle!,
+              a.velocity!,
+              a.to,
+              dt,
+              s.settings.magnetStrength,
+              s.settings.magnetDamping,
+            );
+            a.angle = angle = next.angle;
+            a.velocity = next.velocity;
+            if (s.settings.magnetStrength === 0) {
+              animation = null;
+              finishLayerTurn(axis, layers[0], angle);
+            } else if (
+              Math.abs(angle - a.to) < 0.0001 &&
+              Math.abs(a.velocity) < 0.003
+            ) {
+              angle = a.to;
+              animation = null;
+              a.resolve();
+            }
+          } else {
+            const raw = Math.min(1, (now - a.start) / a.duration);
+            let t = raw;
+            if (s.settings.easing === 'smooth') t = raw * raw * (3 - 2 * raw);
+            else if (s.settings.easing === 'magnetic')
+              t = 1 - Math.pow(1 - raw, 3);
+            angle = a.from + (a.to - a.from) * t;
+            if (raw === 1) {
+              animation = null;
+              a.resolve();
+            }
           }
         }
+        // Drag/spring angles already include the held offset; programmed moves are relative.
+        if (drag || a?.magnetic)
+          angle -= heldAngle(s.partialTurns, axis, layers[0]);
         const q = new T.Quaternion().setFromAxisAngle(
           new T.Vector3().setComponent(axis, 1),
           angle,
@@ -1176,8 +1224,34 @@ export default function Viewport() {
         s.settings.autoRotate && !animation && !drag && !s.solving;
       controls.autoRotateSpeed = 0.7;
       if (!s.solving) controls.update();
-      ground.position.y = -(1.68 + currentExplode * 1.55) * s.settings.size;
-      if (lastCube !== s.cube) refreshGhosts();
+      scene.updateMatrixWorld(true);
+      surfaceBounds.makeEmpty();
+      for (const mesh of stickers.values())
+        surfaceBounds.union(
+          capBounds
+            .copy(mesh.geometry.boundingBox!)
+            .applyMatrix4(mesh.matrixWorld),
+        );
+      // Drop the floor immediately as a layer tilts down, then ease it back toward contact.
+      const floorHeight = surfaceBounds.min.y - 0.065;
+      ground.position.y = Math.min(
+        floorHeight,
+        T.MathUtils.damp(ground.position.y, floorHeight, 10, dt),
+      );
+      surfaceBounds.getSize(surfaceSize);
+      surfaceBounds.getCenter(surfaceCenter);
+      const shadowExtent = Math.max(2, surfaceSize.length() * 0.62);
+      key.position
+        .copy(surfaceCenter)
+        .addScaledVector(keyDirection, shadowExtent * 3.5);
+      key.target.position.copy(surfaceCenter);
+      const shadowCamera = key.shadow.camera;
+      shadowCamera.left = shadowCamera.bottom = -shadowExtent;
+      shadowCamera.right = shadowCamera.top = shadowExtent;
+      shadowCamera.near = shadowExtent;
+      shadowCamera.far = shadowExtent * 6;
+      shadowCamera.updateProjectionMatrix();
+      key.shadow.radius = s.settings.quality === 'low' ? 1.5 : 2.5;
       const direction = camera.position
           .clone()
           .sub(controls.target)
@@ -1193,7 +1267,11 @@ export default function Viewport() {
         g.mesh.visible =
           s.view === 'hidden' && !s.presentation && facing <= 0.13;
         if (!g.mesh.visible) continue;
-        const radius = 1.52 + s.settings.explode * 0.72,
+        const radius =
+            1 +
+            s.settings.gap +
+            currentExplode * 0.72 +
+            (0.507 + s.settings.stickerOffset + inner * 0.95) * s.settings.size,
           raw = normal
             .clone()
             .multiplyScalar(radius + 1.8 + s.settings.explode * 0.7),
@@ -1225,12 +1303,28 @@ export default function Viewport() {
         const q = new T.Quaternion().setFromUnitVectors(normal, adjusted),
           basis = new T.Matrix4().makeBasis(v3(f.r), v3(f.u), normal);
         g.mesh.quaternion.setFromRotationMatrix(basis).premultiply(q);
-        const scale = (mobile ? 0.245 : 0.42) * (1 + s.settings.explode * 0.47);
+        // Keep the auxiliary faces within their screen slots even when exploded or zoomed.
+        const viewHeight =
+          2 *
+          camera.position.distanceTo(target) *
+          Math.tan(T.MathUtils.degToRad(camera.fov / 2));
+        const scale =
+          Math.min(viewHeight * 0.22, viewHeight * camera.aspect * 0.23) /
+          (radius * 2);
         g.mesh.scale.setScalar(scale);
-        g.texture.repeat.x = adjusted.dot(direction) < 0 ? -1 : 1;
-        g.texture.offset.x = g.texture.repeat.x < 0 ? 1 : 0;
+        const transform = projectionTransform(
+          face,
+          radius,
+          adjusted.dot(direction) < 0,
+        );
+        for (const [id, tile] of g.tiles) {
+          const source = stickers.get(id)!;
+          tile.visible = facesProjection(source.matrixWorld, face);
+          if (tile.visible)
+            tile.matrix.multiplyMatrices(transform, source.matrixWorld);
+        }
         g.mesh.updateMatrixWorld(true);
-        const top = new T.Vector3(0, 1.68, 0)
+        const top = new T.Vector3(0, radius + 0.2, 0)
             .applyMatrix4(g.mesh.matrixWorld)
             .project(camera),
           origin = normal.clone().multiplyScalar(radius).project(camera);
@@ -1251,6 +1345,19 @@ export default function Viewport() {
       }
       if (lastQuality !== s.settings.quality) {
         lastQuality = s.settings.quality;
+        const shadowSize =
+          s.settings.quality === 'low'
+            ? 512
+            : s.settings.quality === 'high'
+              ? 2048
+              : mobile
+                ? 1024
+                : 2048;
+        if (key.shadow.mapSize.x !== shadowSize) {
+          key.shadow.mapSize.set(shadowSize, shadowSize);
+          key.shadow.map?.dispose();
+          key.shadow.map = null;
+        }
         renderer.setPixelRatio(
           s.settings.quality === 'low'
             ? 1
@@ -1261,7 +1368,12 @@ export default function Viewport() {
         );
       }
       renderer.render(scene, camera);
-      lastCube = s.cube;
+      if (s.view === 'hidden' && !s.presentation) {
+        renderer.autoClear = false;
+        renderer.clearDepth();
+        renderer.render(mappingScene, camera);
+        renderer.autoClear = true;
+      }
       frame = requestAnimationFrame(render);
     }
     void updateArt();
@@ -1275,7 +1387,9 @@ export default function Viewport() {
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
-      animation?.resolve();
+      if (animation?.magnetic)
+        finishLayerTurn(animation.axis, animation.layers[0], animation.angle!);
+      else animation?.resolve();
       setAnimator(async () => {});
       unsub();
       observer.disconnect();
@@ -1300,12 +1414,12 @@ export default function Viewport() {
       geos.forEach((g) => g.dispose());
       mats.forEach((m) => m.dispose());
       textures.forEach((t) => t.dispose());
-      ghostFaces.forEach((g) => g.texture.dispose());
+      ghostMaterials.forEach((m) => m.dispose());
       grain.dispose();
+      key.shadow.dispose();
       env.dispose();
       renderer.dispose();
       el.replaceChildren();
-      void lastCube;
     };
   }, []);
   return (

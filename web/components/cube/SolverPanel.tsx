@@ -30,6 +30,7 @@ export default function SolverPanel() {
     [mode, setMode] = useState<SolveMode>('fast'),
     [pictures, setPictures] = useState(true),
     [check, setCheck] = useState<Preflight | null>(null),
+    [checkedArt, setCheckedArt] = useState(-1),
     [result, setResult] = useState<Solution | null>(null);
   const worker = useRef<Worker | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,6 +51,10 @@ export default function SolverPanel() {
   function inspect() {
     const current = getState();
     if (current.busy || current.solving) return;
+    if (current.partialTurns) {
+      notify('请先将错位转层对齐，再检测求解。');
+      return;
+    }
     pause();
     const report = checkBeforeSolve(
       current.cube,
@@ -57,7 +62,7 @@ export default function SolverPanel() {
       current.cursor,
       current.appearance,
     );
-    checkedArt.current = current.artVersion;
+    setCheckedArt(current.artVersion);
     setCheck(report);
     setPictures(report.recommendPictures);
     setResult(null);
@@ -65,10 +70,14 @@ export default function SolverPanel() {
   function solve() {
     const current = getState();
     if (current.busy || current.solving) return;
+    if (current.partialTurns) {
+      notify('请先将错位转层对齐，再开始求解。');
+      return;
+    }
     if (
       !check ||
       check.fingerprint !== cubeFingerprint(current.cube) ||
-      checkedArt.current !== current.artVersion
+      checkedArt !== current.artVersion
     ) {
       inspect();
       return;
@@ -124,11 +133,11 @@ export default function SolverPanel() {
     };
     w.postMessage({ cube: current.cube, mode, pictures });
   }
-  const checkedArt = useRef(-1);
   const stale = Boolean(
     check &&
-    (check.fingerprint !== cubeFingerprint(s.cube) ||
-      checkedArt.current !== s.artVersion),
+    (s.partialTurns ||
+      check.fingerprint !== cubeFingerprint(s.cube) ||
+      checkedArt !== s.artVersion),
   );
   const options: [SolveMode, typeof Zap, string, string][] = [
     ['fast', Zap, 'Fast / 快速', '两阶段搜索，优先速度与稳定性。'],
@@ -192,6 +201,7 @@ export default function SolverPanel() {
         disabled={
           s.busy ||
           s.solving ||
+          Boolean(s.partialTurns) ||
           Boolean(
             check &&
             !stale &&

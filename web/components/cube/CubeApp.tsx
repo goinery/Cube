@@ -42,6 +42,7 @@ import {
   loadPlayer,
   play,
   applyInstant,
+  allowMoves,
   runAlgorithm,
   notify,
   cameraActions,
@@ -50,6 +51,7 @@ import {
   type View,
 } from '@/lib/cube/store';
 import { FACES, COLORS, isSolved, scramble, type Face } from '@/lib/cube/model';
+import { canTurn } from '@/lib/cube/interaction';
 
 const modes: [Mode, string, typeof Box][] = [
   ['play', '玩魔方', Box],
@@ -121,6 +123,7 @@ export default function CubeApp() {
   function newScramble() {
     if (s.busy || s.solving) return;
     const moves = scramble();
+    if (!allowMoves(moves)) return;
     patch({
       scramble: moves.join(' '),
       scrambleCursor: s.cursor + moves.length,
@@ -130,7 +133,7 @@ export default function CubeApp() {
       void play();
     } else applyInstant(moves, 'Scramble');
   }
-  const solved = isSolved(s.cube),
+  const solved = !s.partialTurns && isSolved(s.cube),
     locked = s.busy || s.solving;
   return (
     <main
@@ -206,9 +209,11 @@ export default function CubeApp() {
             <span>
               {s.currentMove
                 ? `转动 ${s.currentMove}`
-                : solved
-                  ? '已复原'
-                  : '自由探索'}
+                : s.partialTurns
+                  ? '转层未对齐'
+                  : solved
+                    ? '已复原'
+                    : '自由探索'}
             </span>
             <span className="state-divider" />
             <span>{s.cursor} 步</span>
@@ -237,7 +242,9 @@ export default function CubeApp() {
                     ? '拖动旋转视角 · 双指或滚轮缩放'
                     : s.mode === 'inspect'
                       ? '点击零件查看信息 · 拖动空白旋转视角'
-                      : '按住拖动转层 · 松手磁力归位'}
+                      : s.settings.magnetStrength === 0
+                        ? '按住拖动转层 · 松手停留当前位置'
+                        : '按住拖动转层 · 松手磁力归位'}
               </span>
             </div>
             <div className="camera-buttons">
@@ -305,6 +312,45 @@ export default function CubeApp() {
               <span className="eyebrow">{modeTitles[s.mode][0]}</span>
               <h2>{modeTitles[s.mode][1]}</h2>
             </div>
+            {(s.mode === 'play' ||
+              s.mode === 'explode' ||
+              s.mode === 'solver') && (
+              <section className="panel-section magnetic-controls">
+                <div className="section-head">
+                  <h3>磁力与手感</h3>
+                  <span className="tag">
+                    {s.settings.magnetStrength === 0 ? '无磁力' : '磁力归位'}
+                  </span>
+                </div>
+                <Range
+                  label="磁力强度"
+                  value={s.settings.magnetStrength}
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  disabled={s.solving}
+                  onChange={(v) => settings({ magnetStrength: v })}
+                />
+                <Range
+                  label="归位阻尼"
+                  value={s.settings.magnetDamping}
+                  min={0.05}
+                  max={2}
+                  step={0.05}
+                  disabled={s.solving}
+                  onChange={(v) => settings({ magnetDamping: v })}
+                />
+                <p className="microcopy">
+                  强度为 0
+                  时可停在任意角度。阻尼越低，归位回弹越明显；越高，回弹越小。
+                </p>
+                {s.partialTurns && (
+                  <p className="help-text" aria-live="polite">
+                    转层尚未对齐：可继续沿原轴转动，垂直转层已禁用。开启磁力可自动归位。
+                  </p>
+                )}
+              </section>
+            )}
             {s.mode === 'play' && (
               <>
                 <div className="quick-actions">
@@ -390,7 +436,14 @@ export default function CubeApp() {
                       <button
                         key={f}
                         onClick={() => void perform(f + modifier)}
-                        disabled={locked}
+                        disabled={
+                          locked || !canTurn(s.partialTurns, f + modifier)
+                        }
+                        title={
+                          !canTurn(s.partialTurns, f + modifier)
+                            ? '请先对齐错位转层'
+                            : undefined
+                        }
                       >
                         <i style={{ background: COLORS[f] }} />
                         <strong>
@@ -619,10 +672,10 @@ export default function CubeApp() {
                   }
                 />
                 <Choice
-                  label="转层缓动"
+                  label="按键与算法动画"
                   value={s.settings.easing}
                   options={[
-                    ['magnetic', '磁力吸附'],
+                    ['magnetic', '柔和减速'],
                     ['smooth', '平滑'],
                     ['linear', '线性'],
                   ]}
@@ -723,11 +776,7 @@ export default function CubeApp() {
           LOCAL FIRST <span>·</span> 3D WORKSPACE
         </span>
       </footer>
-      {s.notice && (
-        <div role="status" className="toast">
-          {s.notice}
-        </div>
-      )}
+      {s.notice && <output className="toast">{s.notice}</output>}
     </main>
   );
 }

@@ -9,11 +9,8 @@ import {
   type Settings,
 } from './store';
 import { parseAlgorithm, apply, solved, toFaceletString } from './model';
-import {
-  defaultAppearance,
-  type Appearance,
-  defaultTransform,
-} from './appearance';
+import { QUARTER, type PartialTurns } from './interaction';
+import { defaultAppearance, type Appearance } from './appearance';
 export interface Project {
   version: 1;
   name: string;
@@ -25,6 +22,7 @@ export interface Project {
   settings: Settings;
   scramble: string;
   scrambleCursor: number;
+  partialTurns: PartialTurns | null;
 }
 export function captureProject(): Project {
   const s = getState();
@@ -39,6 +37,7 @@ export function captureProject(): Project {
     settings: s.settings,
     scramble: s.scramble,
     scrambleCursor: s.scrambleCursor,
+    partialTurns: s.partialTurns,
   };
 }
 const raster = (v: unknown): v is string =>
@@ -141,6 +140,8 @@ export function validateProject(value: unknown): Project {
     internal: [0, 1.5],
     speed: [0.25, 3],
     roughness: [0.18, 0.65],
+    magnetStrength: [0, 2],
+    magnetDamping: [0.05, 2],
   };
   const settings = defaultSettings();
   for (const [k, [min, max]] of Object.entries(limits)) {
@@ -160,6 +161,19 @@ export function validateProject(value: unknown): Project {
   settings.autoRotate = false;
   const scramble =
     typeof p.scramble === 'string' ? parseAlgorithm(p.scramble).join(' ') : '';
+  let partialTurns: PartialTurns | null = null;
+  if (p.partialTurns != null) {
+    const held = p.partialTurns;
+    if (
+      ![0, 1, 2].includes(held.axis) ||
+      !Array.isArray(held.angles) ||
+      held.angles.length !== 3 ||
+      !held.angles.every((a) => finite(a, -QUARTER / 2, QUARTER / 2))
+    )
+      throw new Error('未对齐转层的角度数据无效。');
+    if (held.angles.some(Boolean))
+      partialTurns = { axis: held.axis, angles: [...held.angles] };
+  }
   return {
     version: 1,
     name: 'AXIS / 03',
@@ -169,6 +183,7 @@ export function validateProject(value: unknown): Project {
     facelets: p.facelets,
     appearance: a,
     settings,
+    partialTurns,
     scramble,
     scrambleCursor:
       Number.isInteger(p.scrambleCursor) && p.scrambleCursor <= p.history.length
@@ -222,6 +237,7 @@ export function loadProject(p: Project) {
     scramble: p.scramble,
     scrambleCursor: p.scrambleCursor,
     selected: [],
+    partialTurns: p.partialTurns,
   });
 }
 export function exportProject() {
@@ -265,6 +281,7 @@ export async function startAutosave() {
       s.history.length,
       s.artVersion,
       JSON.stringify(s.settings),
+      JSON.stringify(s.partialTurns),
     ].join('|');
     if (current === signature) return;
     signature = current;
