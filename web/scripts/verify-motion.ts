@@ -146,12 +146,20 @@ for (const face of FACES) {
     [...base.values()].filter((world) => facesProjection(world, face)).length,
     9,
   );
-  const projected = projectionTransform(face, 1.5, true);
+  const projected = projectionTransform(face, 1.5, true),
+    mirrored = projectionTransform(face, 1.5, false);
   for (const world of base.values())
     if (facesProjection(world, face)) {
       const tile = projected.clone().multiply(world);
       near(new Vector3().setFromMatrixPosition(tile).z, 0);
       near(new Vector3(0, 0, 1).transformDirection(tile).z, -1);
+      // 辅助面与对应面成镜像：贴片留在同一平面内，左右相反、上下不变。
+      const pair = mirrored.clone().multiply(world),
+        a = new Vector3().setFromMatrixPosition(tile),
+        b = new Vector3().setFromMatrixPosition(pair);
+      near(b.z, 0);
+      near(b.x, -a.x);
+      near(b.y, a.y);
     }
 }
 // A vertical half-turn in progress must deform the underside and bring adjacent caps into view.

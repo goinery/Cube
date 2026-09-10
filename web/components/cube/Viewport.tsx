@@ -1257,11 +1257,20 @@ export default function Viewport() {
         const length = Math.hypot(dx, dy),
           nx = dx / length,
           ny = dy / length;
-        const ndc = new T.Vector3(
-          T.MathUtils.clamp(centerProjection.x + nx * 0.78, -0.8, 0.8),
-          T.MathUtils.clamp(centerProjection.y + ny * 0.68, -0.68, 0.64),
-          centerProjection.z,
-        );
+        // 辅助面放在魔方之后：主视图的魔方始终绘制在投影面之前，
+        // 任何角度都不会被映射挡住，同时仍在没有深度写入的地面阴影之上。
+        const behind = camera.position
+            .clone()
+            .sub(controls.target)
+            .normalize()
+            .multiplyScalar(radius * 2 + 2.4)
+            .add(controls.target)
+            .project(camera).z,
+          ndc = new T.Vector3(
+            T.MathUtils.clamp(centerProjection.x + nx * 0.78, -0.8, 0.8),
+            T.MathUtils.clamp(centerProjection.y + ny * 0.68, -0.68, 0.64),
+            behind,
+          );
         const target = ndc.clone().unproject(camera);
         g.mesh.position.copy(target);
         const adjusted = normal.clone();
@@ -1284,10 +1293,11 @@ export default function Viewport() {
           Math.min(viewHeight * 0.22, viewHeight * camera.aspect * 0.23) /
           (radius * 2);
         g.mesh.scale.setScalar(scale);
+        // 辅助面与对应面成镜像关系：转层在投影上呈现左右相反的方向。
         const transform = projectionTransform(
           face,
           radius,
-          adjusted.dot(direction) < 0,
+          adjusted.dot(direction) > 0,
         );
         for (const [id, tile] of g.tiles) {
           const source = stickers.get(id)!;
@@ -1341,8 +1351,8 @@ export default function Viewport() {
       }
       renderer.render(scene, camera);
       if (s.view === 'hidden' && !s.presentation) {
+        // 沿用主渲染的深度缓冲：辅助面在魔方之后，不会被主视图挡住。
         renderer.autoClear = false;
-        renderer.clearDepth();
         renderer.render(mappingScene, camera);
         renderer.autoClear = true;
       }
