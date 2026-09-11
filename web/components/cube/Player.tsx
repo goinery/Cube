@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import {
   Play,
   Pause,
@@ -21,8 +21,8 @@ import {
   notify,
 } from '@/lib/cube/store';
 import { Range } from './Controls';
-export default function Player() {
-  const s = useCube(),
+export default memo(function Player() {
+  const s = useCube('player', 'busy', 'solving', 'settings'),
     p = s.player,
     [open, setOpen] = useState(true);
   if (!p) return null;
@@ -181,4 +181,4 @@ export default function Player() {
       />
     </section>
   );
-}
+});

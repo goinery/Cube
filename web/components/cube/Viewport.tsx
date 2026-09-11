@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
@@ -23,7 +23,11 @@ import {
   notify,
   pause,
 } from '@/lib/cube/store';
-import { paintSticker } from '@/lib/cube/appearance';
+import {
+  paintSticker,
+  sameStickerArt,
+  type Appearance,
+} from '@/lib/cube/appearance';
 import {
   fitDistance,
   magneticTarget,
@@ -74,13 +78,19 @@ function basisQuaternion(p: Piece) {
   );
 }
 
-export default function Viewport() {
+export default memo(function Viewport() {
   const host = useRef<HTMLDivElement>(null),
     [error, setError] = useState('');
   useEffect(() => {
     const el = host.current!;
     let disposed = false,
-      frame = 0;
+      frame = 0,
+      last = performance.now();
+    function invalidate() {
+      if (disposed || frame || document.hidden) return;
+      last = performance.now();
+      frame = requestAnimationFrame(render);
+    }
     let renderer: T.WebGLRenderer;
     try {
       renderer = new T.WebGLRenderer({
@@ -100,6 +110,7 @@ export default function Viewport() {
     renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
     renderer.setClearColor(0, 0);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.autoUpdate = false;
     renderer.shadowMap.type = T.PCFShadowMap;
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -511,40 +522,56 @@ export default function Viewport() {
       }
       ghostFaces.set(face, { mesh, tiles });
     }
+    const paintedArt = new Map<string, Appearance>();
     async function updateArt() {
       const s = getState(),
         version = s.artVersion;
       lastArt = version;
       await Promise.all(
         [...stickers].map(async ([id, mesh]) => {
-          const canvas = document.createElement('canvas');
-          await paintSticker(canvas, id, s.appearance);
-          if (disposed || getState().artVersion !== version) return;
+          if (sameStickerArt(paintedArt.get(id), s.appearance, id)) {
+            paintedArt.set(id, s.appearance);
+            return;
+          }
           const material = mesh.material as T.MeshPhysicalMaterial;
           const art = s.appearance.stickers[id];
-          clipMaterials.get(id)?.color.set(art.color);
-          textures.get(id)?.dispose();
+          const wasMapped = Boolean(material.map);
           if (
             art.group ||
             art.image ||
             (id === 'U4' && art.color === COLORS.U)
           ) {
-            const tex = new T.CanvasTexture(canvas);
-            tex.colorSpace = T.SRGBColorSpace;
-            tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            const canvas = document.createElement('canvas');
+            await paintSticker(canvas, id, s.appearance);
+            if (disposed || getState().artVersion !== version) return;
+            let tex = textures.get(id);
+            if (tex) {
+              tex.image = canvas;
+              tex.needsUpdate = true;
+            } else {
+              tex = new T.CanvasTexture(canvas);
+              tex.colorSpace = T.SRGBColorSpace;
+              tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+              textures.set(id, tex);
+            }
             material.map = tex;
             material.color.set('#ffffff');
-            textures.set(id, tex);
           } else {
+            textures.get(id)?.dispose();
             material.map = null;
             material.color.set(material.map ? '#ffffff' : art.color);
             textures.delete(id);
           }
+          clipMaterials.get(id)?.color.set(art.color);
           const ghost = ghostMaterials.get(id)!;
           ghost.map = material.map;
           ghost.color.copy(material.color);
-          ghost.needsUpdate = true;
-          material.needsUpdate = true;
+          if (wasMapped !== Boolean(material.map)) {
+            ghost.needsUpdate = true;
+            material.needsUpdate = true;
+          }
+          paintedArt.set(id, s.appearance);
+          invalidate();
         }),
       );
     }
@@ -563,11 +590,31 @@ export default function Viewport() {
       mesh.add(outline);
       selectedOutlines.set(id, outline);
     }
+    // Fixed mechanical details keep their local matrices until layout changes.
+    scene.traverse((object) => {
+      object.updateMatrix();
+      object.matrixAutoUpdate = false;
+    });
+    scene.matrixWorldAutoUpdate = false;
+    let previousState = getState();
     const unsub = subscribe(() => {
       const s = getState();
       if (s.artVersion !== lastArt) void updateArt();
-      for (const [id, o] of selectedOutlines)
-        o.visible = s.selected.includes(id);
+      if (s.selected !== previousState.selected)
+        for (const [id, o] of selectedOutlines)
+          o.visible = s.selected.includes(id);
+      if (
+        s.cube !== previousState.cube ||
+        s.partialTurns !== previousState.partialTurns ||
+        s.settings !== previousState.settings ||
+        s.selected !== previousState.selected ||
+        s.view !== previousState.view ||
+        s.presentation !== previousState.presentation ||
+        s.solving !== previousState.solving ||
+        s.busy !== previousState.busy
+      )
+        invalidate();
+      previousState = s;
     });
     setAnimator(
       (token, duration) =>
@@ -583,44 +630,91 @@ export default function Viewport() {
             duration,
             resolve,
           };
+          invalidate();
         }),
     );
+    let boundsDirty = true;
+    let layoutState: ReturnType<typeof getState> | undefined,
+      layoutExplode = NaN,
+      wasTurning = false;
+    const orientations = new WeakMap<Piece, T.Quaternion>();
+    const heldAxis = new T.Vector3(),
+      heldRotation = new T.Quaternion();
     function layoutPieces(explode: number) {
       const s = getState(),
         inner = Math.max(0, explode - 1) * s.settings.internal;
+      const before = layoutState?.settings;
+      const partsChanged =
+        !before ||
+        explode !== layoutExplode ||
+        s.settings.internal !== before.internal ||
+        s.settings.stickerOffset !== before.stickerOffset ||
+        s.settings.showMagnets !== before.showMagnets;
+      const turning = Boolean(animation || drag);
+      const shapeChanged =
+        partsChanged ||
+        s.cube !== layoutState?.cube ||
+        s.partialTurns !== layoutState?.partialTurns ||
+        s.settings.gap !== before?.gap ||
+        s.settings.size !== before?.size ||
+        turning ||
+        wasTurning;
+      const materialChanged = s.settings.roughness !== before?.roughness;
+      layoutState = s;
+      layoutExplode = explode;
+      wasTurning = turning;
+      if (!shapeChanged && !materialChanged) return false;
+      if (shapeChanged) {
+        boundsDirty = true;
+        renderer.shadowMap.needsUpdate = true;
+      }
       for (const p of s.cube) {
         const m = models.get(p.id)!;
-        m.root.position.copy(
-          v3(p.pos).multiplyScalar(1 + s.settings.gap + explode * 0.72),
-        );
-        m.root.quaternion.copy(basisQuaternion(p));
-        m.root.scale.setScalar(s.settings.size);
-        for (const part of m.parts) {
-          part.object.position
-            .copy(part.base)
-            .addScaledVector(part.direction, inner * part.amount);
-          part.object.visible = !part.magnet || s.settings.showMagnets;
+        m.root.position
+          .set(...p.pos)
+          .multiplyScalar(1 + s.settings.gap + explode * 0.72);
+        let orientation = orientations.get(p);
+        if (!orientation) {
+          orientation = basisQuaternion(p);
+          orientations.set(p, orientation);
         }
+        m.root.quaternion.copy(orientation);
+        m.root.scale.setScalar(s.settings.size);
+        if (partsChanged)
+          for (const part of m.parts) {
+            part.object.position
+              .copy(part.base)
+              .addScaledVector(part.direction, inner * part.amount);
+            part.object.visible = !part.magnet || s.settings.showMagnets;
+            part.object.updateMatrix();
+          }
         for (const sticker of p.stickers) {
           const mesh = stickers.get(sticker.id)!;
-          mesh.position.addScaledVector(
-            v3(FACE[sticker.face].n),
-            s.settings.stickerOffset,
-          );
-          const material = mesh.material as T.MeshPhysicalMaterial;
-          material.roughness = s.settings.roughness;
-          material.clearcoatRoughness = 0.16 + s.settings.roughness * 0.25;
+          if (partsChanged) {
+            mesh.position.addScaledVector(
+              v3(FACE[sticker.face].n),
+              s.settings.stickerOffset,
+            );
+            mesh.updateMatrix();
+          }
+          if (materialChanged) {
+            const material = mesh.material as T.MeshPhysicalMaterial;
+            material.roughness = s.settings.roughness;
+            material.clearcoatRoughness = 0.16 + s.settings.roughness * 0.25;
+          }
         }
         if (s.partialTurns) {
           const axis = s.partialTurns.axis;
-          const q = new T.Quaternion().setFromAxisAngle(
-            new T.Vector3().setComponent(axis, 1),
+          const q = heldRotation.setFromAxisAngle(
+            heldAxis.set(0, 0, 0).setComponent(axis, 1),
             heldAngle(s.partialTurns, axis, p.pos[axis]),
           );
           m.root.position.applyQuaternion(q);
           m.root.quaternion.premultiply(q);
         }
+        m.root.updateMatrix();
       }
+      return shapeChanged;
     }
     function boundsOf(objects: T.Object3D[]) {
       const box = new T.Box3();
@@ -666,6 +760,7 @@ export default function Viewport() {
       destination.up.copy(up);
       destination.lookAt(target);
       targetOrientation.copy(destination.quaternion);
+      invalidate();
     }
     cameraActions.fit = () => {
       moveCameraToFit(camera.position.clone().sub(controls.target));
@@ -699,6 +794,7 @@ export default function Viewport() {
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      invalidate();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(el);
@@ -778,6 +874,7 @@ export default function Viewport() {
         duration: 0,
         resolve: () => finishLayerTurn(axis, layer, to),
       };
+      invalidate();
     }
     function finishDrag(cancelled = false) {
       if (!drag) return;
@@ -788,6 +885,7 @@ export default function Viewport() {
       else settleLayer(d.axis, d.layers[0], d.angle, d.velocity * 1000);
     }
     function onDown(e: PointerEvent) {
+      invalidate();
       if (getState().solving) {
         e.stopImmediatePropagation();
         return;
@@ -826,6 +924,7 @@ export default function Viewport() {
       }
       if (activePointers.has(e.pointerId))
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (down || pinch) invalidate();
       if (activePointers.size > 1 && pinch) {
         const next = pinchState();
         zoomView(camera, controls.target, pinch.distance / next.distance);
@@ -975,6 +1074,7 @@ export default function Viewport() {
       e.stopImmediatePropagation();
     }
     function onUp(e: PointerEvent) {
+      invalidate();
       activePointers.delete(e.pointerId);
       if (drag && down?.id === e.pointerId) {
         if (performance.now() - drag.time > 90) drag.velocity = 0;
@@ -1015,6 +1115,7 @@ export default function Viewport() {
       down = null;
       pinch = null;
       activePointers.clear();
+      invalidate();
     };
     const doubleClick = (e: MouseEvent) => {
       if (getState().solving || getState().busy) return;
@@ -1038,6 +1139,7 @@ export default function Viewport() {
         controls.target,
         Math.exp(T.MathUtils.clamp(delta * 0.001, -1, 1)),
       );
+      invalidate();
     };
     const onContextMenu = (e: Event) => e.preventDefault();
     renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
@@ -1047,16 +1149,21 @@ export default function Viewport() {
     renderer.domElement.addEventListener('pointermove', onMove, true);
     renderer.domElement.addEventListener('pointerup', onUp, true);
     renderer.domElement.addEventListener('pointercancel', cancel, true);
-    let last = performance.now(),
-      visibilityAt = 0,
-      lastQuality = '';
+    let lastQuality = '',
+      previousShadowExtent = -1;
     const surfaceBounds = new T.Box3(),
       capBounds = new T.Box3();
     const surfaceSize = new T.Vector3();
     const defaultLightDirection = lightDirection(-31, 50);
     const studioRotation = new T.Quaternion();
+    const previousStudioRotation = new T.Quaternion(0, 0, 0, 0);
     const lampDistance = 30;
+    const turnAxis = new T.Vector3(),
+      turnRotation = new T.Quaternion();
+    let coreInner = NaN,
+      coreMagnets: boolean | undefined;
     function render(now: number) {
+      frame = 0;
       if (disposed) return;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
@@ -1085,14 +1192,20 @@ export default function Viewport() {
         9,
         dt,
       );
+      if (Math.abs(currentExplode - s.settings.explode) < 0.000001)
+        currentExplode = s.settings.explode;
       const inner = Math.max(0, currentExplode - 1) * s.settings.internal;
-      layoutPieces(currentExplode);
+      const shapeChanged = layoutPieces(currentExplode);
       core.visible = true;
-      core.children.forEach((object) => {
-        const base = object.userData.base as T.Vector3;
-        object.position.copy(base).multiplyScalar(1 + inner * 0.28);
-        if (object.userData.magnet) object.visible = s.settings.showMagnets;
-      });
+      if (inner !== coreInner || s.settings.showMagnets !== coreMagnets)
+        core.children.forEach((object) => {
+          const base = object.userData.base as T.Vector3;
+          object.position.copy(base).multiplyScalar(1 + inner * 0.28);
+          if (object.userData.magnet) object.visible = s.settings.showMagnets;
+          object.updateMatrix();
+        });
+      coreInner = inner;
+      coreMagnets = s.settings.showMagnets;
       if (animation || drag) {
         const a = animation;
         let angle = drag?.angle || 0,
@@ -1138,8 +1251,8 @@ export default function Viewport() {
         }
         if (drag || a?.magnetic)
           angle -= heldAngle(s.partialTurns, axis, layers[0]);
-        const q = new T.Quaternion().setFromAxisAngle(
-          new T.Vector3().setComponent(axis, 1),
+        const q = turnRotation.setFromAxisAngle(
+          turnAxis.set(0, 0, 0).setComponent(axis, 1),
           angle,
         );
         for (const p of s.cube)
@@ -1147,6 +1260,7 @@ export default function Viewport() {
             const root = models.get(p.id)!.root;
             root.position.applyQuaternion(q);
             root.quaternion.premultiply(q);
+            root.updateMatrix();
           }
       }
       if (s.solving) {
@@ -1187,19 +1301,25 @@ export default function Viewport() {
       )
         rotateView(camera, controls.target, dt * 0.12, 0);
       controls.update();
-      scene.updateMatrixWorld(true);
-      surfaceBounds.makeEmpty();
-      for (const mesh of stickers.values())
-        surfaceBounds.union(
-          capBounds
-            .copy(mesh.geometry.boundingBox!)
-            .applyMatrix4(mesh.matrixWorld),
-        );
+      scene.updateMatrixWorld();
+      if (boundsDirty) {
+        surfaceBounds.makeEmpty();
+        for (const mesh of stickers.values())
+          surfaceBounds.union(
+            capBounds
+              .copy(mesh.geometry.boundingBox!)
+              .applyMatrix4(mesh.matrixWorld),
+          );
+        boundsDirty = false;
+      }
       const floorHeight = surfaceBounds.min.y - 0.065;
       ground.position.y = Math.min(
         floorHeight,
         T.MathUtils.damp(ground.position.y, floorHeight, 10, dt),
       );
+      if (Math.abs(ground.position.y - floorHeight) < 0.000001)
+        ground.position.y = floorHeight;
+      ground.updateMatrix();
       surfaceBounds.getSize(surfaceSize);
       const shadowExtent = Math.max(2, surfaceSize.length() * 0.62);
       studioRotation.copy(
@@ -1218,15 +1338,25 @@ export default function Viewport() {
       key.intensity = s.settings.lightIntensity;
       rim.position.set(4, 3, -5).applyQuaternion(studioRotation);
       fill.position.set(-5, 0, 1).applyQuaternion(studioRotation);
+      key.updateMatrix();
+      rim.updateMatrix();
+      fill.updateMatrix();
       rim.intensity = (s.settings.lightIntensity * 1.15) / 2.8;
       fill.intensity = (s.settings.lightIntensity * 0.55) / 2.8;
       scene.environmentRotation.setFromQuaternion(studioRotation);
       const shadowCamera = key.shadow.camera;
-      shadowCamera.left = shadowCamera.bottom = -shadowExtent;
-      shadowCamera.right = shadowCamera.top = shadowExtent;
-      shadowCamera.near = Math.max(0.1, lampDistance - shadowExtent * 2);
-      shadowCamera.far = lampDistance + shadowExtent * 2;
-      shadowCamera.updateProjectionMatrix();
+      if (shadowExtent !== previousShadowExtent) {
+        shadowCamera.left = shadowCamera.bottom = -shadowExtent;
+        shadowCamera.right = shadowCamera.top = shadowExtent;
+        shadowCamera.near = Math.max(0.1, lampDistance - shadowExtent * 2);
+        shadowCamera.far = lampDistance + shadowExtent * 2;
+        shadowCamera.updateProjectionMatrix();
+        previousShadowExtent = shadowExtent;
+        renderer.shadowMap.needsUpdate = true;
+      }
+      if (shapeChanged || !studioRotation.equals(previousStudioRotation))
+        renderer.shadowMap.needsUpdate = true;
+      previousStudioRotation.copy(studioRotation);
       key.shadow.radius = s.settings.quality === 'low' ? 1.5 : 2.5;
       const direction = camera.position
           .clone()
@@ -1317,14 +1447,11 @@ export default function Viewport() {
           fromY: (1 - origin.y) * 50,
         };
       }
-      if (now - visibilityAt > 60) {
-        visibilityAt = now;
-        if (
-          visible.join('') !== s.visibleFaces.join('') ||
-          JSON.stringify(anchors) !== JSON.stringify(s.faceAnchors)
-        )
-          patch({ visibleFaces: visible, faceAnchors: anchors });
-      }
+      if (
+        visible.join('') !== s.visibleFaces.join('') ||
+        JSON.stringify(anchors) !== JSON.stringify(s.faceAnchors)
+      )
+        patch({ visibleFaces: visible, faceAnchors: anchors });
       if (lastQuality !== s.settings.quality) {
         lastQuality = s.settings.quality;
         const shadowSize =
@@ -1339,6 +1466,7 @@ export default function Viewport() {
           key.shadow.mapSize.set(shadowSize, shadowSize);
           key.shadow.map?.dispose();
           key.shadow.map = null;
+          renderer.shadowMap.needsUpdate = true;
         }
         renderer.setPixelRatio(
           s.settings.quality === 'low'
@@ -1349,17 +1477,33 @@ export default function Viewport() {
               ),
         );
       }
+      scene.updateMatrixWorld();
       renderer.render(scene, camera);
       if (s.view === 'hidden' && !s.presentation) {
         renderer.autoClear = false;
         renderer.render(mappingScene, camera);
         renderer.autoClear = true;
       }
-      frame = requestAnimationFrame(render);
+      if (
+        !frame &&
+        (animation ||
+          targetCamera ||
+          currentExplode !== s.settings.explode ||
+          ground.position.y !== floorHeight ||
+          (s.settings.autoRotate && !drag && !down && !pinch && !s.solving))
+      )
+        frame = requestAnimationFrame(render);
     }
     void updateArt();
-    frame = requestAnimationFrame(render);
+    invalidate();
     patch({ ready: true });
+    const visibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      } else invalidate();
+    };
+    document.addEventListener('visibilitychange', visibility);
     const loss = (e: Event) => {
       e.preventDefault();
       setError('3D 显示连接已中断。请刷新页面恢复，已保存的方案会自动载入。');
@@ -1368,6 +1512,7 @@ export default function Viewport() {
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', visibility);
       if (animation?.magnetic)
         finishLayerTurn(animation.axis, animation.layers[0], animation.angle!);
       else animation?.resolve();
@@ -1416,4 +1561,4 @@ export default function Viewport() {
       )}
     </div>
   );
-}
+});

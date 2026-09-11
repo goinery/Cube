@@ -1,6 +1,13 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+/* Generate utilities for the studio and the UI primitives it actually uses. */
+@source '../main.tsx';
+@source '../index.html';
+@source '../components/cube';
+@source '../components/ui/select.tsx';
+@source '../components/ui/slider.tsx';
+@source '../components/ui/switch.tsx';
 @custom-variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--background);

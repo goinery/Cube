@@ -276,19 +276,21 @@ export async function startAutosave() {
   } catch {
     notify('浏览器存储不可用，可通过导出方案保留作品。');
   }
-  let signature = '';
+  let previous = getState();
   const unsub = subscribe(() => {
     const s = getState();
     if (s.busy || s.solving) return;
-    const current = [
-      s.cursor,
-      s.history.length,
-      s.artVersion,
-      JSON.stringify(s.settings),
-      JSON.stringify(s.partialTurns),
-    ].join('|');
-    if (current === signature) return;
-    signature = current;
+    if (
+      s.cursor === previous.cursor &&
+      s.history === previous.history &&
+      s.appearance === previous.appearance &&
+      s.settings === previous.settings &&
+      s.partialTurns === previous.partialTurns &&
+      s.scramble === previous.scramble &&
+      s.scrambleCursor === previous.scrambleCursor
+    )
+      return;
+    previous = s;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       if (active)

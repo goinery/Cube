@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   Zap,
   Route,
@@ -32,8 +32,16 @@ interface Blocked {
 function reducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
-export default function SolverPanel() {
-  const s = useCube(),
+export default memo(function SolverPanel() {
+  const s = useCube(
+      'cube',
+      'appearance',
+      'partialTurns',
+      'busy',
+      'solving',
+      'solveStatus',
+      'player',
+    ),
     [mode, setMode] = useState<SolveMode>('fast'),
     [pictures, setPictures] = useState<boolean | null>(null),
     [blocked, setBlocked] = useState<Blocked | null>(null),
@@ -260,4 +268,4 @@ export default function SolverPanel() {
       </div>
     </>
   );
-}
+});

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   ImagePlus,
   Upload,
@@ -40,8 +40,15 @@ import {
 } from '@/lib/cube/persistence';
 import { FaceGrid } from './FaceMaps';
 import { Range, Choice } from './Controls';
-export default function CustomizePanel() {
-  const s = useCube(),
+export default memo(function CustomizePanel() {
+  const s = useCube(
+      'selected',
+      'appearance',
+      'artVersion',
+      'editFace',
+      'busy',
+      'solving',
+    ),
     upload = useRef<HTMLInputElement>(null),
     importRef = useRef<HTMLInputElement>(null),
     preview = useRef<HTMLCanvasElement>(null),
@@ -624,4 +631,4 @@ export default function CustomizePanel() {
       </section>
     </>
   );
-}
+});

@@ -1,5 +1,5 @@
 'use client';
-import { useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import {
   solved,
   turn,
@@ -138,6 +138,12 @@ const initial = state,
   listeners = new Set<() => void>();
 export const getState = () => state;
 export function patch(update: Partial<AppState>) {
+  if (
+    (Object.keys(update) as (keyof AppState)[]).every((key) =>
+      Object.is(state[key], update[key]),
+    )
+  )
+    return;
   state = { ...state, ...update };
   listeners.forEach((fn) => fn());
 }
@@ -147,8 +153,37 @@ export function subscribe(fn: () => void) {
     listeners.delete(fn);
   };
 }
-export const useCube = () =>
-  useSyncExternalStore(subscribe, getState, () => initial);
+export function useCube(): AppState;
+export function useCube<K extends keyof AppState>(
+  ...keys: K[]
+): Pick<AppState, K>;
+export function useCube(...keys: (keyof AppState)[]) {
+  // Keep snapshots stable when only fields outside this component change.
+  const signature = keys.join('|');
+  const snapshots = useMemo(() => {
+    const selected = signature.split('|') as (keyof AppState)[];
+    let previous: AppState | undefined;
+    let snapshot: Partial<AppState>;
+    const pick = (s: AppState) =>
+      Object.fromEntries(selected.map((key) => [key, s[key]]));
+    const server = signature ? pick(initial) : initial;
+    return {
+      get: signature
+        ? () => {
+            if (
+              !previous ||
+              selected.some((key) => !Object.is(previous![key], state[key]))
+            )
+              snapshot = pick(state);
+            previous = state;
+            return snapshot;
+          }
+        : getState,
+      server: () => server,
+    };
+  }, [signature]);
+  return useSyncExternalStore(subscribe, snapshots.get, snapshots.server);
+}
 let noticeTimer: ReturnType<typeof setTimeout>;
 export function notify(notice: string) {
   patch({ notice });

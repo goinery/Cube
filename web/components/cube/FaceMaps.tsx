@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useMemo } from 'react';
+import { memo, useEffect, useRef, useMemo } from 'react';
 import {
   FACE,
   FACES,
@@ -8,7 +8,11 @@ import {
   type Face,
   type Facelet,
 } from '@/lib/cube/model';
-import { paintSticker } from '@/lib/cube/appearance';
+import {
+  paintSticker,
+  sameStickerArt,
+  type Appearance,
+} from '@/lib/cube/appearance';
 import { useCube, selectSticker, cameraActions } from '@/lib/cube/store';
 import { tileRadii } from '@/lib/cube/geometry';
 
@@ -21,14 +25,22 @@ export function StickerTile({
   onSelect: () => void;
   selected?: boolean;
 }) {
-  const s = useCube(),
-    canvas = useRef<HTMLCanvasElement>(null);
+  const s = useCube('appearance'),
+    canvas = useRef<HTMLCanvasElement>(null),
+    painted = useRef<{ id: string; appearance: Appearance } | null>(null);
   const radii = tileRadii(item.sticker.row, item.sticker.col);
   const quarter = ((Math.round(item.angle / 90) % 4) + 4) % 4;
   const borderRadius = radii
     .map((_, i) => `${radii[(i - quarter + 4) % 4] * 100}%`)
     .join(' ');
   useEffect(() => {
+    if (
+      painted.current?.id === item.sticker.id &&
+      sameStickerArt(painted.current.appearance, s.appearance, item.sticker.id)
+    ) {
+      painted.current.appearance = s.appearance;
+      return;
+    }
     let active = true;
     const c = document.createElement('canvas');
     void paintSticker(c, item.sticker.id, s.appearance, 160).then(() => {
@@ -36,12 +48,13 @@ export function StickerTile({
         canvas.current.width = 160;
         canvas.current.height = 160;
         canvas.current.getContext('2d')!.drawImage(c, 0, 0);
+        painted.current = { id: item.sticker.id, appearance: s.appearance };
       }
     });
     return () => {
       active = false;
     };
-  }, [s.artVersion, item.sticker.id, s.appearance]);
+  }, [item.sticker.id, s.appearance]);
   return (
     <button
       className={`sticker-tile ${selected ? 'selected' : ''}`}
@@ -55,7 +68,8 @@ export function StickerTile({
     </button>
   );
 }
-export function FaceGrid({
+const homeFaces = facelets(solved());
+export const FaceGrid = memo(function FaceGrid({
   face,
   home = false,
   large = false,
@@ -64,8 +78,8 @@ export function FaceGrid({
   home?: boolean;
   large?: boolean;
 }) {
-  const s = useCube(),
-    map = useMemo(() => facelets(home ? solved() : s.cube), [s.cube, home]);
+  const s = useCube('cube', 'selected', 'mode'),
+    map = useMemo(() => (home ? homeFaces : facelets(s.cube)), [s.cube, home]);
   return (
     <div className={`face-grid ${large ? 'large' : ''}`}>
       {map[face].map((item) => (
@@ -80,9 +94,9 @@ export function FaceGrid({
       ))}
     </div>
   );
-}
-export default function FaceMaps() {
-  const s = useCube();
+});
+export default memo(function FaceMaps() {
+  const s = useCube('view', 'presentation', 'visibleFaces', 'faceAnchors');
   if (s.view === 'normal' || s.presentation) return null;
   const faces =
     s.view === 'hidden'
@@ -148,4 +162,4 @@ export default function FaceMaps() {
       </div>
     </div>
   );
-}
+});

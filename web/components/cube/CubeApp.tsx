@@ -103,7 +103,25 @@ function sectionHeading(id: Mode) {
   );
 }
 export default function CubeApp() {
-  const s = useCube(),
+  const s = useCube(
+      'cube',
+      'partialTurns',
+      'busy',
+      'solving',
+      'mode',
+      'player',
+      'cursor',
+      'history',
+      'presentation',
+      'currentMove',
+      'view',
+      'settings',
+      'ready',
+      'scramble',
+      'scrambleCursor',
+      'selected',
+      'notice',
+    ),
     [algorithm, setAlgorithm] = useState("R U R' U'"),
     [modifier, setModifier] = useState(''),
     [animateScramble, setAnimateScramble] = useState(true),
@@ -137,7 +155,9 @@ export default function CubeApp() {
     if (!node || !scroller) return;
     setVisible(id);
     const motion = smooth && scrollerAnimates();
-    pendingJump.current = motion ? { mode: id, until: Date.now() + 1400 } : null;
+    pendingJump.current = motion
+      ? { mode: id, until: Date.now() + 1400 }
+      : null;
     scroller.scrollTo({
       top: scroller.scrollTop + offsetIn(node) - 2,
       behavior: motion ? 'smooth' : 'auto',

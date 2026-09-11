@@ -50,15 +50,67 @@ export function defaultAppearance(): Appearance {
     groups: {},
   };
 }
-const imageCache = new Map<string, HTMLImageElement>();
-export async function loadImage(src: string): Promise<HTMLImageElement> {
+// Cache in-flight decodes too: a nine-tile photo should decode only once.
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+const IMAGE_CACHE_LIMIT = 64;
+export function loadImage(src: string): Promise<HTMLImageElement> {
   const cached = imageCache.get(src);
-  if (cached) return cached;
+  if (cached) {
+    imageCache.delete(src);
+    imageCache.set(src, cached);
+    return cached;
+  }
   const img = new Image();
   img.src = src;
-  await img.decode();
-  imageCache.set(src, img);
-  return img;
+  const pending = img
+    .decode()
+    .then(() => img)
+    .catch((error) => {
+      if (imageCache.get(src) === pending) imageCache.delete(src);
+      throw error;
+    });
+  imageCache.set(src, pending);
+  if (imageCache.size > IMAGE_CACHE_LIMIT)
+    imageCache.delete(imageCache.keys().next().value!);
+  return pending;
+}
+export function sameStickerArt(
+  previous: Appearance | undefined,
+  next: Appearance,
+  id: string,
+) {
+  if (!previous) return false;
+  const a = previous.stickers[id],
+    b = next.stickers[id];
+  if (
+    a.color !== b.color ||
+    a.image !== b.image ||
+    a.group !== b.group ||
+    a.rotation !== b.rotation
+  )
+    return false;
+  const ga = a.group ? previous.groups[a.group] : undefined;
+  const gb = b.group ? next.groups[b.group] : undefined;
+  if (ga === gb) return true;
+  if (!ga || !gb) return false;
+  return (
+    ga.image === gb.image &&
+    ga.fit === gb.fit &&
+    ga.scale === gb.scale &&
+    ga.x === gb.x &&
+    ga.y === gb.y &&
+    ga.rotation === gb.rotation &&
+    ga.cropX === gb.cropX &&
+    ga.cropY === gb.cropY &&
+    ga.cropW === gb.cropW &&
+    ga.cropH === gb.cropH &&
+    ga.members.length === gb.members.length &&
+    ga.members.every((member, i) => member === gb.members[i]) &&
+    ga.bounds?.row === gb.bounds?.row &&
+    ga.bounds?.col === gb.bounds?.col &&
+    ga.bounds?.rows === gb.bounds?.rows &&
+    ga.bounds?.cols === gb.bounds?.cols
+  );
 }
 export function groupBounds(members: string[]) {
   const rows = members.map((id) => Math.floor(Number(id.slice(1)) / 3)),
@@ -164,6 +216,7 @@ export async function importImage(file: File): Promise<string> {
     imageCache.delete(url);
     return canvas.toDataURL('image/webp', 0.92);
   } finally {
+    imageCache.delete(url);
     URL.revokeObjectURL(url);
   }
 }
