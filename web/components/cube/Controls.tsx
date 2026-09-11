@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { notify } from '@/lib/cube/store';
@@ -32,8 +32,24 @@ export function Range({
   disabled?: boolean;
 }) {
   const id = useId(),
-    [draft, setDraft] = useState<string | null>(null);
+    [draft, setDraft] = useState<string | null>(null),
+    hostRef = useRef<HTMLDivElement>(null),
+    [epoch, setEpoch] = useState(0);
   useEffect(() => setDraft(null), [value]);
+  // 边对齐滑块在挂载时测量一次轨道位置。手机与横屏下的面板初始为 display:none，
+  // 此时测不到宽度，轨道与滑块会一直隐藏；容器重新可见时重挂载一次以重新测量。
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || typeof ResizeObserver === 'undefined') return;
+    let shown = host.offsetWidth > 0;
+    const observer = new ResizeObserver(() => {
+      const visible = host.offsetWidth > 0;
+      if (visible && !shown) setEpoch((n) => n + 1);
+      shown = visible;
+    });
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
   function commit(raw: string) {
     const text = raw.trim().replace(/[^0-9.eE+-]+$/, '');
     const parsed = text ? Number(text) : NaN;
@@ -51,7 +67,7 @@ export function Range({
     onChange(next);
   }
   return (
-    <div className="range-control">
+    <div className="range-control" ref={hostRef}>
       <div className="control-label">
         <label id={id}>{label}</label>
         <span className="value-input">
@@ -91,6 +107,7 @@ export function Range({
         </span>
       </div>
       <Slider
+        key={epoch}
         disabled={disabled}
         aria-labelledby={id}
         min={min}
