@@ -241,7 +241,7 @@ function alignmentFor(token: string) {
     ? partial
     : null;
 }
-export async function beginAlignedDrag(token: string) {
+export function beginAlignedDrag(token: string) {
   if (state.solving || state.busy || state.dragging || !allowMoves([token]))
     return false;
   pause();
@@ -254,7 +254,9 @@ export async function beginAlignedDrag(token: string) {
   const partial = alignmentFor(token);
   try {
     if (partial) {
-      await animateAlignment(partial);
+      void animateAlignment(partial).catch((error) => {
+        notify(error instanceof Error ? error.message : '归位未完成，请重试。');
+      });
       patch({ partialTurns: null });
     }
     return true;
@@ -335,15 +337,16 @@ export async function perform(
   patch({ busy: true, currentMove: token });
   try {
     const partial = alignmentFor(token);
-    if (partial) {
-      if (!instant) await animateAlignment(partial);
-      patch({ partialTurns: null });
-    }
+    const alignment = partial && !instant ? animateAlignment(partial) : null;
+    if (partial) patch({ partialTurns: null });
     if (!instant)
-      await animate(
-        token,
-        (310 / state.settings.speed) * (token.includes('2') ? 1.25 : 1),
-      );
+      await Promise.all([
+        alignment,
+        animate(
+          token,
+          (310 / state.settings.speed) * (token.includes('2') ? 1.25 : 1),
+        ),
+      ]);
     const cube = turn(state.cube, token),
       partialTurns = partialAfterMove(state.partialTurns, token);
     if (source === 'undo')

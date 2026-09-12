@@ -37,7 +37,6 @@ import {
   layerFace,
   stepMagnet,
   alignedPartialForTurn,
-  type PartialTurns,
 } from '@/lib/cube/interaction';
 import { createTileGeometry } from '@/lib/cube/geometry';
 import { createMechanics } from '@/lib/cube/mechanics';
@@ -488,18 +487,42 @@ export default memo(function Viewport() {
       models.set(p.id, { root, parts, source: p });
     }
     const targetOrientation = new T.Quaternion();
+    const identityRotation = new T.Quaternion();
     let alignment: {
-      partial: PartialTurns;
+      rotations: Map<string, T.Quaternion>;
+      progress: number;
       start: number;
       duration: number;
       resolve: () => void;
     } | null = null;
-    let aligningDrag = false;
     setAlignmentAnimator(
       (partial) =>
         new Promise<void>((resolve) => {
+          const rotations = new Map<string, T.Quaternion>();
+          const axis = new T.Vector3().setComponent(partial.axis, 1);
+          for (const piece of getState().cube) {
+            const basis = basisQuaternion(piece);
+            const rotation = basis
+              .clone()
+              .invert()
+              .multiply(
+                new T.Quaternion().setFromAxisAngle(
+                  axis,
+                  heldAngle(partial, partial.axis, piece.pos[partial.axis]),
+                ),
+              )
+              .multiply(basis);
+            const previous = alignment?.rotations.get(piece.id);
+            if (previous)
+              rotation.multiply(
+                previous.clone().slerp(identityRotation, alignment!.progress),
+              );
+            rotations.set(piece.id, rotation);
+          }
+          alignment?.resolve();
           alignment = {
-            partial,
+            rotations,
+            progress: 0,
             start: performance.now(),
             duration:
               (160 + Math.max(...partial.angles.map(Math.abs)) * 90) /
@@ -520,6 +543,7 @@ export default memo(function Viewport() {
         from: number;
         to: number;
         magnetic?: boolean;
+        layerTurn?: boolean;
         angle?: number;
         velocity?: number;
         start: number;
@@ -531,6 +555,8 @@ export default memo(function Viewport() {
       axis: number;
       layers: number[];
       angle: number;
+      targetAngle: number;
+      transition?: { start: number; duration: number };
       initialAngle: number;
       sx: number;
       sy: number;
@@ -946,9 +972,13 @@ export default memo(function Viewport() {
       layer: number,
       from: number,
       velocity = 0,
+      targetAngle = from,
     ) {
       const face = layerFace(axis, layer),
-        to = magneticTarget(from, velocity / 1000);
+        magnetic = getState().settings.magnetStrength > 0,
+        to = magnetic
+          ? magneticTarget(targetAngle, velocity / 1000)
+          : targetAngle;
       patch({ busy: true, dragging: true, currentMove: face + ' · 磁力归位' });
       animation = {
         token: face,
@@ -958,9 +988,10 @@ export default memo(function Viewport() {
         to,
         angle: from,
         velocity,
-        magnetic: true,
+        magnetic,
+        layerTurn: true,
         start: performance.now(),
-        duration: 0,
+        duration: 120 / getState().settings.speed,
         resolve: () => finishLayerTurn(axis, layer, to),
       };
       invalidate();
@@ -969,9 +1000,19 @@ export default memo(function Viewport() {
       if (!drag) return;
       const d = drag;
       drag = null;
-      if (cancelled || getState().settings.magnetStrength === 0)
+      if (
+        cancelled ||
+        (getState().settings.magnetStrength === 0 && !d.transition)
+      )
         finishLayerTurn(d.axis, d.layers[0], d.angle);
-      else settleLayer(d.axis, d.layers[0], d.angle, d.velocity * 1000);
+      else
+        settleLayer(
+          d.axis,
+          d.layers[0],
+          d.angle,
+          d.velocity * 1000,
+          d.targetAngle,
+        );
     }
     function onDown(e: PointerEvent) {
       invalidate();
@@ -996,7 +1037,7 @@ export default memo(function Viewport() {
           ['camera', 'explode'].includes(s.mode) ||
           e.button !== 0 ||
           e.shiftKey;
-      if (s.busy && !orbit) {
+      if (s.busy && !animation?.layerTurn && !orbit) {
         e.stopImmediatePropagation();
         return;
       }
@@ -1006,7 +1047,7 @@ export default memo(function Viewport() {
       targetCamera = null;
       targetLookAt = null;
     }
-    async function onMove(e: PointerEvent) {
+    function onMove(e: PointerEvent) {
       if (getState().solving) {
         e.stopImmediatePropagation();
         return;
@@ -1050,9 +1091,9 @@ export default memo(function Viewport() {
         e.stopImmediatePropagation();
         return;
       }
-      let dx = e.clientX - down.x,
+      const dx = e.clientX - down.x,
         dy = e.clientY - down.y;
-      const s = getState();
+      let s = getState();
       if (
         s.mode === 'customize' ||
         s.mode === 'inspect' ||
@@ -1060,7 +1101,13 @@ export default memo(function Viewport() {
       )
         return;
       if (!drag) {
-        if (Math.hypot(dx, dy) < 5 || s.busy) return;
+        if (Math.hypot(dx, dy) < 5 || (s.busy && !animation?.layerTurn)) return;
+        if (animation?.layerTurn) {
+          const a = animation;
+          animation = null;
+          finishLayerTurn(a.axis, a.layers[0], a.angle!);
+          s = getState();
+        }
         const hit = down.hit!,
           piece = s.cube.find((p) => p.id === hit.object.userData.piece)!;
         const normal = new T.Vector3(0, 0, 1)
@@ -1127,46 +1174,8 @@ export default memo(function Viewport() {
           best.face,
           s.settings.turnTolerance,
         );
-        if (aligned !== s.partialTurns) {
-          // Finish seating A before creating B's drag. Preserve the grab point
-          // and buffer pointer motion that arrives during the short transition.
-          const gesture = down;
-          const localHit = hit.object.worldToLocal(hit.point.clone());
-          aligningDrag = true;
-          e.stopImmediatePropagation();
-          const accepted = await beginAlignedDrag(best.face);
-          aligningDrag = false;
-          if (
-            disposed ||
-            !accepted ||
-            down !== gesture ||
-            pinch ||
-            !activePointers.has(gesture.id)
-          ) {
-            if (accepted)
-              patch({ busy: false, dragging: false, currentMove: '' });
-            return;
-          }
-          const latest = activePointers.get(gesture.id)!;
-          dx = latest.x - gesture.x;
-          dy = latest.y - gesture.y;
-          layoutPieces(currentExplode);
-          scene.updateMatrixWorld();
-          hit.point.copy(hit.object.localToWorld(localHit));
-          const tangent = new T.Vector3()
-            .setComponent(best.axis, 1)
-            .cross(hit.point);
-          const pa = hit.point.clone().project(camera);
-          const pb = hit.point
-            .clone()
-            .addScaledVector(tangent, 0.01)
-            .project(camera);
-          const sx = ((pb.x - pa.x) * el.clientWidth) / 0.02;
-          const sy = (-(pb.y - pa.y) * el.clientHeight) / 0.02;
-          const pixels = Math.hypot(sx, sy);
-          if (pixels >= 1)
-            Object.assign(best, { sx: sx / pixels, sy: sy / pixels, pixels });
-        }
+        const needsAlignment = aligned !== s.partialTurns;
+        if (needsAlignment && !beginAlignedDrag(best.face)) return;
         const spec = moveSpec(best.face);
         const initialAngle = heldAngle(aligned, best.axis, spec.layers[0]);
         drag = {
@@ -1174,6 +1183,10 @@ export default memo(function Viewport() {
           axis: best.axis,
           layers: spec.layers,
           angle: initialAngle,
+          targetAngle: initialAngle,
+          transition: needsAlignment
+            ? { start: performance.now(), duration: 120 / s.settings.speed }
+            : undefined,
           initialAngle,
           sx: best.sx,
           sy: best.sy,
@@ -1198,9 +1211,10 @@ export default memo(function Viewport() {
         );
       drag.velocity =
         drag.velocity * 0.45 +
-        ((angle - drag.angle) / Math.max(8, now - drag.time)) * 0.55;
+        ((angle - drag.targetAngle) / Math.max(8, now - drag.time)) * 0.55;
       drag.time = now;
-      drag.angle = angle;
+      drag.targetAngle = angle;
+      if (!drag.transition) drag.angle = angle;
       e.stopImmediatePropagation();
     }
     function onUp(e: PointerEvent) {
@@ -1211,7 +1225,6 @@ export default memo(function Viewport() {
         finishDrag();
       } else if (
         down &&
-        !aligningDrag &&
         !down.orbit &&
         Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8 &&
         down.hit &&
@@ -1290,7 +1303,9 @@ export default memo(function Viewport() {
     const previousStudioRotation = new T.Quaternion(0, 0, 0, 0);
     const lampDistance = 30;
     const turnAxis = new T.Vector3(),
-      turnRotation = new T.Quaternion();
+      turnRotation = new T.Quaternion(),
+      localAlignment = new T.Quaternion(),
+      inverseOrientation = new T.Quaternion();
     let coreInner = NaN,
       coreMagnets: boolean | undefined;
     function render(now: number) {
@@ -1341,21 +1356,32 @@ export default memo(function Viewport() {
       if (alignment) {
         const a = alignment;
         const t = Math.min(1, (now - a.start) / a.duration);
-        const eased = t * t * (3 - 2 * t);
-        turnAxis.set(0, 0, 0).setComponent(a.partial.axis, 1);
+        a.progress = t * t * (3 - 2 * t);
         for (const piece of s.cube) {
-          const angle = a.partial.angles[piece.pos[a.partial.axis] + 1];
-          if (!angle) continue;
+          const rotation = a.rotations.get(piece.id);
+          if (!rotation) continue;
           const root = models.get(piece.id)!.root;
-          turnRotation.setFromAxisAngle(turnAxis, -angle * eased);
+          // Local offsets follow a piece even when another layer commits mid-snap.
+          localAlignment.copy(rotation).slerp(identityRotation, a.progress);
+          inverseOrientation.copy(root.quaternion).invert();
+          turnRotation
+            .copy(root.quaternion)
+            .multiply(localAlignment)
+            .multiply(inverseOrientation);
           root.position.applyQuaternion(turnRotation);
-          root.quaternion.premultiply(turnRotation);
+          root.quaternion.multiply(localAlignment);
           root.updateMatrix();
         }
         if (t === 1) {
           alignment = null;
           a.resolve();
         }
+      }
+      if (drag?.transition) {
+        const { start, duration } = drag.transition;
+        const t = T.MathUtils.smoothstep(now, start, start + duration);
+        drag.angle = T.MathUtils.lerp(drag.initialAngle, drag.targetAngle, t);
+        if (t === 1) drag.transition = undefined;
       }
       if (animation || drag) {
         const a = animation;
@@ -1393,14 +1419,14 @@ export default memo(function Viewport() {
             if (s.settings.easing === 'smooth') t = raw * raw * (3 - 2 * raw);
             else if (s.settings.easing === 'magnetic')
               t = 1 - Math.pow(1 - raw, 3);
-            angle = a.from + (a.to - a.from) * t;
+            a.angle = angle = a.from + (a.to - a.from) * t;
             if (raw === 1) {
               animation = null;
               a.resolve();
             }
           }
         }
-        if (drag || a?.magnetic)
+        if (drag || a?.layerTurn)
           angle -= heldAngle(s.partialTurns, axis, layers[0]);
         const q = turnRotation.setFromAxisAngle(
           turnAxis.set(0, 0, 0).setComponent(axis, 1),
@@ -1655,6 +1681,7 @@ export default memo(function Viewport() {
         !frame &&
         (animation ||
           alignment ||
+          drag?.transition ||
           targetCamera ||
           currentExplode !== s.settings.explode ||
           ground.position.y !== floorHeight ||
@@ -1683,7 +1710,7 @@ export default memo(function Viewport() {
       setAlignmentAnimator(async () => {});
       cancelAnimationFrame(frame);
       document.removeEventListener('visibilitychange', visibility);
-      if (animation?.magnetic)
+      if (animation?.layerTurn)
         finishLayerTurn(animation.axis, animation.layers[0], animation.angle!);
       else animation?.resolve();
       setAnimator(async () => {});
