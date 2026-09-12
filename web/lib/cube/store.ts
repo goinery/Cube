@@ -13,6 +13,8 @@ import { defaultAppearance, type Appearance } from './appearance';
 import {
   canTurnSequence,
   partialAfterMove,
+  alignedPartialForTurn,
+  partialAfterAllowedMove,
   layerFace,
   moveForAngle,
   QUARTER,
@@ -44,6 +46,7 @@ export interface Settings {
   showMagnets: boolean;
   magnetStrength: number;
   magnetDamping: number;
+  turnTolerance: number;
 }
 export const defaultSettings = (): Settings => ({
   explode: 0,
@@ -53,7 +56,7 @@ export const defaultSettings = (): Settings => ({
   internal: 1,
   speed: 1,
   easing: 'magnetic',
-  roughness: 0.3,
+  roughness: 0.24,
   autoRotate: false,
   lightFollowCamera: true,
   lightAzimuth: -31,
@@ -63,6 +66,7 @@ export const defaultSettings = (): Settings => ({
   showMagnets: true,
   magnetStrength: 1,
   magnetDamping: 0.7,
+  turnTolerance: 10,
 });
 export interface Stage {
   name: string;
@@ -223,12 +227,49 @@ export function selectSticker(id: string, multiple = true) {
 }
 export type Animator = (move: string, duration: number) => Promise<void>;
 let animate: Animator = async () => {};
+let animateAlignment: (partial: PartialTurns) => Promise<void> = async () => {};
 export function setAnimator(fn: Animator) {
   animate = fn;
 }
+export function setAlignmentAnimator(fn: typeof animateAlignment) {
+  animateAlignment = fn;
+}
+function alignmentFor(token: string) {
+  const partial = state.partialTurns;
+  return alignedPartialForTurn(partial, token, state.settings.turnTolerance) !==
+    partial
+    ? partial
+    : null;
+}
+export async function beginAlignedDrag(token: string) {
+  if (state.solving || state.busy || state.dragging || !allowMoves([token]))
+    return false;
+  pause();
+  patch({
+    busy: true,
+    dragging: true,
+    player: null,
+    currentMove: token + ' · 对齐',
+  });
+  const partial = alignmentFor(token);
+  try {
+    if (partial) {
+      await animateAlignment(partial);
+      patch({ partialTurns: null });
+    }
+    return true;
+  } catch (error) {
+    patch({ busy: false, dragging: false, currentMove: '' });
+    notify(error instanceof Error ? error.message : '归位未完成，请重试。');
+    return false;
+  }
+}
 export function allowMoves(moves: string[]): boolean {
-  if (canTurnSequence(state.partialTurns, moves)) return true;
-  notify('有转层尚未对齐，不能转动垂直层。请沿原轴拖动对齐，或开启磁力归位。');
+  if (canTurnSequence(state.partialTurns, moves, state.settings.turnTolerance))
+    return true;
+  notify(
+    `转层偏差超出 ${state.settings.turnTolerance}° 容错范围。请沿原轴拖动对齐，或增大转层容错角度。`,
+  );
   return false;
 }
 export function finishLayerTurn(axis: number, layer: number, angle: number) {
@@ -293,6 +334,11 @@ export async function perform(
   }
   patch({ busy: true, currentMove: token });
   try {
+    const partial = alignmentFor(token);
+    if (partial) {
+      if (!instant) await animateAlignment(partial);
+      patch({ partialTurns: null });
+    }
     if (!instant)
       await animate(
         token,
@@ -404,7 +450,11 @@ export async function seek(index: number) {
       ? p.moves.slice(target, p.index).reverse().map(inverseMove)
       : p.moves.slice(p.index, target);
   if (!allowMoves(moves)) return;
-  const partialTurns = moves.reduce(partialAfterMove, state.partialTurns);
+  const partialTurns = moves.reduce(
+    (partial, token) =>
+      partialAfterAllowedMove(partial, token, state.settings.turnTolerance),
+    state.partialTurns,
+  );
   if (target < p.index) {
     const count = p.index - target;
     patch({
@@ -436,7 +486,11 @@ export function applyInstant(moves: string[], title?: string) {
     history = [...state.history.slice(0, state.cursor), ...moves];
   patch({
     cube: apply(state.cube, moves),
-    partialTurns: moves.reduce(partialAfterMove, state.partialTurns),
+    partialTurns: moves.reduce(
+      (partial, token) =>
+        partialAfterAllowedMove(partial, token, state.settings.turnTolerance),
+      state.partialTurns,
+    ),
     history,
     cursor: history.length,
     player: title

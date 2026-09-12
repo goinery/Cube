@@ -142,6 +142,7 @@ export function validateProject(value: unknown): Project {
     roughness: [0.18, 0.65],
     magnetStrength: [0, 2],
     magnetDamping: [0.05, 2],
+    turnTolerance: [0, 45],
     lightAzimuth: [-180, 180],
     lightElevation: [-80, 80],
     lightIntensity: [0, 5],

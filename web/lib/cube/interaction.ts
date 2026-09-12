@@ -12,13 +12,47 @@ export function layerFace(axis: number, layer: number): string {
     ['B', 'S', 'F'],
   ][axis][layer + 1];
 }
-export function canTurn(partial: PartialTurns | null, token: string): boolean {
+export function withinTurnTolerance(
+  partial: PartialTurns | null,
+  degrees: number,
+) {
+  if (!partial || !partial.angles.some(Boolean)) return true;
+  if (!Number.isFinite(degrees) || degrees <= 0) return false;
+  const radians = (Math.min(degrees, 45) * Math.PI) / 180;
+  return partial.angles.every((angle) => Math.abs(angle) <= radians + 1e-10);
+}
+export function canTurn(
+  partial: PartialTurns | null,
+  token: string,
+  tolerance = 0,
+): boolean {
   const move = moveSpec(token);
   return (
     !partial ||
     !partial.angles.some(Boolean) ||
     partial.axis === move.axis ||
-    move.layers.length === 3
+    move.layers.length === 3 ||
+    withinTurnTolerance(partial, tolerance)
+  );
+}
+/** The logical cube already records the nearest quarter-turn in finishLayerTurn. */
+export function alignedPartialForTurn(
+  partial: PartialTurns | null,
+  token: string,
+  tolerance: number,
+) {
+  return !canTurn(partial, token) && withinTurnTolerance(partial, tolerance)
+    ? null
+    : partial;
+}
+export function partialAfterAllowedMove(
+  partial: PartialTurns | null,
+  token: string,
+  tolerance: number,
+) {
+  return partialAfterMove(
+    alignedPartialForTurn(partial, token, tolerance),
+    token,
   );
 }
 export function partialAfterMove(
@@ -41,10 +75,14 @@ export function partialAfterMove(
         : [-partial.angles[2], -partial.angles[1], -partial.angles[0]],
   };
 }
-export function canTurnSequence(partial: PartialTurns | null, moves: string[]) {
+export function canTurnSequence(
+  partial: PartialTurns | null,
+  moves: string[],
+  tolerance = 0,
+) {
   for (const token of moves) {
-    if (!canTurn(partial, token)) return false;
-    partial = partialAfterMove(partial, token);
+    if (!canTurn(partial, token, tolerance)) return false;
+    partial = partialAfterAllowedMove(partial, token, tolerance);
   }
   return true;
 }

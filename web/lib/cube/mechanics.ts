@@ -141,7 +141,7 @@ export function magnetMounts(piece: Piece) {
 export function createMechanics(materials: Materials) {
   const panel = innerPanel(true),
     plainPanel = sidePanel();
-  const backing = new RoundedBoxGeometry(0.84, 0.84, 0.045, 3, 0.018);
+  const backing = new RoundedBoxGeometry(0.97, 0.97, 0.065, 3, 0.06);
   const rib = new RoundedBoxGeometry(0.07, 0.56, 0.07, 2, 0.014);
   const socket = tube(0.112, 0.084, 0.058);
   const magnet = new T.CylinderGeometry(0.081, 0.081, 0.03, 32).rotateX(

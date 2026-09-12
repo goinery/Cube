@@ -16,6 +16,8 @@ import {
   patch,
   subscribe,
   setAnimator,
+  setAlignmentAnimator,
+  beginAlignedDrag,
   finishLayerTurn,
   allowMoves,
   selectSticker,
@@ -34,9 +36,15 @@ import {
   heldAngle,
   layerFace,
   stepMagnet,
+  alignedPartialForTurn,
+  type PartialTurns,
 } from '@/lib/cube/interaction';
 import { createTileGeometry } from '@/lib/cube/geometry';
 import { createMechanics } from '@/lib/cube/mechanics';
+import {
+  CubeRenderOptimizer,
+  isHierarchyVisible,
+} from '@/lib/cube/render-optimizer';
 import {
   PRODUCT_DIRECTION,
   PRODUCT_OCCUPANCY,
@@ -50,6 +58,7 @@ import { projectionTransform, facesProjection } from '@/lib/cube/projection';
 import {
   createPlasticGrain,
   createChassisRelief,
+  createContactShadow,
   StudioEnvironment,
 } from '@/lib/cube/studio';
 
@@ -111,10 +120,10 @@ export default memo(function Viewport() {
     renderer.setClearColor(0, 0);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.autoUpdate = false;
-    renderer.shadowMap.type = T.PCFShadowMap;
+    renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1;
+    renderer.toneMappingExposure = 0.78;
     renderer.domElement.setAttribute(
       'aria-label',
       '交互式 3D 魔方：拖动表面转层，拖动空白旋转视角',
@@ -134,10 +143,10 @@ export default memo(function Viewport() {
     const pmrem = new T.PMREMGenerator(renderer),
       env = pmrem.fromScene(environment, 0.035);
     scene.environment = env.texture;
-    scene.environmentIntensity = 0.85;
+    scene.environmentIntensity = 0.5;
     environment.dispose();
     pmrem.dispose();
-    scene.add(new T.HemisphereLight(0xeaf0ff, 0x20242a, 0.85));
+    scene.add(new T.HemisphereLight(0xf2f4f7, 0x17191d, 0.4));
     const key = new T.DirectionalLight(0xfff3e6, 2.8);
     key.position.set(-3, 7, 5);
     key.castShadow = true;
@@ -153,14 +162,14 @@ export default memo(function Viewport() {
     const rim = new T.DirectionalLight(0xd6e5ff, 1.15);
     rim.position.set(4, 3, -5);
     scene.add(rim);
-    const fill = new T.DirectionalLight(0xffffff, 0.55);
-    fill.position.set(-5, 0, 1);
+    const fill = new T.DirectionalLight(0xfffbf5, 1.2);
+    fill.position.set(6, 1, 5);
     scene.add(fill);
     const ground = new T.Mesh(
       new T.PlaneGeometry(100, 100),
       new T.ShadowMaterial({
         color: '#101720',
-        opacity: 0.32,
+        opacity: 0.1,
         depthWrite: false,
       }),
     );
@@ -168,9 +177,22 @@ export default memo(function Viewport() {
     ground.position.y = -1.65;
     ground.receiveShadow = true;
     scene.add(ground);
+    const contactTexture = createContactShadow();
+    const contactShadow = new T.Mesh(
+      new T.PlaneGeometry(1, 1),
+      new T.MeshBasicMaterial({
+        map: contactTexture,
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false,
+        opacity: 0.55,
+      }),
+    );
+    contactShadow.rotation.x = -Math.PI / 2;
+    scene.add(contactShadow);
     const grain = createPlasticGrain(renderer.capabilities.getMaxAnisotropy());
     const plastic = new T.MeshPhysicalMaterial({
-      color: '#151c23',
+      color: '#101114',
       roughness: 0.46,
       metalness: 0,
       ior: 1.48,
@@ -205,8 +227,6 @@ export default memo(function Viewport() {
       roughness: 0.4,
       metalness: 0,
       ior: 1.48,
-      transparent: true,
-      opacity: 0.9,
     });
     const core = new T.Group();
     scene.add(core);
@@ -259,8 +279,8 @@ export default memo(function Viewport() {
       renderer.capabilities.getMaxAnisotropy(),
     );
     const chassisMaterial = plastic.clone();
-    chassisMaterial.color.set('#1d2428');
-    chassisMaterial.roughness = 0.34;
+    chassisMaterial.color.set('#121416');
+    chassisMaterial.roughness = 0.42;
     chassisMaterial.bumpMap = relief;
     chassisMaterial.map = relief;
     chassisMaterial.bumpScale = 0.02;
@@ -312,6 +332,12 @@ export default memo(function Viewport() {
       if (p.kind !== 'center') {
         buildMechanics(p, part);
       } else {
+        const backing = new T.Mesh(
+          new RoundedBoxGeometry(0.95, 0.95, 0.065, 3, 0.065),
+          plastic,
+        );
+        backing.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), radial);
+        part(backing, radial.clone().multiplyScalar(0.37), radial, 0.45);
         const carriage = new T.Mesh(
           new T.LatheGeometry(
             [
@@ -419,15 +445,15 @@ export default memo(function Viewport() {
           normal = v3(f.n);
         const material = new T.MeshPhysicalMaterial({
           color: COLORS[s.face],
-          roughness: 0.3,
+          roughness: 0.24,
           metalness: 0,
           ior: 1.48,
-          specularIntensity: 0.9,
-          clearcoat: 0.22,
-          clearcoatRoughness: 0.23,
+          specularIntensity: 0.75,
+          clearcoat: 0.2,
+          clearcoatRoughness: 0.13,
           vertexColors: true,
           bumpMap: grain,
-          bumpScale: 0.0012,
+          bumpScale: 0.00022,
           roughnessMap: grain,
         });
         const shapeKey = `${s.row},${s.col}`;
@@ -462,6 +488,27 @@ export default memo(function Viewport() {
       models.set(p.id, { root, parts, source: p });
     }
     const targetOrientation = new T.Quaternion();
+    let alignment: {
+      partial: PartialTurns;
+      start: number;
+      duration: number;
+      resolve: () => void;
+    } | null = null;
+    let aligningDrag = false;
+    setAlignmentAnimator(
+      (partial) =>
+        new Promise<void>((resolve) => {
+          alignment = {
+            partial,
+            start: performance.now(),
+            duration:
+              (160 + Math.max(...partial.angles.map(Math.abs)) * 90) /
+              getState().settings.speed,
+            resolve,
+          };
+          invalidate();
+        }),
+    );
     let lastArt = -1,
       currentExplode = getState().settings.explode,
       targetCamera: T.Vector3 | null = null,
@@ -590,6 +637,43 @@ export default memo(function Viewport() {
       mesh.add(outline);
       selectedOutlines.set(id, outline);
     }
+    // Development comparison uses the identical model with optimization off.
+    const optimize =
+      !import.meta.env.DEV ||
+      new URLSearchParams(location.search).get('renderOptimization') !== 'off';
+    const mechanicalMeshes: T.Mesh[] = [];
+    for (const model of models.values())
+      model.root.traverse((object) => {
+        if (object instanceof T.Mesh && object.userData.component)
+          mechanicalMeshes.push(object);
+      });
+    core.traverse((object) => {
+      if (object instanceof T.Mesh) mechanicalMeshes.push(object);
+    });
+    const optimizer = optimize
+      ? new CubeRenderOptimizer(mechanicalMeshes, [...stickers.values()])
+      : null;
+    if (optimizer) {
+      scene.add(optimizer.group);
+      // Three collects the colour draw list before invoking the shadow pass.
+      // Swap only the shadow sources inside that pass, then restore the view.
+      const drawShadows = renderer.shadowMap.render.bind(renderer.shadowMap);
+      renderer.shadowMap.render = (lights, shadowScene, shadowCamera) => {
+        if (!renderer.shadowMap.enabled || !renderer.shadowMap.needsUpdate)
+          return drawShadows(lights, shadowScene, shadowCamera);
+        optimizer.prepareShadow();
+        try {
+          drawShadows(lights, shadowScene, shadowCamera);
+        } finally {
+          optimizer.restoreCamera();
+        }
+      };
+    }
+    if (import.meta.env.DEV)
+      Object.defineProperty(renderer.domElement, 'renderStats', {
+        configurable: true,
+        get: () => optimizer?.stats,
+      });
     // Fixed mechanical details keep their local matrices until layout changes.
     scene.traverse((object) => {
       object.updateMatrix();
@@ -633,7 +717,8 @@ export default memo(function Viewport() {
           invalidate();
         }),
     );
-    let boundsDirty = true;
+    let boundsDirty = true,
+      optimizerBoundsDirty = true;
     let layoutState: ReturnType<typeof getState> | undefined,
       layoutExplode = NaN,
       wasTurning = false;
@@ -650,7 +735,7 @@ export default memo(function Viewport() {
         s.settings.internal !== before.internal ||
         s.settings.stickerOffset !== before.stickerOffset ||
         s.settings.showMagnets !== before.showMagnets;
-      const turning = Boolean(animation || drag);
+      const turning = Boolean(animation || drag || alignment);
       const shapeChanged =
         partsChanged ||
         s.cube !== layoutState?.cube ||
@@ -666,6 +751,7 @@ export default memo(function Viewport() {
       if (!shapeChanged && !materialChanged) return false;
       if (shapeChanged) {
         boundsDirty = true;
+        optimizerBoundsDirty = true;
         renderer.shadowMap.needsUpdate = true;
       }
       for (const p of s.cube) {
@@ -700,7 +786,7 @@ export default memo(function Viewport() {
           if (materialChanged) {
             const material = mesh.material as T.MeshPhysicalMaterial;
             material.roughness = s.settings.roughness;
-            material.clearcoatRoughness = 0.16 + s.settings.roughness * 0.25;
+            material.clearcoatRoughness = 0.07 + s.settings.roughness * 0.25;
           }
         }
         if (s.partialTurns) {
@@ -810,6 +896,7 @@ export default memo(function Viewport() {
     }
     const raycaster = new T.Raycaster(),
       pointer = new T.Vector2();
+    raycaster.layers.enable(1);
     let down: {
       x: number;
       y: number;
@@ -840,7 +927,9 @@ export default memo(function Viewport() {
         (-(e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const visible = hitMeshes.filter((m) => m.visible && m.parent?.visible);
+      const visible = hitMeshes.filter(
+        (m) => isHierarchyVisible(m) && (!optimizer || optimizer.isVisible(m)),
+      );
       return (
         raycaster.intersectObjects(
           visible.filter((m) => m.userData.mapping),
@@ -917,7 +1006,7 @@ export default memo(function Viewport() {
       targetCamera = null;
       targetLookAt = null;
     }
-    function onMove(e: PointerEvent) {
+    async function onMove(e: PointerEvent) {
       if (getState().solving) {
         e.stopImmediatePropagation();
         return;
@@ -961,9 +1050,9 @@ export default memo(function Viewport() {
         e.stopImmediatePropagation();
         return;
       }
-      const dx = e.clientX - down.x,
-        dy = e.clientY - down.y,
-        s = getState();
+      let dx = e.clientX - down.x,
+        dy = e.clientY - down.y;
+      const s = getState();
       if (
         s.mode === 'customize' ||
         s.mode === 'inspect' ||
@@ -1033,12 +1122,53 @@ export default memo(function Viewport() {
           down = null;
           return;
         }
-        const spec = moveSpec(best.face);
-        const initialAngle = heldAngle(
+        const aligned = alignedPartialForTurn(
           s.partialTurns,
-          best.axis,
-          spec.layers[0],
+          best.face,
+          s.settings.turnTolerance,
         );
+        if (aligned !== s.partialTurns) {
+          // Finish seating A before creating B's drag. Preserve the grab point
+          // and buffer pointer motion that arrives during the short transition.
+          const gesture = down;
+          const localHit = hit.object.worldToLocal(hit.point.clone());
+          aligningDrag = true;
+          e.stopImmediatePropagation();
+          const accepted = await beginAlignedDrag(best.face);
+          aligningDrag = false;
+          if (
+            disposed ||
+            !accepted ||
+            down !== gesture ||
+            pinch ||
+            !activePointers.has(gesture.id)
+          ) {
+            if (accepted)
+              patch({ busy: false, dragging: false, currentMove: '' });
+            return;
+          }
+          const latest = activePointers.get(gesture.id)!;
+          dx = latest.x - gesture.x;
+          dy = latest.y - gesture.y;
+          layoutPieces(currentExplode);
+          scene.updateMatrixWorld();
+          hit.point.copy(hit.object.localToWorld(localHit));
+          const tangent = new T.Vector3()
+            .setComponent(best.axis, 1)
+            .cross(hit.point);
+          const pa = hit.point.clone().project(camera);
+          const pb = hit.point
+            .clone()
+            .addScaledVector(tangent, 0.01)
+            .project(camera);
+          const sx = ((pb.x - pa.x) * el.clientWidth) / 0.02;
+          const sy = (-(pb.y - pa.y) * el.clientHeight) / 0.02;
+          const pixels = Math.hypot(sx, sy);
+          if (pixels >= 1)
+            Object.assign(best, { sx: sx / pixels, sy: sy / pixels, pixels });
+        }
+        const spec = moveSpec(best.face);
+        const initialAngle = heldAngle(aligned, best.axis, spec.layers[0]);
         drag = {
           face: best.face,
           axis: best.axis,
@@ -1081,6 +1211,7 @@ export default memo(function Viewport() {
         finishDrag();
       } else if (
         down &&
+        !aligningDrag &&
         !down.orbit &&
         Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8 &&
         down.hit &&
@@ -1170,6 +1301,7 @@ export default memo(function Viewport() {
       const s = getState();
       if (
         !animation &&
+        !alignment &&
         !drag &&
         !down &&
         !pinch &&
@@ -1206,6 +1338,25 @@ export default memo(function Viewport() {
         });
       coreInner = inner;
       coreMagnets = s.settings.showMagnets;
+      if (alignment) {
+        const a = alignment;
+        const t = Math.min(1, (now - a.start) / a.duration);
+        const eased = t * t * (3 - 2 * t);
+        turnAxis.set(0, 0, 0).setComponent(a.partial.axis, 1);
+        for (const piece of s.cube) {
+          const angle = a.partial.angles[piece.pos[a.partial.axis] + 1];
+          if (!angle) continue;
+          const root = models.get(piece.id)!.root;
+          turnRotation.setFromAxisAngle(turnAxis, -angle * eased);
+          root.position.applyQuaternion(turnRotation);
+          root.quaternion.premultiply(turnRotation);
+          root.updateMatrix();
+        }
+        if (t === 1) {
+          alignment = null;
+          a.resolve();
+        }
+      }
       if (animation || drag) {
         const a = animation;
         let angle = drag?.angle || 0,
@@ -1294,6 +1445,7 @@ export default memo(function Viewport() {
       if (
         s.settings.autoRotate &&
         !animation &&
+        !alignment &&
         !drag &&
         !down &&
         !pinch &&
@@ -1321,6 +1473,14 @@ export default memo(function Viewport() {
         ground.position.y = floorHeight;
       ground.updateMatrix();
       surfaceBounds.getSize(surfaceSize);
+      contactShadow.position.set(
+        (surfaceBounds.min.x + surfaceBounds.max.x) / 2,
+        ground.position.y + 0.002,
+        (surfaceBounds.min.z + surfaceBounds.max.z) / 2,
+      );
+      contactShadow.scale.set(surfaceSize.x * 1.65, surfaceSize.z * 1.65, 1);
+      contactShadow.material.opacity = 0.55 / (1 + currentExplode * 2);
+      contactShadow.updateMatrix();
       const shadowExtent = Math.max(2, surfaceSize.length() * 0.62);
       studioRotation.copy(
         lightRotation(
@@ -1337,12 +1497,12 @@ export default memo(function Viewport() {
       key.target.position.set(0, 0, 0);
       key.intensity = s.settings.lightIntensity;
       rim.position.set(4, 3, -5).applyQuaternion(studioRotation);
-      fill.position.set(-5, 0, 1).applyQuaternion(studioRotation);
+      fill.position.set(6, 1, 5).applyQuaternion(studioRotation);
       key.updateMatrix();
       rim.updateMatrix();
       fill.updateMatrix();
       rim.intensity = (s.settings.lightIntensity * 1.15) / 2.8;
-      fill.intensity = (s.settings.lightIntensity * 0.55) / 2.8;
+      fill.intensity = (s.settings.lightIntensity * 1.2) / 2.8;
       scene.environmentRotation.setFromQuaternion(studioRotation);
       const shadowCamera = key.shadow.camera;
       if (shadowExtent !== previousShadowExtent) {
@@ -1478,6 +1638,13 @@ export default memo(function Viewport() {
         );
       }
       scene.updateMatrixWorld();
+      if (optimizer) {
+        if (optimizerBoundsDirty) {
+          optimizer.updateBounds();
+          optimizerBoundsDirty = false;
+        }
+        optimizer.prepareCamera(camera);
+      }
       renderer.render(scene, camera);
       if (s.view === 'hidden' && !s.presentation) {
         renderer.autoClear = false;
@@ -1487,6 +1654,7 @@ export default memo(function Viewport() {
       if (
         !frame &&
         (animation ||
+          alignment ||
           targetCamera ||
           currentExplode !== s.settings.explode ||
           ground.position.y !== floorHeight ||
@@ -1511,6 +1679,8 @@ export default memo(function Viewport() {
     renderer.domElement.addEventListener('webglcontextlost', loss);
     return () => {
       disposed = true;
+      alignment?.resolve();
+      setAlignmentAnimator(async () => {});
       cancelAnimationFrame(frame);
       document.removeEventListener('visibilitychange', visibility);
       if (animation?.magnetic)
@@ -1542,8 +1712,10 @@ export default memo(function Viewport() {
       mats.forEach((m) => m.dispose());
       textures.forEach((t) => t.dispose());
       ghostMaterials.forEach((m) => m.dispose());
+      optimizer?.dispose();
       grain.dispose();
       relief.dispose();
+      contactTexture.dispose();
       key.shadow.dispose();
       env.dispose();
       renderer.dispose();

@@ -53,7 +53,7 @@ import {
   type View,
 } from '@/lib/cube/store';
 import { FACES, COLORS, isSolved, scramble, type Face } from '@/lib/cube/model';
-import { canTurn } from '@/lib/cube/interaction';
+import { canTurn, withinTurnTolerance } from '@/lib/cube/interaction';
 
 const modes: [Mode, string, typeof Box][] = [
   ['play', '玩魔方', Box],
@@ -599,13 +599,33 @@ export default function CubeApp() {
                   disabled={s.solving}
                   onChange={(v) => settings({ magnetDamping: v })}
                 />
+                <Range
+                  label="转层容错角度"
+                  value={s.settings.turnTolerance}
+                  disabled={s.solving}
+                  min={0}
+                  max={45}
+                  step={1}
+                  digits={0}
+                  unit="°"
+                  onChange={(v) => settings({ turnTolerance: v })}
+                />
+                <p className="microcopy">
+                  转动垂直层时，先将容错范围内的错位层平滑归位，再转动新层。设为
+                  0° 时要求严格对齐。
+                </p>
                 <p className="microcopy">
                   强度为 0
                   时可停在任意角度。阻尼越低，归位回弹越明显；越高，回弹越小。
                 </p>
                 {s.partialTurns && (
                   <p className="help-text" aria-live="polite">
-                    转层尚未对齐：可继续沿原轴转动，垂直转层已禁用。开启磁力可自动归位。
+                    {withinTurnTolerance(
+                      s.partialTurns,
+                      s.settings.turnTolerance,
+                    )
+                      ? `错位在 ${s.settings.turnTolerance}° 容错范围内：转动垂直层时会自动就近归位。`
+                      : `错位超出 ${s.settings.turnTolerance}° 容错范围：请先沿原轴对齐，或增大容错角度。`}
                   </p>
                 )}
               </section>
@@ -694,10 +714,19 @@ export default function CubeApp() {
                         key={f}
                         onClick={() => void perform(f + modifier)}
                         disabled={
-                          locked || !canTurn(s.partialTurns, f + modifier)
+                          locked ||
+                          !canTurn(
+                            s.partialTurns,
+                            f + modifier,
+                            s.settings.turnTolerance,
+                          )
                         }
                         title={
-                          !canTurn(s.partialTurns, f + modifier)
+                          !canTurn(
+                            s.partialTurns,
+                            f + modifier,
+                            s.settings.turnTolerance,
+                          )
                             ? '请先对齐错位转层'
                             : undefined
                         }

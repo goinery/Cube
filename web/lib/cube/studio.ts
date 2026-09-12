@@ -52,7 +52,7 @@ export class StudioEnvironment extends Scene {
       new Mesh(
         new BoxGeometry(40, 40, 40),
         new MeshBasicMaterial({
-          color: '#343940',
+          color: '#45494f',
           side: BackSide,
         }),
       ),
@@ -77,10 +77,14 @@ export class StudioEnvironment extends Scene {
       light.lookAt(new Vector3());
       this.add(light);
     };
-    softbox([-5, 6, 7], 7, 9, '#fff4e7', 8);
-    softbox([7, 2, 4], 2.4, 8, '#e6efff', 5);
-    softbox([1, 9, -2], 6, 5, '#ffffff', 5);
-    softbox([-3, 3, -7], 3, 7, '#eaf0ff', 4);
+    softbox([-5, 6, 7], 5, 9, '#fffaf3', 2.5);
+    softbox([7, 2, 4], 2, 8, '#eef4ff', 2);
+    softbox([1, 9, -2], 5, 4, '#ffffff', 2);
+    softbox([-3, 3, -7], 2, 7, '#f4f7ff', 1.8);
+    // Reflection cards sit below the camera's horizon: the side caps reflect
+    // this part of the studio at the elevated product-view angle.
+    softbox([8, -3, -6], 1.6, 8, '#ffffff', 2.2);
+    softbox([-8, -2, -6], 2, 8, '#ffffff', 1.6);
   }
   dispose() {
     const geometries = new Set<BoxGeometry | PlaneGeometry>();
@@ -92,6 +96,19 @@ export class StudioEnvironment extends Scene {
     });
     geometries.forEach((geometry) => geometry.dispose());
   }
+}
+
+export function createContactShadow() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+  const gradient = ctx.createRadialGradient(64, 64, 12, 64, 64, 64);
+  gradient.addColorStop(0, 'rgba(0,0,0,0.5)');
+  gradient.addColorStop(0.45, 'rgba(0,0,0,0.3)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 128);
+  return new CanvasTexture(canvas);
 }
 
 export function createPlasticGrain(anisotropy: number) {

@@ -96,7 +96,7 @@ export const cubeTools: PageTool[] = [
         throw new Error(
           'The cube is busy. Wait for playback or solving to finish.',
         );
-      if (!canTurnSequence(s.partialTurns, moves))
+      if (!canTurnSequence(s.partialTurns, moves, s.settings.turnTolerance))
         throw new Error(
           'Align the held layers before turning a perpendicular layer.',
         );
@@ -121,8 +121,7 @@ export function registerCubeTools() {
       void Promise.resolve(
         context.registerTool(tool, { signal: lifecycle.signal }),
       ).catch(() => {});
-    } catch {
-    }
+    } catch {}
   }
   return () => lifecycle.abort();
 }

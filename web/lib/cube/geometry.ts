@@ -1,8 +1,8 @@
 import {
   BufferGeometry,
-  ExtrudeGeometry,
   Float32BufferAttribute,
-  Shape,
+  Vector2,
+  Vector3,
 } from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Sticker } from './model';
@@ -27,49 +27,155 @@ export function smoothBevels(geometry: BufferGeometry) {
 }
 
 export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
-  const [tl, tr, br, bl] = tileRadii(sticker.row, sticker.col);
-  const h = 0.484,
-    shape = new Shape();
-  shape.moveTo(-h + bl, -h);
-  shape.lineTo(h - br, -h);
-  shape.quadraticCurveTo(h, -h, h, -h + br);
-  shape.lineTo(h, h - tr);
-  shape.quadraticCurveTo(h, h, h - tr, h);
-  shape.lineTo(-h + tl, h);
-  shape.quadraticCurveTo(-h, h, -h, h - tl);
-  shape.lineTo(-h, -h + bl);
-  shape.quadraticCurveTo(-h, -h, -h + bl, -h);
-  shape.closePath();
-  const geometry = new ExtrudeGeometry(shape, {
-    depth: 0.072,
-    bevelEnabled: true,
-    bevelThickness: 0.014,
-    bevelSize: 0.014,
-    bevelSegments: 5,
-    curveSegments: 20,
-    steps: 1,
-  });
-  geometry.translate(0, 0, -0.036);
-  const positions = geometry.getAttribute('position'),
-    uv = geometry.getAttribute('uv');
-  for (let i = 0; i < uv.count; i++)
-    uv.setXY(
-      i,
-      positions.getX(i) / 0.996 + 0.5,
-      positions.getY(i) / 0.996 + 0.5,
-    );
-  const smooth = smoothBevels(geometry);
-  const positionsSmooth = smooth.getAttribute('position');
-  const colors = new Float32Array(positionsSmooth.count * 3);
-  for (let i = 0; i < positionsSmooth.count; i++) {
-    const depth = Math.max(
-      0,
-      Math.min(1, (positionsSmooth.getZ(i) + 0.036) / 0.072),
-    );
-    const shade = 0.86 + 0.14 * depth * depth * (3 - 2 * depth);
-    colors.set([shade, shade, shade], i * 3);
+  const outline = tileOutline(sticker.row, sticker.col),
+    positions: number[] = [],
+    normals: number[] = [],
+    uv: number[] = [],
+    colors: number[] = [],
+    indices: number[] = [];
+  // Indexed profile rings give the cap a rolled lip and a very slight crown.
+  // Small corners use fewer samples; the larger centre-facing curves stay smooth.
+  const profile = [
+    [0.968, -0.05],
+    [0.99, -0.044],
+    [1, -0.03],
+    [1, 0.019],
+    [0.997, 0.03],
+    [0.989, 0.04],
+    [0.976, 0.047],
+    [0.958, 0.05],
+    [0.82, 0.054],
+    [0.52, 0.058],
+  ];
+  const vertex = (x: number, y: number, z: number) => {
+    positions.push(x, y, z);
+    uv.push(x / 0.996 + 0.5, y / 0.996 + 0.5);
+    const shade = z < 0.019 ? 0.82 + ((z + 0.05) / 0.069) * 0.18 : 1;
+    colors.push(shade, shade, shade);
+  };
+  const lipNormals = [
+    [0, -1],
+    [0.707, -0.707],
+    [1, 0],
+    [1, 0],
+    [0.924, 0.383],
+    [0.707, 0.707],
+    [0.383, 0.924],
+  ];
+  const normal = new Vector3();
+  for (const [ring, [scale, z]] of profile.entries())
+    for (const { point, outward } of outline) {
+      const x = point.x * scale,
+        y = point.y * scale;
+      if (ring >= 7) {
+        const h2 = 0.498 ** 2;
+        vertex(x, y, 0.05 + 0.01 * (1 - (x * x) / h2) * (1 - (y * y) / h2));
+        normal
+          .set(
+            ((0.02 * x) / h2) * (1 - (y * y) / h2),
+            ((0.02 * y) / h2) * (1 - (x * x) / h2),
+            1,
+          )
+          .normalize();
+      } else {
+        vertex(x, y, z);
+        const [radial, axial] = lipNormals[ring];
+        normal.set(outward.x * radial, outward.y * radial, axial).normalize();
+      }
+      normals.push(...normal.toArray());
+    }
+  const count = outline.length;
+  for (let ring = 0; ring < profile.length - 1; ring++)
+    for (let i = 0; i < count; i++) {
+      const a = ring * count + i,
+        b = ring * count + ((i + 1) % count),
+        c = a + count,
+        d = b + count;
+      indices.push(a, b, c, b, d, c);
+    }
+  const front = positions.length / 3;
+  vertex(0, 0, 0.06);
+  normals.push(0, 0, 1);
+  const back = positions.length / 3;
+  vertex(0, 0, -0.05);
+  normals.push(0, 0, -1);
+  for (let i = 0; i < count; i++) {
+    const next = (i + 1) % count,
+      lastRing = (profile.length - 1) * count;
+    indices.push(lastRing + i, lastRing + next, front, next, i, back);
   }
-  smooth.setAttribute('color', new Float32BufferAttribute(colors, 3));
-  smooth.computeBoundingBox();
-  return smooth;
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  // This convex polygon is inside the solid cap at z=0.019, including its bevel.
+  geometry.userData.occluder = outline.map((p) => [
+    p.point.x * 0.995,
+    p.point.y * 0.995,
+    0.019,
+  ]);
+  return geometry;
+}
+
+function tileOutline(row: number, col: number) {
+  const radii = tileRadii(row, col),
+    h = 0.498;
+  const points: { point: Vector2; outward: Vector2 }[] = [];
+  // Counterclockwise quadratic corners, matching the face-map silhouettes.
+  for (const [index, x, y] of [
+    [2, 1, -1],
+    [1, 1, 1],
+    [0, -1, 1],
+    [3, -1, -1],
+  ]) {
+    const radius = radii[index] + 0.014;
+    const corner = new Vector2(x * h, y * h);
+    const start = corner
+      .clone()
+      .add(new Vector2(y < 0 ? -x * radius : 0, y > 0 ? -y * radius : 0));
+    const end = corner
+      .clone()
+      .add(new Vector2(y > 0 ? -x * radius : 0, y < 0 ? -y * radius : 0));
+    // The top-left / bottom-left corners run in the opposite axis order.
+    if (x < 0) {
+      const temp = start.clone();
+      start.copy(end);
+      end.copy(temp);
+    }
+    const segments = radius < 0.1 ? 4 : 12;
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments,
+        u = 1 - t;
+      const tangent = corner
+        .clone()
+        .sub(start)
+        .multiplyScalar(u)
+        .addScaledVector(end.clone().sub(corner), t)
+        .normalize();
+      points.push({
+        point: start
+          .clone()
+          .multiplyScalar(u * u)
+          .addScaledVector(corner, 2 * u * t)
+          .addScaledVector(end, t * t),
+        outward: new Vector2(tangent.y, -tangent.x),
+      });
+    }
+  }
+  return points.flatMap((p, i) => {
+    const next = points[(i + 1) % points.length];
+    return p.point.distanceTo(next.point) > 0.2
+      ? [
+          p,
+          {
+            point: p.point.clone().lerp(next.point, 0.5),
+            outward: p.outward.clone().lerp(next.outward, 0.5).normalize(),
+          },
+        ]
+      : [p];
+  });
 }

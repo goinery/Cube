@@ -2,12 +2,12 @@ export type Vec = [number, number, number];
 export type Face = 'U' | 'R' | 'F' | 'D' | 'L' | 'B';
 export const FACES: Face[] = ['U', 'R', 'F', 'D', 'L', 'B'];
 export const COLORS: Record<Face, string> = {
-  U: '#eeeae0',
-  R: '#cd4d46',
-  F: '#409d79',
-  D: '#e8c34c',
-  L: '#e68c45',
-  B: '#5185ce',
+  U: '#f2f3f5',
+  R: '#ed211a',
+  F: '#08a665',
+  D: '#ffd52b',
+  L: '#ff851c',
+  B: '#0767eb',
 };
 export const FACE: Record<Face, { n: Vec; r: Vec; u: Vec; name: string }> = {
   U: { n: [0, 1, 0], r: [1, 0, 0], u: [0, 0, -1], name: '上' },
