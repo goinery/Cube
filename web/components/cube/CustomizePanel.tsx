@@ -22,10 +22,12 @@ import {
   paintSticker,
   loadImage,
   drawGroup,
+  applyImageGroup,
   type ImageGroup,
 } from '@/lib/cube/appearance';
 import {
   useCube,
+  getState,
   patch,
   setAppearance,
   notify,
@@ -39,7 +41,9 @@ import {
   importProject,
 } from '@/lib/cube/persistence';
 import { FaceGrid } from './FaceMaps';
-import { Range, Choice } from './Controls';
+import { Range } from './Controls';
+import ImageTransformControls from './ImageTransformControls';
+import ImagePreviewDialog, { type ImageDraft } from './ImagePreviewDialog';
 export default memo(function CustomizePanel() {
   const s = useCube(
       'selected',
@@ -53,6 +57,7 @@ export default memo(function CustomizePanel() {
     importRef = useRef<HTMLInputElement>(null),
     preview = useRef<HTMLCanvasElement>(null),
     [loading, setLoading] = useState(false),
+    [draft, setDraft] = useState<ImageDraft | null>(null),
     [text, setText] = useState('AXIS');
   const first = s.selected[0],
     firstArt = first ? s.appearance.stickers[first] : null;
@@ -115,23 +120,16 @@ export default memo(function CustomizePanel() {
     setLoading(true);
     try {
       const image = await importImage(file);
-      const a = removeFromGroups(s.appearance, s.selected),
-        id = crypto.randomUUID();
-      a.groups[id] = {
-        id,
-        members: [...s.selected],
-        image,
-        bounds: groupBounds(s.selected),
-        ...defaultTransform(),
-      };
-      for (const sid of s.selected)
-        a.stickers[sid] = { ...a.stickers[sid], group: id, rotation: 0 };
-      setAppearance(a);
-      notify(
-        s.selected.length === 9
-          ? '整面照片已分配到 9 个真实贴片。'
-          : `图片已分配到 ${s.selected.length} 个贴片。`,
-      );
+      setDraft({
+        replacing: false,
+        group: {
+          id: crypto.randomUUID(),
+          members: [...s.selected],
+          image,
+          bounds: groupBounds(s.selected),
+          ...defaultTransform(),
+        },
+      });
     } catch (e) {
       notify((e as Error).message);
     } finally {
@@ -142,13 +140,26 @@ export default memo(function CustomizePanel() {
     if (!group) return;
     setLoading(true);
     try {
-      updateGroup({ image: await importImage(file) });
-      notify('图片已替换，保留当前裁切设置。');
+      setDraft({
+        replacing: true,
+        group: { ...group, image: await importImage(file) },
+      });
     } catch (e) {
       notify((e as Error).message);
     } finally {
       setLoading(false);
     }
+  }
+  function applyDraft(group: ImageGroup) {
+    const current = getState();
+    if (!draft || current.solving) return;
+    setAppearance(applyImageGroup(current.appearance, group, !draft.replacing));
+    patch({
+      selected: [...group.members],
+      editFace: group.members[0][0] as Face,
+    });
+    setDraft(null);
+    notify(`图片已应用到 ${group.members.length} 个贴片。`);
   }
   async function dissolve() {
     if (!group) return;
@@ -249,7 +260,7 @@ export default memo(function CustomizePanel() {
         </button>
       </div>
       <p className="microcopy">
-        点击格子多选。整面选中后上传，9
+        点击格子多选。上传后可预览并调整，确认后应用。整面选中时，9
         格共同组成一张照片。打乱时图片跟随实体块。
       </p>
       <input
@@ -276,7 +287,7 @@ export default memo(function CustomizePanel() {
               ? '上传整面照片'
               : '创建图片组 / 上传图片'}
         </strong>
-        <span>PNG · JPG · WebP / 最多 25 MB</span>
+        <span>先预览再应用 · PNG / JPG / WebP · 最多 25 MB</span>
       </button>
       <div className="color-control">
         <span>所选贴片颜色</span>
@@ -322,94 +333,11 @@ export default memo(function CustomizePanel() {
               <canvas ref={preview} />
             </div>
           </div>
-          <Choice
-            label="图片适配"
-            value={group.fit}
-            options={[
-              ['fill', 'Fill / 覆盖'],
-              ['fit', 'Fit / 完整'],
-              ['crop', 'Crop / 裁切'],
-            ]}
-            onChange={(v) => updateGroup({ fit: v as ImageGroup['fit'] })}
-          />
-          <Range
-            label="缩放"
-            value={group.scale}
-            min={0.1}
-            max={4}
-            onChange={(scale) => updateGroup({ scale })}
-            unit="×"
-          />
-          <Range
-            label="水平偏移"
-            value={group.x}
-            min={-1}
-            max={1}
-            onChange={(x) => updateGroup({ x })}
-          />
-          <Range
-            label="垂直偏移"
-            value={group.y}
-            min={-1}
-            max={1}
-            onChange={(y) => updateGroup({ y })}
-          />
-          <Range
-            label="图片旋转"
-            value={group.rotation}
-            min={-180}
-            max={180}
-            step={1}
-            digits={0}
-            unit="°"
-            onChange={(rotation) => updateGroup({ rotation })}
-          />
-          {group.fit === 'crop' && (
-            <div className="crop-controls">
-              <Range
-                label="裁切左边界"
-                value={group.cropX}
-                min={0}
-                max={0.95}
-                onChange={(cropX) =>
-                  updateGroup({
-                    cropX,
-                    cropW: Math.min(group.cropW, 1 - cropX),
-                  })
-                }
-              />
-              <Range
-                label="裁切上边界"
-                value={group.cropY}
-                min={0}
-                max={0.95}
-                onChange={(cropY) =>
-                  updateGroup({
-                    cropY,
-                    cropH: Math.min(group.cropH, 1 - cropY),
-                  })
-                }
-              />
-              <Range
-                label="裁切宽度"
-                value={group.cropW}
-                min={0.05}
-                max={1 - group.cropX}
-                onChange={(cropW) => updateGroup({ cropW })}
-              />
-              <Range
-                label="裁切高度"
-                value={group.cropH}
-                min={0.05}
-                max={1 - group.cropY}
-                onChange={(cropH) => updateGroup({ cropH })}
-              />
-            </div>
-          )}
+          <ImageTransformControls value={group} onChange={updateGroup} />
           <div className="image-actions">
-            <button onClick={() => updateGroup(defaultTransform())}>
-              <RotateCcw size={14} />
-              居中重置
+            <button onClick={() => setDraft({ replacing: true, group })}>
+              <ImagePlus size={14} />
+              打开预览调整
             </button>
             <label className="file-button">
               <Upload size={14} />
@@ -417,6 +345,7 @@ export default memo(function CustomizePanel() {
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
+                disabled={loading}
                 hidden
                 onChange={(e) => {
                   if (e.target.files?.[0]) void replaceImage(e.target.files[0]);
@@ -511,25 +440,25 @@ export default memo(function CustomizePanel() {
           {[
             ['原厂', Object.values(COLORS)],
             [
-              '矿物',
+              '霓虹',
               [
-                '#ded9cd',
-                '#a15e50',
-                '#6c9985',
-                '#cfb666',
-                '#c18a61',
-                '#627e99',
+                '#ffffff',
+                '#ff1744',
+                '#00e676',
+                '#ffea00',
+                '#aa00ff',
+                '#0091ff',
               ],
             ],
             [
-              '石墨',
+              '撞色',
               [
-                '#e9e8e0',
-                '#484d50',
-                '#757e75',
-                '#afb5a4',
-                '#92928a',
-                '#636d75',
+                '#fff4cf',
+                '#e6007e',
+                '#00c9d4',
+                '#ffe000',
+                '#ff6500',
+                '#253acb',
               ],
             ],
           ].map(([label, colors]) => (
@@ -546,7 +475,7 @@ export default memo(function CustomizePanel() {
               }}
             >
               <span>
-                {(colors as string[]).slice(0, 4).map((c) => (
+                {(colors as string[]).map((c) => (
                   <i key={c} style={{ background: c }} />
                 ))}
               </span>
@@ -629,6 +558,16 @@ export default memo(function CustomizePanel() {
           恢复全部默认外观 <RotateCcw size={15} />
         </button>
       </section>
+      {draft && (
+        <ImagePreviewDialog
+          key={draft.group.id}
+          draft={draft}
+          appearance={s.appearance}
+          disabled={s.solving}
+          onCancel={() => setDraft(null)}
+          onApply={applyDraft}
+        />
+      )}
     </>
   );
 });

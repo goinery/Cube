@@ -237,3 +237,17 @@ export function removeFromGroups(
 }
 export const faceIds = (face: Face) =>
   Array.from({ length: 9 }, (_, i) => face + i);
+
+export function applyImageGroup(
+  appearance: Appearance,
+  group: ImageGroup,
+  resetRotation = true,
+): Appearance {
+  const next = removeFromGroups(appearance, group.members);
+  next.groups[group.id] = structuredClone(group);
+  for (const id of group.members) {
+    next.stickers[id].group = group.id;
+    if (resetRotation) next.stickers[id].rotation = 0;
+  }
+  return next;
+}

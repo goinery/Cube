@@ -10,6 +10,8 @@ import {
   type Face,
 } from './model';
 import { defaultAppearance, type Appearance } from './appearance';
+import { defaultKeybindings, type Keybindings } from './keybindings';
+import { defaultAlgorithmPresets, type AlgorithmPreset } from './algorithms';
 import {
   canTurnSequence,
   partialAfterMove,
@@ -29,6 +31,8 @@ export type Mode =
   | 'inspect';
 export type View = 'normal' | 'hidden' | 'six' | 'net';
 export interface Settings {
+  algorithmPresets: AlgorithmPreset[];
+  keybindings: Keybindings;
   explode: number;
   gap: number;
   size: number;
@@ -49,6 +53,8 @@ export interface Settings {
   turnTolerance: number;
 }
 export const defaultSettings = (): Settings => ({
+  algorithmPresets: defaultAlgorithmPresets(),
+  keybindings: defaultKeybindings(),
   explode: 0,
   gap: 0.006,
   size: 1,

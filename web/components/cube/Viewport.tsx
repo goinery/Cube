@@ -24,6 +24,7 @@ import {
   cameraActions,
   notify,
   pause,
+  settings,
 } from '@/lib/cube/store';
 import {
   paintSticker,
@@ -929,6 +930,10 @@ export default memo(function Viewport() {
       id: number;
       hit?: T.Intersection<T.Object3D>;
       orbit: boolean;
+      startX: number;
+      startY: number;
+      moved: boolean;
+      blankTap: boolean;
     } | null = null;
     const activePointers = new Map<number, { x: number; y: number }>();
     let pinch: {
@@ -1041,7 +1046,17 @@ export default memo(function Viewport() {
         e.stopImmediatePropagation();
         return;
       }
-      down = { x: e.clientX, y: e.clientY, id: e.pointerId, hit, orbit };
+      down = {
+        x: e.clientX,
+        y: e.clientY,
+        id: e.pointerId,
+        hit,
+        orbit,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+        blankTap: s.presentation && !hit && e.button === 0,
+      };
       renderer.domElement.setPointerCapture(e.pointerId);
       e.stopImmediatePropagation();
       targetCamera = null;
@@ -1076,6 +1091,8 @@ export default memo(function Viewport() {
         return;
       }
       if (!down || down.id !== e.pointerId) return;
+      if (Math.hypot(e.clientX - down.startX, e.clientY - down.startY) >= 8)
+        down.moved = true;
       if (down.orbit) {
         const dx = e.clientX - down.x,
           dy = e.clientY - down.y;
@@ -1220,9 +1237,19 @@ export default memo(function Viewport() {
     function onUp(e: PointerEvent) {
       invalidate();
       activePointers.delete(e.pointerId);
+      if (down && down.id !== e.pointerId) return;
       if (drag && down?.id === e.pointerId) {
         if (performance.now() - drag.time > 90) drag.velocity = 0;
         finishDrag();
+      } else if (
+        down?.blankTap &&
+        !down.moved &&
+        Math.hypot(e.clientX - down.startX, e.clientY - down.startY) < 8 &&
+        getState().presentation &&
+        !getState().solving &&
+        !hitAt(e)
+      ) {
+        settings({ autoRotate: !getState().settings.autoRotate });
       } else if (
         down &&
         !down.orbit &&
@@ -1245,7 +1272,8 @@ export default memo(function Viewport() {
         down &&
         down.orbit &&
         !drag &&
-        Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8 &&
+        !down.moved &&
+        Math.hypot(e.clientX - down.startX, e.clientY - down.startY) < 8 &&
         getState().selected.length &&
         !getState().solving
       ) {

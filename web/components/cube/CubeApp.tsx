@@ -15,7 +15,6 @@ import {
   Eye,
   ArrowUpRight,
   MousePointer2,
-  Keyboard,
   Copy,
   Focus,
   CircleStop,
@@ -23,6 +22,8 @@ import {
 import Viewport from './Viewport';
 import FaceMaps from './FaceMaps';
 import CustomizePanel from './CustomizePanel';
+import KeybindingsPanel from './KeybindingsPanel';
+import AlgorithmLab from './AlgorithmLab';
 import SolverPanel from './SolverPanel';
 import { startAutosave } from '@/lib/cube/persistence';
 import { registerCubeTools } from '@/lib/cube/webmcp';
@@ -42,7 +43,6 @@ import {
   play,
   applyInstant,
   allowMoves,
-  runAlgorithm,
   replayHistory,
   stopReplay,
   HISTORY_REPLAY_TITLE,
@@ -54,6 +54,11 @@ import {
 } from '@/lib/cube/store';
 import { FACES, COLORS, isSolved, scramble, type Face } from '@/lib/cube/model';
 import { canTurn, withinTurnTolerance } from '@/lib/cube/interaction';
+import {
+  formatShortcut,
+  keyboardShortcut,
+  shortcutActions,
+} from '@/lib/cube/keybindings';
 
 const modes: [Mode, string, typeof Box][] = [
   ['play', '玩魔方', Box],
@@ -122,7 +127,6 @@ export default function CubeApp() {
       'selected',
       'notice',
     ),
-    [algorithm, setAlgorithm] = useState("R U R' U'"),
     [modifier, setModifier] = useState(''),
     [animateScramble, setAnimateScramble] = useState(true),
     [sheet, setSheet] = useState(() => matches(phoneLayout)),
@@ -293,31 +297,37 @@ export default function CubeApp() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (
-        (e.target as HTMLElement).closest(
-          'input,textarea,select,[contenteditable=true],[role=slider],[role=combobox]',
-        )
+        e.defaultPrevented ||
+        e.isComposing ||
+        (e.target instanceof HTMLElement &&
+          e.target.closest(
+            'input,textarea,select,[contenteditable]:not([contenteditable=false]),[role=slider],[role=combobox],[role=dialog]',
+          ))
       )
         return;
-      if (e.key === 'Escape') {
-        setPresentation(false);
+      // Keep the keybinding disclosure accessible with the keyboard.
+      if (
+        (e.code === 'Space' || e.code === 'Enter') &&
+        e.target instanceof HTMLElement &&
+        e.target.closest('summary')
+      )
         return;
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        void (e.shiftKey ? redo() : undo());
-        return;
-      }
-      if (!e.ctrlKey && !e.metaKey && /^[rludfb]$/i.test(e.key)) {
-        e.preventDefault();
-        void perform(
-          e.key.toUpperCase() + (e.altKey ? '2' : e.shiftKey ? "'" : ''),
-        );
-      }
-      if (e.code === 'Space') {
-        e.preventDefault();
-        if (getState().player?.playing) pause();
+      const shortcut = keyboardShortcut(e);
+      if (!shortcut) return;
+      const state = getState();
+      const action = shortcutActions.find(
+        (key) => state.settings.keybindings[key] === shortcut,
+      );
+      if (!action || state.solving) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (action === 'exitPresentation') setPresentation(false);
+      else if (action === 'undo') void undo();
+      else if (action === 'redo') void redo();
+      else if (action === 'playPause') {
+        if (state.player?.playing) pause();
         else void play();
-      }
+      } else void perform(action);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -444,6 +454,12 @@ export default function CubeApp() {
           inert={s.solving}
         >
           <Viewport />
+          {s.presentation && (
+            <div className="presentation-hint" aria-live="polite">
+              {s.settings.autoRotate ? '自动旋转中' : '自动旋转已暂停'} ·
+              点击空白{s.settings.autoRotate ? '暂停' : '继续'}
+            </div>
+          )}
           {s.solving && (
             <div className="solve-lock" aria-live="polite">
               正在计算 · 魔方已锁定 · 可在求解面板终止
@@ -739,40 +755,9 @@ export default function CubeApp() {
                       </button>
                     ))}
                   </div>
-                  <p className="microcopy">
-                    <Keyboard size={14} /> R L U D F B · Shift 反向 · Alt 半转
-                  </p>
+                  <KeybindingsPanel />
                 </section>
-                <section className="panel-section">
-                  <div className="section-head">
-                    <h3>算法实验室</h3>
-                    <span className="tag">NOTATION</span>
-                  </div>
-                  <textarea
-                    aria-label="输入魔方算法"
-                    value={algorithm}
-                    onChange={(e) => setAlgorithm(e.target.value)}
-                    spellCheck={false}
-                  />
-                  <div className="algorithm-presets">
-                    <button onClick={() => setAlgorithm("R U R' U'")}>
-                      性感公式
-                    </button>
-                    <button onClick={() => setAlgorithm('R2 L2 U2 D2 F2 B2')}>
-                      棋盘格
-                    </button>
-                    <button onClick={() => setAlgorithm("R U R' U R U2 R'")}>
-                      Sune
-                    </button>
-                  </div>
-                  <button
-                    className="wide-button"
-                    disabled={locked}
-                    onClick={() => runAlgorithm(algorithm)}
-                  >
-                    播放算法 <ArrowUpRight size={16} />
-                  </button>
-                </section>
+                <AlgorithmLab />
               </>
             </section>
             <section {...blockProps('explode')}>
@@ -1025,7 +1010,13 @@ export default function CubeApp() {
                 >
                   进入展示模式 <Expand size={17} />
                 </button>
-                <p className="microcopy">按 Esc 或右上角眼睛按钮退出展示。</p>
+                <p className="microcopy">
+                  点击空白暂停 / 继续自动旋转。
+                  {s.settings.keybindings.exitPresentation
+                    ? `按 ${formatShortcut(s.settings.keybindings.exitPresentation)} 或点击`
+                    : '点击'}
+                  右上角眼睛按钮退出展示。
+                </p>
               </>
             </section>
             <section {...blockProps('inspect')}>

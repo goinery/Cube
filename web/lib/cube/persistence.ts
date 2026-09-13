@@ -11,6 +11,8 @@ import {
 import { parseAlgorithm, apply, solved, toFaceletString } from './model';
 import { QUARTER, type PartialTurns } from './interaction';
 import { defaultAppearance, type Appearance } from './appearance';
+import { validateKeybindings } from './keybindings';
+import { validateAlgorithmPresets } from './algorithms';
 export interface Project {
   version: 1;
   name: string;
@@ -148,6 +150,11 @@ export function validateProject(value: unknown): Project {
     lightIntensity: [0, 5],
   };
   const settings = defaultSettings();
+  settings.keybindings = validateKeybindings(p.settings?.keybindings);
+  if (p.settings?.algorithmPresets !== undefined)
+    settings.algorithmPresets = validateAlgorithmPresets(
+      p.settings.algorithmPresets,
+    );
   for (const [k, [min, max]] of Object.entries(limits)) {
     const v = p.settings?.[k as keyof Settings];
     if (finite(v, min, max))
