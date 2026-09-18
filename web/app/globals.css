@@ -208,6 +208,26 @@ h3 {
 .icon-button:hover {
   background: #ffffff09;
 }
+.autosave-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b2b8b1;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.autosave-switch label {
+  cursor: pointer;
+}
+.autosave-switch [data-slot='switch'] {
+  flex-shrink: 0;
+}
+/* 窄于 359px 时头部放不下文字标签，只留开关；名称由 aria-label 提供。 */
+@media (max-width: 359px) {
+  .autosave-switch label {
+    display: none;
+  }
+}
 .workspace {
   display: flex;
   flex: 1;
@@ -242,12 +262,6 @@ h3 {
   outline: none;
   touch-action: none;
 }
-.stage-heading {
-  position: absolute;
-  top: 35px;
-  left: 36px;
-  pointer-events: none;
-}
 .eyebrow {
   display: block;
   font-family: var(--font-mono);
@@ -256,34 +270,14 @@ h3 {
   font-weight: 450;
   color: #9ba49c;
 }
-.stage-heading .eyebrow {
-  font-size: 11px;
-  color: #abb3aa;
-}
 .eyebrow span {
   color: #6c7870;
   padding-left: 9px;
 }
-.stage-heading h1 {
-  font-size: 31px;
-  font-weight: 450;
-  letter-spacing: 2px;
-  margin-top: 13px;
-}
-.stage-heading p {
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: #88918a;
-  margin-top: 13px;
-}
-.stage-heading p span {
-  margin: 0 9px;
-  color: #5f6b64;
-}
 .stage-state {
   position: absolute;
   left: 36px;
-  top: 166px;
+  top: 35px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -417,30 +411,10 @@ h3 {
   margin-bottom: 0;
   padding-bottom: 10px;
 }
-.panel-block > .panel-heading .eyebrow {
-  transition: color 0.2s;
-}
-.panel-block.active > .panel-heading .eyebrow {
-  color: #c7d5ad;
-}
 .panel-block > .magnetic-controls {
   border-top: 0;
   margin-top: 0;
   padding-top: 0;
-}
-.panel-heading {
-  margin-bottom: 27px;
-}
-.panel-heading .eyebrow {
-  color: #8b9c8a;
-  font-size: 10px;
-  letter-spacing: 1.9px;
-}
-.panel-heading h2 {
-  font-size: 18px;
-  font-weight: 450;
-  letter-spacing: 0.3px;
-  margin-top: 12px;
 }
 .primary-button,
 .secondary-button,
@@ -601,6 +575,11 @@ h3 {
   border: 1px solid #424e3b;
   padding: 3px 5px;
   border-radius: 4px;
+  white-space: nowrap;
+}
+.tag.off {
+  color: #7d8580;
+  border-color: #383e3c;
 }
 .panel-section textarea {
   width: 100%;
@@ -1527,7 +1506,6 @@ h3 {
   border-radius: 6px;
 }
 .presentation .control-panel,
-.presentation .stage-heading,
 .presentation .stage-state,
 .presentation .view-controls,
 .presentation .stage-bottom,
@@ -1542,6 +1520,7 @@ h3 {
 .presentation .header-center,
 .presentation .brand-subtitle,
 .presentation .brand-divider,
+.presentation .autosave-switch,
 .presentation .local-badge {
   display: none;
 }
@@ -1552,15 +1531,8 @@ h3 {
   .panel-scroll {
     padding: 32px;
   }
-  .stage-heading {
-    top: 43px;
-    left: 44px;
-  }
-  .stage-heading h1 {
-    font-size: 36px;
-  }
   .stage-state {
-    top: 182px;
+    top: 43px;
     left: 44px;
   }
   .face-maps {
@@ -1581,22 +1553,15 @@ h3 {
   .header-center {
     display: none;
   }
-  .stage-heading h1 {
-    font-size: 25px;
-  }
   .control-panel {
     width: 326px;
   }
   .panel-scroll {
     padding: 23px 21px;
   }
-  .stage-heading {
-    left: 25px;
-    top: 27px;
-  }
   .stage-state {
     left: 25px;
-    top: 145px;
+    top: 27px;
   }
   .stage-bottom {
     left: 23px;
@@ -1670,26 +1635,8 @@ h3 {
     min-height: var(--stage-reserve, 300px);
     flex: 1;
   }
-  .stage-heading {
-    top: 22px;
-    left: 20px;
-  }
-  .stage-heading h1 {
-    font-size: 23px;
-    margin-top: 8px;
-    letter-spacing: 1px;
-  }
-  .stage-heading .eyebrow {
-    font-size: 8px;
-    letter-spacing: 1.2px;
-  }
-  .stage-heading p {
-    font-size: 9px;
-    margin-top: 8px;
-    letter-spacing: 1px;
-  }
   .stage-state {
-    top: 111px;
+    top: 22px;
     left: 20px;
     font-size: 10px;
   }
@@ -1811,15 +1758,6 @@ h3 {
     padding: 21px 22px 24px;
     max-height: 100%;
   }
-  .panel-heading {
-    margin-bottom: 20px;
-  }
-  .panel-heading h2 {
-    font-size: 18px;
-  }
-  .panel-heading .eyebrow {
-    font-size: 9px;
-  }
   .panel-collapsed .control-panel {
     height: auto;
     min-height: 0;
@@ -1871,12 +1809,6 @@ h3 {
   }
   .control-panel {
     height: var(--sheet-h, 44dvh);
-  }
-  .stage-heading h1 {
-    font-size: 21px;
-  }
-  .stage-heading p {
-    font-size: 8px;
   }
   .view-controls [data-slot='select-trigger'] {
     max-width: 100px;
@@ -1937,13 +1869,6 @@ h3 {
   .panel-nav {
     padding-top: 7px;
   }
-  .stage-heading {
-    top: 15px;
-  }
-  .stage-heading h1 {
-    font-size: 20px;
-  }
-  .stage-heading p,
   .stage-state {
     display: none;
   }
@@ -2395,9 +2320,7 @@ h3 {
 }
 .app-footer,
 .panel-footer,
-.map-heading,
-.stage-heading .eyebrow,
-.panel-heading .eyebrow {
+.map-heading {
   font-size: 10px;
 }
 .face-label {
@@ -2405,9 +2328,6 @@ h3 {
 }
 .header-center {
   font-size: 10px;
-}
-.stage-heading p {
-  font-size: 12px;
 }
 .algorithm-presets button,
 .image-actions,
@@ -2432,12 +2352,6 @@ h3 {
   .panel-nav button {
     font-size: 11px;
   }
-  .stage-heading .eyebrow {
-    font-size: 9px;
-  }
-  .stage-heading p {
-    font-size: 10px;
-  }
   .map-heading {
     font-size: 10px;
   }
@@ -2460,9 +2374,6 @@ h3 {
   }
   .editor-face {
     max-width: 235px;
-  }
-  .panel-heading .eyebrow {
-    font-size: 10px;
   }
   .stage-description p {
     font-size: 13px;

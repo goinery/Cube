@@ -52,6 +52,7 @@ export default memo(function CustomizePanel() {
       'editFace',
       'busy',
       'solving',
+      'autoSave',
     ),
     upload = useRef<HTMLInputElement>(null),
     importRef = useRef<HTMLInputElement>(null),
@@ -487,7 +488,9 @@ export default memo(function CustomizePanel() {
       <section className="panel-section">
         <div className="section-head">
           <h3>保存我的作品</h3>
-          <span className="tag">自动保存</span>
+          <span className={`tag${s.autoSave ? '' : ' off'}`}>
+            自动保存：{s.autoSave ? '开' : '关'}
+          </span>
         </div>
         <div className="project-actions">
           <button
@@ -546,7 +549,7 @@ export default memo(function CustomizePanel() {
           }}
         />
         <p className="microcopy">
-          图片仅保存在你的浏览器。导出文件包含全部图片、编辑参数与魔方状态，可在其他设备导入。
+          图片仅保存在你的浏览器。导出文件包含全部图片、编辑参数与魔方状态，可在其他设备导入。未开启自动保存时，重新打开会回到最近一次保存的方案。
         </p>
         <button
           className="wide-button"

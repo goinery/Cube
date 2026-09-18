@@ -664,10 +664,9 @@ export default memo(function Viewport() {
       mesh.add(outline);
       selectedOutlines.set(id, outline);
     }
-    // Development comparison uses the identical model with optimization off.
-    const optimize =
-      !import.meta.env.DEV ||
-      new URLSearchParams(location.search).get('renderOptimization') !== 'off';
+    const optimizationOff =
+      import.meta.env.DEV &&
+      new URLSearchParams(location.search).get('renderOptimization') === 'off';
     const mechanicalMeshes: T.Mesh[] = [];
     for (const model of models.values())
       model.root.traverse((object) => {
@@ -677,9 +676,9 @@ export default memo(function Viewport() {
     core.traverse((object) => {
       if (object instanceof T.Mesh) mechanicalMeshes.push(object);
     });
-    const optimizer = optimize
-      ? new CubeRenderOptimizer(mechanicalMeshes, [...stickers.values()])
-      : null;
+    const optimizer = optimizationOff
+      ? null
+      : new CubeRenderOptimizer(mechanicalMeshes, [...stickers.values()]);
     if (optimizer) {
       scene.add(optimizer.group);
       // Three collects the colour draw list before invoking the shadow pass.

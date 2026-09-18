@@ -268,23 +268,49 @@ export async function importProject(file: File) {
   const p = validateProject(JSON.parse(await file.text()));
   loadProject(p);
 }
-export async function startAutosave() {
-  let timer: ReturnType<typeof setTimeout> | null = null,
-    active = true;
+const AUTOSAVE_PREFERENCE = 'axis-cube-autosave';
+export function autosavePreference() {
+  try {
+    return localStorage.getItem(AUTOSAVE_PREFERENCE) === 'on';
+  } catch {
+    return false;
+  }
+}
+export function setAutosavePreference(on: boolean) {
+  try {
+    localStorage.setItem(AUTOSAVE_PREFERENCE, on ? 'on' : 'off');
+  } catch {
+    // 隐私模式等场景写入会被拒绝；本次会话仍按开关状态运行。
+  }
+}
+function autosaveFailed() {
+  notify('自动保存失败：存储空间不足。请导出方案备份。');
+}
+export function saveAutosave() {
+  return saveProject('autosave').catch(autosaveFailed);
+}
+/** key 为 'autosave' 时取连续状态，'saved' 时取「保存」按钮留下的快照。 */
+export async function restoreProject(key: 'autosave' | 'saved') {
   const s = getState();
   try {
-    const p = await readProject('autosave');
+    const p = await readProject(key);
     if (
       p &&
       getState().cursor === s.cursor &&
       getState().artVersion === s.artVersion &&
       !getState().busy
-    )
+    ) {
       loadProject(p);
+      // 快照里没有转动时不提示，避免在复原态下报「已恢复」。
+      if (key === 'saved' && p.cursor > 0) notify('已恢复上次保存的进度。');
+    }
   } catch {
     notify('浏览器存储不可用，可通过导出方案保留作品。');
   }
-  let previous = getState();
+}
+export function watchAutosave() {
+  let timer: ReturnType<typeof setTimeout> | null = null,
+    previous = getState();
   const unsub = subscribe(() => {
     const s = getState();
     if (s.busy || s.solving) return;
@@ -300,15 +326,9 @@ export async function startAutosave() {
       return;
     previous = s;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      if (active)
-        void saveProject('autosave').catch(() =>
-          notify('自动保存失败：存储空间不足。请导出方案备份。'),
-        );
-    }, 600);
+    timer = setTimeout(() => void saveAutosave(), 600);
   });
   return () => {
-    active = false;
     unsub();
     if (timer) clearTimeout(timer);
   };

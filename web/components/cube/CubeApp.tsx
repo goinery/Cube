@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   Box,
   Layers3,
@@ -18,6 +18,8 @@ import {
   Copy,
   Focus,
   CircleStop,
+  Save,
+  Check,
 } from 'lucide-react';
 import Viewport from './Viewport';
 import FaceMaps from './FaceMaps';
@@ -25,7 +27,15 @@ import CustomizePanel from './CustomizePanel';
 import KeybindingsPanel from './KeybindingsPanel';
 import AlgorithmLab from './AlgorithmLab';
 import SolverPanel from './SolverPanel';
-import { startAutosave } from '@/lib/cube/persistence';
+import {
+  autosavePreference,
+  saveAutosave,
+  saveProject,
+  restoreProject,
+  setAutosavePreference,
+  watchAutosave,
+} from '@/lib/cube/persistence';
+import { Switch } from '@/components/ui/switch';
 import { registerCubeTools } from '@/lib/cube/webmcp';
 import { Range, Choice, Toggle } from './Controls';
 import {
@@ -68,14 +78,6 @@ const modes: [Mode, string, typeof Box][] = [
   ['camera', '视角', Move3D],
   ['inspect', '检查', Scan],
 ];
-const modeTitles: Record<Mode, [string, string]> = {
-  play: ['PLAY / EXPLORE', '每一步，都由你掌控。'],
-  explode: ['ENGINEERING / 26+1', '拆开，看看精密如何发生。'],
-  customize: ['DESIGN / 54 TILES', '把你的灵感，放在每一面。'],
-  solver: ['SOLVE / LEARN', '看懂每一步的意义。'],
-  camera: ['CAMERA / STUDIO', '换个角度，发现更多。'],
-  inspect: ['INSPECT / LIVE', '每个零件，各就其位。'],
-};
 const phoneLayout =
   '(max-width: 760px), (max-height: 530px) and (orientation: landscape)';
 const railLayout = '(max-height: 530px) and (orientation: landscape)';
@@ -96,17 +98,6 @@ interface SheetDrag {
 function matches(query: string) {
   return typeof window !== 'undefined' && window.matchMedia(query).matches;
 }
-function sectionHeading(id: Mode) {
-  const index = modes.findIndex(([m]) => m === id) + 1;
-  return (
-    <div className="panel-heading">
-      <span className="eyebrow">
-        {String(index).padStart(2, '0')} · {modeTitles[id][0]}
-      </span>
-      <h2>{modeTitles[id][1]}</h2>
-    </div>
-  );
-}
 export default function CubeApp() {
   const s = useCube(
       'cube',
@@ -126,6 +117,7 @@ export default function CubeApp() {
       'scrambleCursor',
       'selected',
       'notice',
+      'autoSave',
     ),
     [modifier, setModifier] = useState(''),
     [animateScramble, setAnimateScramble] = useState(true),
@@ -133,8 +125,11 @@ export default function CubeApp() {
     [rail, setRail] = useState(() => matches(railLayout)),
     [panelOpen, setPanelOpen] = useState(() => !matches(phoneLayout)),
     [sheetHeight, setSheetHeight] = useState<number | null>(null),
-    [visible, setVisible] = useState<Mode>('play');
-  const scrollRef = useRef<HTMLDivElement>(null),
+    [visible, setVisible] = useState<Mode>('play'),
+    [saved, setSaved] = useState(false),
+    autoSaveId = useId();
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    scrollRef = useRef<HTMLDivElement>(null),
     sectionRefs = useRef<Partial<Record<Mode, HTMLElement | null>>>({}),
     pendingJump = useRef<{ mode: Mode; until: number } | null>(null),
     deferredJump = useRef<Mode | null>(null),
@@ -283,17 +278,20 @@ export default function CubeApp() {
     };
   }, []);
   useEffect(() => {
-    let disposed = false,
-      cleanup: (() => void) | undefined;
-    void startAutosave().then((fn) => {
-      if (disposed) fn();
-      else cleanup = fn;
-    });
-    return () => {
-      disposed = true;
-      cleanup?.();
-    };
+    const autosave = autosavePreference();
+    if (autosave) patch({ autoSave: true });
+    void restoreProject(autosave ? 'autosave' : 'saved');
   }, []);
+  useEffect(() => {
+    if (!s.autoSave) return;
+    return watchAutosave();
+  }, [s.autoSave]);
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (
@@ -372,6 +370,25 @@ export default function CubeApp() {
     if (s.solving || s.mode === visible) return;
     patch({ mode: visible });
   }, [s.solving, s.mode, visible]);
+  function saveOnce() {
+    void saveProject().then(
+      () => {
+        notify('当前魔方状态已保存到本机。');
+        setSaved(true);
+        if (savedTimer.current) clearTimeout(savedTimer.current);
+        savedTimer.current = setTimeout(() => setSaved(false), 1600);
+      },
+      () => notify('保存失败：本机存储不可用或空间不足，请导出方案备份。'),
+    );
+  }
+  function toggleAutoSave(on: boolean) {
+    patch({ autoSave: on });
+    setAutosavePreference(on);
+    if (on) {
+      void saveAutosave();
+      notify('自动保存已开启，改动会自动写入本机。');
+    } else notify('自动保存已关闭，可用保存按钮留存进度。');
+  }
   function newScramble() {
     if (s.busy || s.solving) return;
     const moves = scramble();
@@ -422,6 +439,24 @@ export default function CubeApp() {
             <i />
             本地工作区
           </span>
+          <div className="autosave-switch">
+            <label htmlFor={autoSaveId}>自动保存</label>
+            <Switch
+              id={autoSaveId}
+              aria-label="自动保存"
+              checked={s.autoSave}
+              onCheckedChange={toggleAutoSave}
+            />
+          </div>
+          <button
+            className="icon-button"
+            disabled={locked}
+            title={saved ? '已保存' : '保存当前状态'}
+            aria-label="保存当前状态"
+            onClick={saveOnce}
+          >
+            {saved ? <Check size={18} /> : <Save size={18} />}
+          </button>
           <button
             className="icon-button"
             title="全屏"
@@ -465,15 +500,6 @@ export default function CubeApp() {
               正在计算 · 魔方已锁定 · 可在求解面板终止
             </div>
           )}
-          <div className="stage-heading">
-            <div className="eyebrow">
-              INTERACTIVE OBJECT <span>001</span>
-            </div>
-            <h1>精密，于指尖。</h1>
-            <p>
-              3 × 3 × 3 <span>/</span> 磁力竞速魔方
-            </p>
-          </div>
           <div className="stage-state">
             <i className={solved ? 'solved' : ''} />
             <span>
@@ -589,7 +615,6 @@ export default function CubeApp() {
           </nav>
           <div className="panel-scroll" ref={scrollRef}>
             <section {...blockProps('play')}>
-              {sectionHeading('play')}
               <section className="panel-section magnetic-controls">
                 <div className="section-head">
                   <h3>磁力与手感</h3>
@@ -761,7 +786,6 @@ export default function CubeApp() {
               </>
             </section>
             <section {...blockProps('explode')}>
-              {sectionHeading('explode')}
               <>
                 <div className="engineering-card">
                   <Layers3 size={27} />
@@ -880,15 +904,12 @@ export default function CubeApp() {
               </>
             </section>
             <section {...blockProps('customize')}>
-              {sectionHeading('customize')}
               <CustomizePanel />
             </section>
             <section {...blockProps('solver')}>
-              {sectionHeading('solver')}
               <SolverPanel />
             </section>
             <section {...blockProps('camera')}>
-              {sectionHeading('camera')}
               <>
                 <div className="camera-grid">
                   {FACES.map((f) => (
@@ -1020,7 +1041,6 @@ export default function CubeApp() {
               </>
             </section>
             <section {...blockProps('inspect')}>
-              {sectionHeading('inspect')}
               <>
                 <div className="inspection-state">
                   <span className="live-dot" />

@@ -74,7 +74,7 @@ export default function KeybindingsPanel() {
       </summary>
       <p className="microcopy">
         点击键位后按下单键或组合键。Delete / Backspace 清除，Esc
-        取消。设置自动保存。
+        取消。设置随方案保存。
       </p>
       <div className="keybindings-grid">
         <span>面</span>

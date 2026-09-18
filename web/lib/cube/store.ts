@@ -112,6 +112,7 @@ export interface AppState {
   solveStatus: string;
   visibleFaces: Face[];
   presentation: boolean;
+  autoSave: boolean;
   ready: boolean;
   faceAnchors: Record<
     string,
@@ -141,6 +142,7 @@ let state: AppState = {
   solveStatus: '',
   visibleFaces: ['U', 'R', 'F'],
   presentation: false,
+  autoSave: false,
   ready: false,
   faceAnchors: {},
 };
