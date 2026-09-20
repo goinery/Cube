@@ -2678,7 +2678,7 @@ h3 {
 .pyr-algorithm, .pyr-text-input { border: 1px solid #465040; background: #141819; color: #d0dcc4; padding: 11px; border-radius: 7px; font: 12px/1.7 var(--font-mono); }
 .pyr-algorithm { width: 100%; min-height: 82px; resize: vertical; margin-top: 12px; }
 .pyr-text-input { min-width: 80px; flex: 1; width: 100px; }
-.pyr-tile-picker { position: relative; width: 230px; max-width: 95%; aspect-ratio: 260 / 225; margin: 20px auto 10px; }
+.pyr-tile-picker { position: relative; width: 230px; max-width: 95%; margin: 20px auto 10px; }
 .pyr-tile-picker svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .pyr-tile-picker polygon { pointer-events: auto; cursor: pointer; }
 .pyr-tile-picker polygon:hover, .pyr-tile-picker polygon:focus { filter: brightness(1.2); outline: none; stroke: #e3edd9; stroke-width: 5px; }
@@ -2697,9 +2697,9 @@ h3 {
 .pyr-piece-info p { font-size: 12px; line-height: 1.9; color: #b0bea6; margin: 9px 0; }
 .pyr-photo-dialog { margin: auto; width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 30px); overflow-y: auto; padding: 25px; background: #202628; color: #c9d4c1; border: 1px solid #58664d; border-radius: 16px; box-shadow: 0 25px 90px #0009; }
 .pyr-photo-dialog::backdrop { background: #080c10bd; }
-.pyr-photo-preview { position: relative; width: min(300px, 100%); aspect-ratio: 1; margin: 20px auto; touch-action: none; cursor: grab; background: #15191b; border-radius: 8px; }
+.pyr-photo-preview { position: relative; width: min(300px, 100%); margin: 20px auto; touch-action: none; cursor: grab; background: #fff; clip-path: polygon(50% 0, 0 100%, 100% 100%); }
 .pyr-photo-clip { position: absolute; inset: 0; clip-path: polygon(50% 0, 0 100%, 100% 100%); background: #fff; }
-.pyr-photo-preview img { width: 100%; height: 100%; object-fit: cover; user-select: none; }
+.pyr-photo-preview canvas { display: block; width: 100%; height: 100%; user-select: none; }
 .pyr-photo-preview svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .pyr-photo-preview path { stroke: #101820a8; stroke-width: 2; fill: none; }
 @media (max-width: 1370px) { .header-center { display: none; } }

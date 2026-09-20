@@ -37,6 +37,7 @@ import PuzzleSwitcher, { type PuzzleType } from '../cube/PuzzleSwitcher';
 import { Choice, Range, Toggle } from '../cube/Controls';
 import { useCube, type Mode, type View } from '@/lib/cube/store';
 import { formatShortcut, keyboardShortcut } from '@/lib/cube/keybindings';
+import { FACE_HEIGHT_RATIO, paintPhoto } from '@/lib/pyraminx/appearance';
 import {
   AXES,
   FACE_COLORS,
@@ -125,11 +126,33 @@ function PhotoDialog({
   onApply: (photo: Photo) => void;
 }) {
   const [draft, setDraft] = useState(photo),
+    [photoImage, setPhotoImage] = useState<HTMLImageElement | null>(null),
+    preview = useRef<HTMLCanvasElement>(null),
     dialog = useRef<HTMLDialogElement>(null);
   const drag = useRef<{ x: number; y: number; base: Photo } | null>(null);
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
+  useEffect(() => {
+    let active = true;
+    const image = new Image();
+    image.src = draft.src;
+    void image
+      .decode()
+      .then(() => {
+        if (active) setPhotoImage(image);
+      })
+      .catch(() => {
+        if (active) notify('图片无法解码，请重新选择。');
+      });
+    return () => {
+      active = false;
+    };
+  }, [draft.src]);
+  useEffect(() => {
+    if (preview.current && photoImage?.src === draft.src)
+      paintPhoto(preview.current, photoImage, draft);
+  }, [draft, photoImage]);
   return (
     <dialog className="pyr-photo-dialog" ref={dialog} onCancel={onClose}>
       <div className="section-head">
@@ -140,6 +163,8 @@ function PhotoDialog({
       </div>
       <div
         className="pyr-photo-preview"
+        style={{ aspectRatio: `1 / ${FACE_HEIGHT_RATIO}` }}
+        aria-label="正三角形整面图片预览"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           drag.current = { x: e.clientX, y: e.clientY, base: draft };
@@ -147,11 +172,11 @@ function PhotoDialog({
         onPointerMove={(e) => {
           const d = drag.current;
           if (!d) return;
-          const width = e.currentTarget.clientWidth;
+          const { clientWidth: width, clientHeight: height } = e.currentTarget;
           setDraft({
             ...d.base,
             x: Math.max(-1, Math.min(1, d.base.x + (e.clientX - d.x) / width)),
-            y: Math.max(-1, Math.min(1, d.base.y + (e.clientY - d.y) / width)),
+            y: Math.max(-1, Math.min(1, d.base.y + (e.clientY - d.y) / height)),
           });
         }}
         onPointerUp={() => {
@@ -162,21 +187,18 @@ function PhotoDialog({
         }}
       >
         <div className="pyr-photo-clip">
-          <img
-            src={draft.src}
-            draggable={false}
-            alt="金字塔整面照片裁切预览"
-            style={{
-              transform: `translate(${draft.x * 100}%, ${draft.y * 100}%) rotate(${draft.rotation}deg) scale(${draft.scale})`,
-            }}
-          />
+          <canvas ref={preview} aria-label="金字塔整面照片裁切预览" />
         </div>
-        <svg viewBox="0 0 300 300" aria-hidden="true">
+        <svg
+          viewBox="0 0 300 300"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
           <path d="M150 0 L0 300 L300 300 Z M100 100 L200 100 M50 200 L250 200 M100 100 L200 300 M200 100 L100 300 M50 200 L100 300 M250 200 L200 300 M50 200 L100 100 M250 200 L200 100" />
         </svg>
       </div>
       <p className="microcopy">
-        拖动图片定位，三角形范围内的内容会铺满九片外壳。
+        拖动图片定位，正三角形范围内的内容会铺满九片外壳。
       </p>
       <Range
         label="图片缩放"
@@ -217,7 +239,11 @@ function PhotoDialog({
 function TilePicker() {
   const s = usePyraminx();
   return (
-    <div className="pyr-tile-picker" aria-label="选择三角贴片">
+    <div
+      className="pyr-tile-picker"
+      style={{ aspectRatio: `1 / ${FACE_HEIGHT_RATIO}` }}
+      aria-label="选择三角贴片"
+    >
       {TILES.filter((t) => t.face === s.editFace).map((tile) => {
         const points = tile.uv
           .map(([x, y]) => `${x * 260},${(1 - y) * 225}`)
@@ -240,7 +266,11 @@ function TilePicker() {
               });
             }}
           >
-            <svg viewBox="0 0 260 225" aria-hidden="true">
+            <svg
+              viewBox="0 0 260 225"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
               <polygon
                 points={points}
                 fill={s.colors[tile.id]}
@@ -822,7 +852,7 @@ export default function PyraminxApp({
                   {AXES.map((axis, i) => (
                     <button
                       key={axis}
-                      disabled={locked}
+                      disabled={s.solving || (s.busy && !s.settling)}
                       onClick={() =>
                         void perform(moveToken(i, layer, reverse ? -1 : 1))
                       }

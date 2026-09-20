@@ -76,6 +76,7 @@ export interface State {
   view: View;
   busy: boolean;
   dragging: boolean;
+  settling: boolean;
   currentMove: string;
   player: Player | null;
   scramble: string;
@@ -113,6 +114,7 @@ let state: State = {
   view: 'hidden',
   busy: false,
   dragging: false,
+  settling: false,
   currentMove: '',
   player: null,
   scramble: '',
@@ -162,10 +164,23 @@ export interface Animation {
   magnetic?: boolean;
   velocity?: number;
   duration?: number;
+  layerTurn?: boolean;
 }
 let animator: (a: Animation) => Promise<number> = async (a) => a.to;
-export function setAnimator(fn: typeof animator) {
+let alignmentAnimator: (
+  partial: PartialTurn,
+  duration: number,
+) => Promise<void> = async () => {};
+export function setAlignmentAnimator(fn: typeof alignmentAnimator) {
+  alignmentAnimator = fn;
+}
+let interruptMagnet = () => {};
+export function setAnimator(fn: typeof animator, interrupt = () => {}) {
   animator = fn;
+  interruptMagnet = interrupt;
+}
+export function interruptSettling() {
+  if (state.settling && !state.solving) interruptMagnet();
 }
 export const cameraActions = {
   reset: () => {},
@@ -187,6 +202,23 @@ export function canAlign() {
       (state.settings.turnTolerance * Math.PI) / 180 + 1e-8
   );
 }
+function startAlignment() {
+  const partial = state.partial;
+  if (!partial) return Promise.resolve();
+  const animation = alignmentAnimator(
+    partial,
+    Math.max(
+      180,
+      Math.min(
+        420,
+        (220 + (Math.abs(partial.angle) / TURN) * 160) / state.settings.speed,
+      ),
+    ),
+  );
+  // Keep the old pose in the renderer while the new layer can already turn.
+  patch({ partial: null });
+  return animation;
+}
 export async function align(force = false) {
   const partial = state.partial;
   if (!partial) return true;
@@ -194,22 +226,25 @@ export async function align(force = false) {
     notify(`转层偏差超出 ${state.settings.turnTolerance}°，请沿原层拖动对齐。`);
     return false;
   }
-  const wasBusy = state.busy;
-  patch({ busy: true });
-  await animator({
-    move: { ...partial, direction: 1 },
-    from: partial.angle,
-    to: 0,
-    duration: 190 / state.settings.speed,
+  const wasBusy = state.busy,
+    previousMove = state.currentMove;
+  patch({
+    busy: true,
+    currentMove: `${moveToken(partial.axis, partial.layer)} · 对齐`,
   });
-  patch({ partial: null, busy: wasBusy });
-  return true;
+  try {
+    await startAlignment();
+    return true;
+  } finally {
+    patch({ busy: wasBusy, currentMove: previousMove });
+  }
 }
 export async function perform(
   token: string,
   source: 'manual' | 'player' | 'undo' | 'redo' = 'manual',
   instant = false,
 ) {
+  if (source === 'manual') interruptSettling();
   if (state.busy || state.solving || state.dragging) return false;
   const move = parseMove(token);
   if (state.partial && !canAlign()) {
@@ -222,8 +257,9 @@ export async function perform(
   }
   patch({ busy: true, currentMove: token });
   try {
-    if (!(await align())) return false;
-    if (!instant) await animator({ move, from: 0, to: -TURN * move.direction });
+    const alignment = startAlignment();
+    if (instant) await alignment;
+    else await animator({ move, from: 0, to: -TURN * move.direction });
     const puzzle = turn(state.puzzle, token);
     if (source === 'undo') patch({ puzzle, cursor: state.cursor - 1 });
     else if (source === 'redo') patch({ puzzle, cursor: state.cursor + 1 });
@@ -231,26 +267,36 @@ export async function perform(
       const history = [...state.history.slice(0, state.cursor), token];
       patch({ puzzle, history, cursor: history.length });
     }
+    // Commit the new layer at its visible endpoint even if the old layer is
+    // still aligning; its local visual offsets follow the committed pieces.
+    await alignment;
     return true;
   } finally {
     patch({ busy: false, currentMove: '' });
   }
 }
-export async function beginDrag(move: Move) {
+export function beginDrag(move: Move) {
+  interruptSettling();
   if (state.busy || state.solving) return false;
-  pause();
-  if (state.partial && !sameLayer(state.partial, move)) {
-    if (!(await align())) return false;
+  const needsAlignment = state.partial && !sameLayer(state.partial, move);
+  if (needsAlignment && !canAlign()) {
+    notify(`转层偏差超出 ${state.settings.turnTolerance}°，请沿原层拖动对齐。`);
+    return false;
   }
+  pause();
   patch({
     busy: true,
     dragging: true,
     player: null,
     currentMove: moveToken(move.axis, move.layer),
   });
+  if (needsAlignment)
+    void startAlignment().catch(() => notify('归位未完成，请重试。'));
   return true;
 }
+let dragCompletion = 0;
 export function finishDrag(move: Move, angle: number) {
+  dragCompletion++;
   const turns = Math.round(-angle / TURN),
     n = ((turns % 3) + 3) % 3;
   const token = n ? moveToken(move.axis, move.layer, n === 1 ? 1 : -1) : '';
@@ -268,26 +314,41 @@ export function finishDrag(move: Move, angle: number) {
         : null,
     busy: false,
     dragging: false,
+    settling: false,
     currentMove: '',
     player: null,
   });
 }
-export async function releaseDrag(move: Move, angle: number, velocity: number) {
-  patch({ dragging: false });
-  if (state.settings.magnetStrength > 0) {
-    const target =
-      Math.round(
-        (angle + Math.max(-0.45, Math.min(0.45, velocity * 0.07))) / TURN,
-      ) * TURN;
+export async function releaseDrag(
+  move: Move,
+  angle: number,
+  velocity: number,
+  targetAngle = angle,
+) {
+  const completion = dragCompletion;
+  const magnetic = state.settings.magnetStrength > 0;
+  const settling = magnetic || Math.abs(targetAngle - angle) > 1e-5;
+  patch({ dragging: false, settling });
+  if (settling) {
+    const target = magnetic
+      ? Math.round(
+          (targetAngle + Math.max(-0.45, Math.min(0.45, velocity * 0.07))) /
+            TURN,
+        ) * TURN
+      : targetAngle;
     angle = await animator({
       move,
       from: angle,
       to: target,
-      magnetic: true,
+      magnetic,
+      layerTurn: true,
       velocity,
+      duration: magnetic
+        ? undefined
+        : Math.max(100, 120 / state.settings.speed),
     });
   }
-  finishDrag(move, angle);
+  if (completion === dragCompletion) finishDrag(move, angle);
 }
 export function settings(update: Partial<Settings>) {
   if (state.solving) return;

@@ -11,45 +11,53 @@ import {
 } from '@/lib/pyraminx/model';
 import { createModel, normals, vertices } from '@/lib/pyraminx/geometry';
 import { INITIAL_DIRECTION, INITIAL_UP } from '@/lib/pyraminx/camera';
+import { paintPhoto } from '@/lib/pyraminx/appearance';
 import { FACE_BASES, createHiddenProjections } from '@/lib/pyraminx/projection';
+import {
+  applyAlignment,
+  captureAlignment,
+  updateDragTransition,
+  type AlignmentPose,
+  type DragMotion,
+} from '@/lib/pyraminx/motion';
 import {
   beginDrag,
   cameraActions,
   finishDrag,
   getState,
+  interruptSettling,
   notify,
   patch,
   releaseDrag,
   selectTile,
   setAnimator,
+  setAlignmentAnimator,
   settings,
   subscribe,
   type Animation,
+  type Photo,
   type State,
 } from '@/lib/pyraminx/store';
 import { lightRotation, rotateView, zoomView } from '@/lib/cube/camera';
 import { magneticEase, stepMagnet } from '@/lib/cube/interaction';
 import { StudioEnvironment, createContactShadow } from '@/lib/cube/studio';
 
-interface Drag {
+interface Drag extends DragMotion {
   pointer: number;
   start: T.Vector2;
   last: T.Vector2;
   point: T.Vector3;
   piece: number;
   face: number;
+  localFace?: number;
   tile: string;
   move?: Move;
   tangent?: T.Vector2;
   scale?: number;
-  angle: number;
-  initial: number;
   velocity: number;
   time: number;
   orbit: boolean;
   moved: boolean;
-  pending?: boolean;
-  cancelled?: boolean;
   mapping?: boolean;
 }
 export default memo(function PyraminxViewport() {
@@ -78,6 +86,13 @@ export default memo(function PyraminxViewport() {
           angle: number;
           velocity: number;
           resolve: (angle: number) => void;
+        })
+      | null = null;
+    let alignment:
+      | (AlignmentPose & {
+          start: number;
+          duration: number;
+          resolve: () => void;
         })
       | null = null;
     let width = 1,
@@ -151,7 +166,12 @@ export default memo(function PyraminxViewport() {
     scene.add(shadow);
     const textures = new Map<
         string,
-        { src: string; texture: T.CanvasTexture }
+        {
+          src: string;
+          texture: T.CanvasTexture;
+          image: HTMLImageElement;
+          photo: Photo;
+        }
       >(),
       pendingPhotos = new Map<string, string>();
     const raycaster = new T.Raycaster(),
@@ -245,10 +265,11 @@ export default memo(function PyraminxViewport() {
           continue;
         }
         if (old?.src === photo.src) {
-          old.texture.center.set(0.5, 0.5);
-          old.texture.repeat.setScalar(1 / photo.scale);
-          old.texture.offset.set(-photo.x / photo.scale, photo.y / photo.scale);
-          old.texture.rotation = (photo.rotation * Math.PI) / 180;
+          if (old.photo !== photo) {
+            paintPhoto(old.texture.image, old.image, photo);
+            old.texture.needsUpdate = true;
+            old.photo = photo;
+          }
           continue;
         }
         if (pendingPhotos.get(String(face)) === photo.src) continue;
@@ -259,24 +280,19 @@ export default memo(function PyraminxViewport() {
           .decode()
           .then(() => {
             if (disposed || getState().photos[face]?.src !== photo.src) return;
+            const currentPhoto = getState().photos[face];
             const c = document.createElement('canvas');
-            c.width = c.height = 512;
-            const ctx = c.getContext('2d')!;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, 512, 512);
-            const scale = Math.max(512 / img.width, 512 / img.height);
-            ctx.drawImage(
-              img,
-              (512 - img.width * scale) / 2,
-              (512 - img.height * scale) / 2,
-              img.width * scale,
-              img.height * scale,
-            );
+            paintPhoto(c, img, currentPhoto);
             const texture = new T.CanvasTexture(c);
             texture.colorSpace = T.SRGBColorSpace;
             texture.anisotropy = 4;
             textures.get(String(face))?.texture.dispose();
-            textures.set(String(face), { src: photo.src, texture });
+            textures.set(String(face), {
+              src: photo.src,
+              texture,
+              image: img,
+              photo: currentPhoto,
+            });
             pendingPhotos.delete(String(face));
             updateAppearance(getState());
             invalidate();
@@ -291,7 +307,21 @@ export default memo(function PyraminxViewport() {
     }
     function updateModel() {
       const s = getState();
-      model.update(s, !!animation || !!drag?.move);
+      model.update(s, !!animation || !!drag?.move || !!alignment);
+      if (alignment) {
+        model.pieces.forEach((piece, index) => {
+          applyAlignment(
+            piece.root,
+            alignment!.rotations[index],
+            alignment!.progress,
+          );
+        });
+        applyAlignment(
+          model.core,
+          alignment.rotations[model.pieces.length],
+          alignment.progress,
+        );
+      }
       const turn = animation
         ? { ...animation.move, angle: animation.angle }
         : drag?.move
@@ -406,7 +436,10 @@ export default memo(function PyraminxViewport() {
             [a, b, c].forEach((p) => {
               p.applyMatrix3(map.matrix);
               p.y = 1 - p.y;
-              p.multiplyScalar(512);
+              p.set(
+                p.x * photo.texture.image.width,
+                p.y * photo.texture.image.height,
+              );
             });
             const det = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
             if (Math.abs(det) > 0.001) {
@@ -450,6 +483,13 @@ export default memo(function PyraminxViewport() {
       const dt = Math.min(0.04, (time - (lastTime || time)) / 1000);
       lastTime = time;
       const s = getState();
+      if (alignment)
+        alignment.progress = T.MathUtils.smoothstep(
+          time,
+          alignment.start,
+          alignment.start + alignment.duration,
+        );
+      if (drag?.move) updateDragTransition(drag, time);
       let completed: typeof animation = null;
       if (animation) {
         const a = animation;
@@ -521,12 +561,27 @@ export default memo(function PyraminxViewport() {
         }
       }
       drawMaps(s);
+      if (alignment?.progress === 1) {
+        const completedAlignment = alignment;
+        alignment = null;
+        completedAlignment.resolve();
+      }
       if (completed) {
         animation = null;
         completed.resolve(completed.angle);
       }
-      if (animation || s.settings.autoRotate) invalidate();
+      if (animation || alignment || drag?.transition || s.settings.autoRotate)
+        invalidate();
     }
+    setAlignmentAnimator(
+      (partial, duration) =>
+        new Promise((resolve) => {
+          const pose = captureAlignment(getState().puzzle, partial, alignment);
+          alignment?.resolve();
+          alignment = { ...pose, start: performance.now(), duration, resolve };
+          invalidate();
+        }),
+    );
     setAnimator(
       (a) =>
         new Promise((resolve) => {
@@ -539,6 +594,14 @@ export default memo(function PyraminxViewport() {
           };
           invalidate();
         }),
+      () => {
+        const settling = animation;
+        if (!settling?.layerTurn) return;
+        animation = null;
+        finishDrag(settling.move, settling.angle);
+        settling.resolve(settling.angle);
+        updateModel();
+      },
     );
     function sync() {
       const s = getState();
@@ -612,15 +675,13 @@ export default memo(function PyraminxViewport() {
       return new T.Vector2((v.x * width) / 2, (-v.y * height) / 2);
     }
     function down(e: PointerEvent) {
-      if (getState().solving || (getState().busy && !drag)) return;
+      if (getState().solving) return;
+      if (getState().busy && !drag && !getState().settling) return;
       canvas.setPointerCapture(e.pointerId);
       touches.set(e.pointerId, new T.Vector2(e.clientX, e.clientY));
       if (touches.size > 1) {
         if (drag?.move) finishDrag(drag.move, drag.angle);
-        if (drag) {
-          drag.cancelled = true;
-          drag = null;
-        }
+        drag = null;
         return;
       }
       const s = getState(),
@@ -647,8 +708,10 @@ export default memo(function PyraminxViewport() {
         point: h?.point ?? new T.Vector3(),
         piece: data?.piece ?? -1,
         face: face ?? 0,
+        localFace: data?.face,
         tile: data?.tile ?? '',
         angle: 0,
+        targetAngle: 0,
         initial: 0,
         velocity: 0,
         time: performance.now(),
@@ -683,11 +746,18 @@ export default memo(function PyraminxViewport() {
         invalidate();
         return;
       }
-      const s = getState();
       if (d.mapping) return;
+      let s = getState();
       if (s.mode !== 'play' && s.mode !== 'solver') return;
-      if (!d.move && !d.pending) {
-        const move = dragCandidates(s.puzzle, d.piece, d.face)[0];
+      if (!d.move) {
+        interruptSettling();
+        s = getState();
+        if (s.busy) return;
+        const face =
+          d.localFace === undefined
+            ? d.face
+            : ROTATIONS[s.puzzle.rotations[d.piece]][d.localFace];
+        const move = dragCandidates(s.puzzle, d.piece, face)[0];
         const n = vertices[move.axis].clone().normalize(),
           rotated = d.point.clone().applyAxisAngle(n, 0.01);
         const tangent = screen(rotated)
@@ -697,21 +767,21 @@ export default memo(function PyraminxViewport() {
           notify('请从更靠近块边缘的位置拖动。');
           return;
         }
-        d.pending = true;
-        void beginDrag(move).then((ok) => {
-          d.pending = false;
-          if (!ok) return;
-          if (d.cancelled || drag !== d) {
-            patch({ busy: false, dragging: false, currentMove: '' });
-            return;
-          }
-          d.move = move;
-          d.scale = tangent.length();
-          d.tangent = tangent.normalize();
-          d.initial = getState().partial?.angle ?? 0;
-          d.angle = d.initial;
-          updateAngle(d);
-        });
+        const needsAlignment =
+          s.partial &&
+          (s.partial.axis !== move.axis || s.partial.layer !== move.layer);
+        if (!beginDrag(move)) return;
+        d.move = move;
+        d.scale = tangent.length();
+        d.tangent = tangent.normalize();
+        d.initial = getState().partial?.angle ?? 0;
+        d.angle = d.targetAngle = d.initial;
+        if (needsAlignment)
+          d.transition = {
+            start: performance.now(),
+            duration: Math.max(100, 120 / s.settings.speed),
+          };
+        updateAngle(d);
       } else if (d.move) updateAngle(d);
     }
     function updateAngle(d: Drag) {
@@ -719,8 +789,9 @@ export default memo(function PyraminxViewport() {
         d.initial + d.last.clone().sub(d.start).dot(d.tangent!) / d.scale!;
       const now = performance.now(),
         dt = Math.max(8, now - d.time) / 1000;
-      d.velocity = d.velocity * 0.35 + ((angle - d.angle) / dt) * 0.65;
-      d.angle = angle;
+      d.velocity = d.velocity * 0.35 + ((angle - d.targetAngle) / dt) * 0.65;
+      d.targetAngle = angle;
+      if (!d.transition) d.angle = angle;
       d.time = now;
       invalidate();
     }
@@ -757,7 +828,6 @@ export default memo(function PyraminxViewport() {
       const d = drag;
       if (!d || d.pointer !== e.pointerId) return;
       drag = null;
-      d.cancelled = true;
       const cancelled =
         e.type === 'pointercancel' || e.type === 'lostpointercapture';
       if (d.move) {
@@ -767,6 +837,7 @@ export default memo(function PyraminxViewport() {
             d.move,
             d.angle,
             performance.now() - d.time > 100 ? 0 : d.velocity,
+            d.targetAngle,
           );
       } else if (!d.moved && !cancelled) {
         if (getState().presentation && d.piece < 0)
@@ -818,6 +889,8 @@ export default memo(function PyraminxViewport() {
         animation.resolve(animation.to);
         animation = null;
       }
+      alignment?.resolve();
+      alignment = null;
     }
     canvas.addEventListener('pointerdown', down);
     canvas.addEventListener('pointermove', move);
@@ -841,9 +914,16 @@ export default memo(function PyraminxViewport() {
       unsubscribe();
       observer.disconnect();
       if (animation) animation.resolve(animation.to);
-      if (drag) drag.cancelled = true;
+      alignment?.resolve();
       setAnimator(async (a) => a.to);
-      patch({ ready: false, busy: false, dragging: false, currentMove: '' });
+      setAlignmentAnimator(async () => {});
+      patch({
+        ready: false,
+        busy: false,
+        dragging: false,
+        settling: false,
+        currentMove: '',
+      });
       cameraActions.fit = cameraActions.reset = cameraActions.focus = () => {};
       cameraActions.face = () => {};
       canvas.removeEventListener('pointerdown', down);
