@@ -5,6 +5,7 @@
 @source '../main.tsx';
 @source '../index.html';
 @source '../components/cube';
+@source '../components/pyraminx';
 @source '../components/ui/select.tsx';
 @source '../components/ui/slider.tsx';
 @source '../components/ui/switch.tsx';
@@ -2645,3 +2646,71 @@ h3 {
   padding: 5px 8px;
   font-size: 12px;
 }
+
+.puzzle-switcher { position: relative; flex-shrink: 0; }
+.puzzle-switch-trigger { min-height: 36px; padding: 0 11px; gap: 8px; border: 1px solid #55604c; background: #c7d5ad09; border-radius: 7px; color: #c7d5ad; font-size: 12px; white-space: nowrap; }
+.puzzle-switch-trigger:hover { background: #c7d5ad15; }
+.puzzle-switch-menu { position: absolute; top: calc(100% + 12px); left: 0; width: 235px; padding: 6px; background: #23292a; border: 1px solid #465040; border-radius: 12px; box-shadow: 0 14px 40px #0006; z-index: 70; }
+.puzzle-switch-menu button { width: 100%; gap: 13px; padding: 13px 12px; border-radius: 7px; text-align: left; justify-content: flex-start; }
+.puzzle-switch-menu button:hover, .puzzle-switch-menu button[aria-pressed=true] { background: #c7d5ad12; color: #dbe6cd; }
+.puzzle-switch-menu button span { flex: 1; }
+.puzzle-switch-menu button strong { display: block; font-size: 13px; letter-spacing: 0; }
+.puzzle-switch-menu small { display: block; color: #86937e; font-size: 10px; letter-spacing: 1px; margin-top: 4px; }
+.pyr-maps { position: absolute; inset: 0; pointer-events: none; }
+.pyr-intro { margin-bottom: 22px; }
+.pyr-intro h2 { font-size: 25px; font-weight: 450; color: #e0e6db; margin: 14px 0 5px; letter-spacing: 1px; }
+.pyr-intro p { color: #899582; font-size: 12px; }
+.pyr-face-moves { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+.pyr-app .microcopy { line-height: 1.8; }
+.pyr-app .quick-actions { margin-top: 20px; }
+.pyr-app .camera-grid { grid-template-columns: repeat(2, 1fr); }
+.pyr-app .camera-grid i { height: 12px; width: 12px; border-radius: 3px; }
+.pyr-app .app-footer { justify-content: space-between; }
+.pyr-app .autosave-switch .toggle-control { font-size: 12px; gap: 8px; }
+.pyr-keybindings { margin-top: 18px; font-size: 12px; color: #abb8a3; }
+.pyr-keybindings summary { cursor: pointer; padding: 10px 0; }
+.pyr-keybindings > label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 6px 0; }
+.pyr-keybindings input { border: 1px solid #414b3d; border-radius: 5px; background: #161a1b; padding: 7px; color: #c7d5ad; width: 170px; text-align: center; font-size: 11px; }
+.pyr-keybindings input:focus { outline: 1px solid #c7d5ad; }
+.pyr-button-row { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+.pyr-button-row > button { font-size: 11px; color: #c1ccb6; min-height: 28px; }
+.pyr-button-row > .primary-button { color: #263022; }
+.pyr-algorithm, .pyr-text-input { border: 1px solid #465040; background: #141819; color: #d0dcc4; padding: 11px; border-radius: 7px; font: 12px/1.7 var(--font-mono); }
+.pyr-algorithm { width: 100%; min-height: 82px; resize: vertical; margin-top: 12px; }
+.pyr-text-input { min-width: 80px; flex: 1; width: 100px; }
+.pyr-tile-picker { position: relative; width: 230px; max-width: 95%; aspect-ratio: 260 / 225; margin: 20px auto 10px; }
+.pyr-tile-picker svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.pyr-tile-picker polygon { pointer-events: auto; cursor: pointer; }
+.pyr-tile-picker polygon:hover, .pyr-tile-picker polygon:focus { filter: brightness(1.2); outline: none; stroke: #e3edd9; stroke-width: 5px; }
+.pyr-color-edit { display: flex; gap: 12px; align-items: center; margin: 15px 0; font-size: 12px; color: #b7c3af; }
+.pyr-color-edit input { width: 38px; height: 35px; padding: 2px; border: 1px solid #68755a; border-radius: 5px; background: transparent; }
+.pyr-color-edit button { margin-left: auto; font-size: 12px; }
+.pyr-player { margin-top: 20px; padding: 16px; border: 1px solid #4c5943; border-radius: 10px; background: #c7d5ad06; }
+.pyr-player .player-buttons { display: flex; justify-content: center; gap: 20px; }
+.pyr-player .player-buttons button { min-height: 35px; color: #c7d5ad; }
+.pyr-player-range { width: 100%; accent-color: #c7d5ad; margin: 15px 0; }
+.pyr-move-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 16px; max-height: 210px; overflow-y: auto; }
+.pyr-move-list > * { padding: 5px 7px; min-width: 28px; color: #8e9a86; font: 12px var(--font-mono); background: #131819; border-radius: 4px; }
+.pyr-move-list .done { color: #c7d5ad; background: #c7d5ad14; }
+.pyr-move-list .current { outline: 1px solid #c7d5ad; }
+.pyr-piece-info { padding: 16px; background: #c7d5ad08; border-radius: 8px; margin: 16px 0; }
+.pyr-piece-info p { font-size: 12px; line-height: 1.9; color: #b0bea6; margin: 9px 0; }
+.pyr-photo-dialog { margin: auto; width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 30px); overflow-y: auto; padding: 25px; background: #202628; color: #c9d4c1; border: 1px solid #58664d; border-radius: 16px; box-shadow: 0 25px 90px #0009; }
+.pyr-photo-dialog::backdrop { background: #080c10bd; }
+.pyr-photo-preview { position: relative; width: min(300px, 100%); aspect-ratio: 1; margin: 20px auto; touch-action: none; cursor: grab; background: #15191b; border-radius: 8px; }
+.pyr-photo-clip { position: absolute; inset: 0; clip-path: polygon(50% 0, 0 100%, 100% 100%); background: #fff; }
+.pyr-photo-preview img { width: 100%; height: 100%; object-fit: cover; user-select: none; }
+.pyr-photo-preview svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.pyr-photo-preview path { stroke: #101820a8; stroke-width: 2; fill: none; }
+@media (max-width: 1370px) { .header-center { display: none; } }
+@media (max-width: 760px) {
+  .puzzle-switch-trigger { padding: 0 8px; gap: 5px; font-size: 10px; }
+  .brand > strong { display: none; }
+  .pyr-app .autosave-switch .toggle-control { font-size: 10px; }
+  .pyr-app .pyr-player { margin-bottom: 12px; }
+  .pyr-intro h2 { font-size: 22px; }
+  .pyr-move-list { max-height: 160px; }
+}
+.pyr-tile-button { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; background: transparent; }
+.pyr-tile-button:hover polygon, .pyr-tile-button:focus-visible polygon { filter: brightness(1.2); stroke: #fff; stroke-width: 5px; }
+.pyr-app output.microcopy { display: block; }

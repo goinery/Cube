@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import CubeApp from './components/cube/CubeApp';
+import WorkspaceApp from './components/cube/WorkspaceApp';
 import './app/globals.css';
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -24,6 +24,6 @@ class ErrorBoundary extends React.Component<
 }
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
-    <CubeApp />
+    <WorkspaceApp />
   </ErrorBoundary>,
 );

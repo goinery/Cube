@@ -72,7 +72,7 @@ export const defaultSettings = (): Settings => ({
   showMagnets: true,
   magnetStrength: 1,
   magnetDamping: 0.7,
-  turnTolerance: 10,
+  turnTolerance: 45,
 });
 export interface Stage {
   name: string;

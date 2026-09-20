@@ -22,6 +22,7 @@ import {
   Check,
 } from 'lucide-react';
 import Viewport from './Viewport';
+import PuzzleSwitcher, { type PuzzleType } from './PuzzleSwitcher';
 import FaceMaps from './FaceMaps';
 import CustomizePanel from './CustomizePanel';
 import KeybindingsPanel from './KeybindingsPanel';
@@ -98,7 +99,8 @@ interface SheetDrag {
 function matches(query: string) {
   return typeof window !== 'undefined' && window.matchMedia(query).matches;
 }
-export default function CubeApp() {
+let restoredSession = false;
+export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) => void }) {
   const s = useCube(
       'cube',
       'partialTurns',
@@ -278,6 +280,8 @@ export default function CubeApp() {
     };
   }, []);
   useEffect(() => {
+    if (restoredSession) return;
+    restoredSession = true;
     const autosave = autosavePreference();
     if (autosave) patch({ autoSave: true });
     void restoreProject(autosave ? 'autosave' : 'saved');
@@ -421,16 +425,14 @@ export default function CubeApp() {
       className={`cube-app ${s.presentation ? 'presentation' : ''} ${panelOpen ? '' : 'panel-collapsed'}`}
     >
       <header className="app-header">
-        <a href="/" className="brand" aria-label="AXIS 魔方工作室">
-          <span className="brand-symbol">
-            <Box size={24} strokeWidth={1.5} />
-          </span>
+        <div className="brand" aria-label="AXIS 魔方工作室">
+          <PuzzleSwitcher value="cube" onChange={onSwitch} disabled={locked} />
           <strong>
             AXIS<span>/</span>03
           </strong>
           <span className="brand-divider" />
           <span className="brand-subtitle">魔方工作室</span>
-        </a>
+        </div>
         <div className="header-center">
           MAGNETIC PRECISION CUBE <span>·</span> DIGITAL EDITION
         </div>

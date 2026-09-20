@@ -20,12 +20,12 @@ export function createChassisRelief(anisotropy: number) {
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#a0a0a0';
+  ctx.fillStyle = '#080a0c';
   ctx.fillRect(0, 0, 512, 512);
   const radius = 32,
     height = Math.sqrt(3) * radius;
   ctx.lineWidth = 3;
-  ctx.strokeStyle = '#555555';
+  ctx.strokeStyle = '#ffffff';
   for (let col = -1; col < 12; col++)
     for (let row = -1; row < 11; row++) {
       const x = col * radius * 1.5,
@@ -41,6 +41,7 @@ export function createChassisRelief(anisotropy: number) {
       ctx.stroke();
     }
   const texture = new CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = RepeatWrapping;
   texture.anisotropy = Math.min(anisotropy, 8);
   return texture;
 }

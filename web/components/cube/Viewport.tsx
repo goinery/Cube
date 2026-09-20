@@ -279,11 +279,11 @@ export default memo(function Viewport() {
       renderer.capabilities.getMaxAnisotropy(),
     );
     const chassisMaterial = plastic.clone();
-    chassisMaterial.color.set('#121416');
+    chassisMaterial.color.set('#ffffff');
     chassisMaterial.roughness = 0.42;
     chassisMaterial.bumpMap = relief;
     chassisMaterial.map = relief;
-    chassisMaterial.bumpScale = 0.02;
+    chassisMaterial.bumpScale = -0.012;
     const buildMechanics = createMechanics({
       body: chassisMaterial,
       plastic,
