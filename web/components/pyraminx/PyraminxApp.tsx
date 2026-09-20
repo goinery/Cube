@@ -1001,7 +1001,7 @@ export default function PyraminxApp({
                 <Layers3 size={27} />
                 <div>
                   <strong>看见四轴结构</strong>
-                  <p>彩色外壳、蜂窝骨架与磁力定位。</p>
+                  <p>凹槽贴片座、磁力轴心与 GES 弹力组件。</p>
                 </div>
                 <span>04</span>
               </div>
@@ -1013,7 +1013,6 @@ export default function PyraminxApp({
                 disabled={s.solving}
                 onChange={(explode) => {
                   settings({ explode });
-                  cameraActions.fit();
                 }}
               />
               <div className="explode-presets">
@@ -1028,7 +1027,6 @@ export default function PyraminxApp({
                     }
                     onClick={() => {
                       settings({ explode });
-                      cameraActions.fit();
                     }}
                   >
                     {label}

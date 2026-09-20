@@ -2,6 +2,33 @@ import { MathUtils, Object3D, Quaternion } from 'three';
 import { affects, type PuzzleState } from './model';
 import { quaternions, vertices } from './geometry';
 import type { PartialTurn } from './store';
+import type { Settings } from '../cube/store';
+
+export const SHAPE_SETTINGS = [
+  'explode',
+  'internal',
+  'gap',
+  'size',
+  'stickerOffset',
+] as const;
+
+// Keep the displayed pose independent of slider/preset targets. Retargeting an
+// unfinished transition starts at the visible pose, including when reassembling.
+export function updateShapeTransition(
+  current: Settings,
+  target: Settings,
+  dt: number,
+) {
+  let moving = false;
+  for (const key of SHAPE_SETTINGS) {
+    const value = MathUtils.damp(current[key], target[key], 9, dt);
+    current[key] =
+      Math.abs(value - target[key]) < 0.00001 ? target[key] : value;
+    moving ||= current[key] !== target[key];
+  }
+  current.showMagnets = target.showMagnets;
+  return moving;
+}
 
 export interface AlignmentPose {
   rotations: Quaternion[];

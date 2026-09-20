@@ -17,6 +17,8 @@ import {
   applyAlignment,
   captureAlignment,
   updateDragTransition,
+  updateShapeTransition,
+  SHAPE_SETTINGS,
   type AlignmentPose,
   type DragMotion,
 } from '@/lib/pyraminx/motion';
@@ -38,7 +40,12 @@ import {
   type Photo,
   type State,
 } from '@/lib/pyraminx/store';
-import { lightRotation, rotateView, zoomView } from '@/lib/cube/camera';
+import {
+  lightRotation,
+  rotateView,
+  transitionView,
+  zoomView,
+} from '@/lib/cube/camera';
 import { magneticEase, stepMagnet } from '@/lib/cube/interaction';
 import { StudioEnvironment, createContactShadow } from '@/lib/cube/studio';
 
@@ -97,6 +104,13 @@ export default memo(function PyraminxViewport() {
       | null = null;
     let width = 1,
       height = 1;
+    const displayedSettings = { ...getState().settings };
+    const viewWeights = { hidden: 0, six: 0, net: 0 };
+    let cameraDestination: {
+      position: T.Vector3;
+      target: T.Vector3;
+      orientation: T.Quaternion;
+    } | null = null;
     const canvas = renderer.domElement;
     canvas.setAttribute(
       'aria-label',
@@ -183,29 +197,38 @@ export default memo(function PyraminxViewport() {
       if (!disposed && !frame && !document.hidden)
         frame = requestAnimationFrame(render);
     }
-    function fit(reset = false) {
-      model.update(getState());
-      model.root.updateMatrixWorld(true);
-      const direction = reset
-        ? INITIAL_DIRECTION.clone()
-        : camera.position.clone().sub(target).normalize();
-      target.set(0, 0, 0);
-      if (reset) camera.up.copy(INITIAL_UP);
-      camera.position.copy(target).add(direction);
-      camera.lookAt(target);
-      const inverse = camera.quaternion.clone().invert(),
+    function moveCameraToFit(
+      direction: T.Vector3,
+      object: T.Object3D = model.root,
+      up = camera.up,
+      immediate = false,
+    ) {
+      if (getState().solving) return;
+      // Measure the destination assembly, then restore the displayed pose before
+      // the next frame. Fitting must not snap an unfinished disassembly.
+      updateModel(true);
+      const destinationTarget =
+        object === model.root
+          ? new T.Vector3()
+          : new T.Box3().setFromObject(object).getCenter(new T.Vector3());
+      const destination = camera.clone();
+      direction = direction.clone().normalize();
+      destination.position.copy(destinationTarget).add(direction);
+      destination.up.copy(up);
+      destination.lookAt(destinationTarget);
+      const inverse = destination.quaternion.clone().invert(),
         tangent = Math.tan(T.MathUtils.degToRad(camera.fov / 2));
       let distance = 0;
       // Fit the tetrahedron's actual silhouette; its enclosing box has empty
       // corners that would make the assembled puzzle appear unnecessarily small.
-      model.root.traverseVisible((object) => {
+      object.traverseVisible((object) => {
         if (!(object instanceof T.Mesh)) return;
         const positions = object.geometry.getAttribute('position');
         const p = new T.Vector3();
         for (let i = 0; i < positions.count; i++) {
           p.fromBufferAttribute(positions, i)
             .applyMatrix4(object.matrixWorld)
-            .sub(target)
+            .sub(destinationTarget)
             .applyQuaternion(inverse);
           distance = Math.max(
             distance,
@@ -214,28 +237,41 @@ export default memo(function PyraminxViewport() {
           );
         }
       });
-      camera.position.copy(target).addScaledVector(direction, distance);
-      camera.lookAt(target);
+      cameraDestination = {
+        target: destinationTarget,
+        position: destinationTarget
+          .clone()
+          .addScaledVector(direction, Math.max(0.4, distance)),
+        orientation: destination.quaternion.clone(),
+      };
+      updateModel();
+      if (immediate) {
+        transitionView(
+          camera,
+          target,
+          cameraDestination.position,
+          cameraDestination.target,
+          cameraDestination.orientation,
+          1,
+        );
+        cameraDestination = null;
+      }
       invalidate();
     }
-    cameraActions.fit = () => fit();
-    cameraActions.reset = () => fit(true);
+    const viewDirection = () => camera.position.clone().sub(target).normalize();
+    cameraActions.fit = () => moveCameraToFit(viewDirection());
+    cameraActions.reset = () =>
+      moveCameraToFit(INITIAL_DIRECTION, model.root, INITIAL_UP);
     cameraActions.face = (face) => {
-      target.set(0, 0, 0);
-      camera.position.copy(normals[face]).multiplyScalar(9);
-      camera.up.set(0, 1, 0);
-      if (face === 0) camera.up.set(0, 0, -1);
-      camera.lookAt(target);
-      invalidate();
+      if (normals[face])
+        moveCameraToFit(normals[face], model.root, FACE_BASES[face].y);
     };
     cameraActions.focus = () => {
       const selected = getState().selected[0],
         mesh = selected ? model.tiles.get(selected) : undefined;
       if (mesh) {
-        mesh.getWorldPosition(target);
-        zoomView(camera, target, 0.55);
-        invalidate();
-      }
+        moveCameraToFit(viewDirection(), mesh);
+      } else notify('先点击一个贴片，再进入部件特写；也可以直接双击部件。');
     };
     function updateAppearance(s: State) {
       for (const tile of TILES) {
@@ -305,9 +341,12 @@ export default memo(function PyraminxViewport() {
           });
       }
     }
-    function updateModel() {
+    function updateModel(destination = false) {
       const s = getState();
-      model.update(s, !!animation || !!drag?.move || !!alignment);
+      model.update(
+        destination ? s : { ...s, settings: displayedSettings },
+        !!animation || !!drag?.move || !!alignment,
+      );
       if (alignment) {
         model.pieces.forEach((piece, index) => {
           applyAlignment(
@@ -342,13 +381,11 @@ export default memo(function PyraminxViewport() {
       model.root.updateMatrixWorld(true);
     }
     const faceBases = FACE_BASES;
-    function drawMaps(s: State) {
+    function drawMaps(s: State, net: boolean, opacity: number) {
       const ctx = maps.getContext('2d')!;
-      ctx.clearRect(0, 0, width, height);
-      const active = (s.view === 'six' || s.view === 'net') && !s.presentation;
-      maps.style.display = active ? 'block' : 'none';
-      if (!active) return;
-      const net = s.view === 'net';
+      if (opacity < 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = opacity;
       const faces = [0, 1, 2, 3];
       const side = net
         ? Math.min(width * 0.4, height * 0.42, 280)
@@ -476,6 +513,7 @@ export default memo(function PyraminxViewport() {
           ctx.fillText(FACE_NAMES[face], cx, cy + h / 3 + 20);
         }
       });
+      ctx.restore();
     }
     function render(time: number) {
       frame = 0;
@@ -483,6 +521,18 @@ export default memo(function PyraminxViewport() {
       const dt = Math.min(0.04, (time - (lastTime || time)) / 1000);
       lastTime = time;
       const s = getState();
+      const shapeMoving = updateShapeTransition(
+        displayedSettings,
+        s.settings,
+        dt,
+      );
+      let viewMoving = false;
+      for (const view of ['hidden', 'six', 'net'] as const) {
+        const goal = !s.presentation && s.view === view ? 1 : 0;
+        const value = T.MathUtils.damp(viewWeights[view], goal, 10, dt);
+        viewWeights[view] = Math.abs(value - goal) < 0.001 ? goal : value;
+        viewMoving ||= viewWeights[view] !== goal;
+      }
       if (alignment)
         alignment.progress = T.MathUtils.smoothstep(
           time,
@@ -531,7 +581,34 @@ export default memo(function PyraminxViewport() {
         }
         if (done) completed = a;
       }
-      if (s.settings.autoRotate && !drag)
+      if (s.solving) cameraDestination = null;
+      if (cameraDestination) {
+        const { position, target: lookAt, orientation } = cameraDestination;
+        transitionView(
+          camera,
+          target,
+          position,
+          lookAt,
+          orientation,
+          1 - Math.exp(-dt * 7),
+        );
+        if (
+          camera.position.distanceTo(position) < 0.002 &&
+          target.distanceTo(lookAt) < 0.002 &&
+          camera.quaternion.angleTo(orientation) < 0.001
+        ) {
+          transitionView(camera, target, position, lookAt, orientation, 1);
+          cameraDestination = null;
+        }
+      }
+      if (
+        s.settings.autoRotate &&
+        !drag &&
+        !cameraDestination &&
+        !animation &&
+        !alignment &&
+        !s.solving
+      )
         rotateView(camera, target, dt * 0.18, 0);
       camera.lookAt(target);
       camera.updateMatrixWorld(true);
@@ -545,22 +622,33 @@ export default memo(function PyraminxViewport() {
       );
       key.intensity = s.settings.lightIntensity;
       updateModel();
-      shadow.position.y = -0.89 - s.settings.explode * 0.55;
-      shadow.material.opacity = 0.22 / (1 + s.settings.explode);
+      const bounds = new T.Box3().setFromObject(model.root);
+      shadow.position.y = bounds.min.y - 0.08;
+      shadow.material.opacity = 0.22 / (1 + displayedSettings.explode);
       renderer.shadowMap.needsUpdate = true;
-      canvas.style.visibility =
-        s.view === 'net' && !s.presentation ? 'hidden' : 'visible';
-      projections.update(s, camera, target);
+      canvas.style.opacity = String(1 - viewWeights.net);
+      canvas.style.visibility = viewWeights.net === 1 ? 'hidden' : 'visible';
+      const projectionsMoving = projections.update(
+        { ...s, settings: displayedSettings },
+        camera,
+        target,
+        viewWeights.hidden,
+        dt,
+      );
       if (canvas.style.visibility !== 'hidden') {
         renderer.render(scene, camera);
-        if (s.view === 'hidden' && !s.presentation) {
+        if (viewWeights.hidden > 0) {
           // Preserve the main model's depth so it occludes the auxiliary faces.
           renderer.autoClear = false;
           renderer.render(projections.scene, camera);
           renderer.autoClear = true;
         }
       }
-      drawMaps(s);
+      maps.getContext('2d')!.clearRect(0, 0, width, height);
+      maps.style.display =
+        viewWeights.six + viewWeights.net > 0 ? 'block' : 'none';
+      drawMaps(s, false, viewWeights.six);
+      drawMaps(s, true, viewWeights.net);
       if (alignment?.progress === 1) {
         const completedAlignment = alignment;
         alignment = null;
@@ -570,7 +658,16 @@ export default memo(function PyraminxViewport() {
         animation = null;
         completed.resolve(completed.angle);
       }
-      if (animation || alignment || drag?.transition || s.settings.autoRotate)
+      if (
+        animation ||
+        alignment ||
+        drag?.transition ||
+        cameraDestination ||
+        shapeMoving ||
+        viewMoving ||
+        projectionsMoving ||
+        s.settings.autoRotate
+      )
         invalidate();
     }
     setAlignmentAnimator(
@@ -631,6 +728,13 @@ export default memo(function PyraminxViewport() {
         );
         renderer.setSize(width, height);
       }
+      if (
+        previousState &&
+        SHAPE_SETTINGS.some(
+          (key) => previousState!.settings[key] !== s.settings[key],
+        )
+      )
+        cameraActions.fit();
       previousState = s;
       invalidate();
     }
@@ -647,7 +751,7 @@ export default memo(function PyraminxViewport() {
       maps.style.width = `${width}px`;
       maps.style.height = `${height}px`;
       maps.getContext('2d')!.setTransform(ratio, 0, 0, ratio, 0, 0);
-      fit();
+      cameraActions.fit();
       invalidate();
     }
     const observer = new ResizeObserver(resize);
@@ -677,6 +781,7 @@ export default memo(function PyraminxViewport() {
     function down(e: PointerEvent) {
       if (getState().solving) return;
       if (getState().busy && !drag && !getState().settling) return;
+      cameraDestination = null;
       canvas.setPointerCapture(e.pointerId);
       touches.set(e.pointerId, new T.Vector2(e.clientX, e.clientY));
       if (touches.size > 1) {
@@ -855,7 +960,22 @@ export default memo(function PyraminxViewport() {
     function wheel(e: WheelEvent) {
       e.preventDefault();
       if (!getState().solving) {
-        zoomView(camera, target, Math.exp(e.deltaY * 0.001));
+        const destination = camera.clone(),
+          lookAt = cameraDestination?.target.clone() ?? target.clone();
+        if (cameraDestination) {
+          destination.position.copy(cameraDestination.position);
+          destination.quaternion.copy(cameraDestination.orientation);
+        }
+        zoomView(
+          destination,
+          lookAt,
+          Math.exp(T.MathUtils.clamp(e.deltaY, -500, 500) * 0.001),
+        );
+        cameraDestination = {
+          position: destination.position.clone(),
+          target: lookAt,
+          orientation: destination.quaternion.clone(),
+        };
         invalidate();
       }
     }
@@ -863,11 +983,10 @@ export default memo(function PyraminxViewport() {
       if (getState().busy || getState().solving) return;
       const h = hit(e);
       if (h) {
-        if (h.object.userData.mapping)
-          model.tiles.get(h.object.userData.tile)?.getWorldPosition(target);
-        else target.copy(h.point);
-        zoomView(camera, target, 0.6);
-        invalidate();
+        const object = h.object.userData.mapping
+          ? model.tiles.get(h.object.userData.tile)
+          : (model.pieces[h.object.userData.piece]?.root ?? h.object);
+        if (object) moveCameraToFit(viewDirection(), object);
       }
     }
     function context(e: Event) {
@@ -905,7 +1024,7 @@ export default memo(function PyraminxViewport() {
     model.update(getState());
     camera.position.set(-2.4, 1.7, 10);
     resize();
-    fit(true);
+    moveCameraToFit(INITIAL_DIRECTION, model.root, INITIAL_UP, true);
     sync();
     patch({ ready: true });
     return () => {
