@@ -41,6 +41,7 @@ import { FACE_HEIGHT_RATIO, paintPhoto } from '@/lib/pyraminx/appearance';
 import {
   AXES,
   FACE_COLORS,
+  PYRAMINX_PALETTES,
   FACE_NAMES,
   PIECES,
   TILES,
@@ -297,7 +298,7 @@ export default function PyraminxApp({
     [animated, setAnimated] = useState(true);
   const [algorithm, setAlgorithm] = useState("R U R' U R U R' U"),
     [presetName, setPresetName] = useState('');
-  const [color, setColor] = useState('#143cfa'),
+  const [color, setColor] = useState(FACE_COLORS[3]),
     [photo, setPhoto] = useState<{ face: number; photo: Photo } | null>(null);
   const [mobile, setMobile] = useState(() => matchMedia(phone).matches),
     [rail, setRail] = useState(() => matchMedia(landscape).matches);
@@ -516,7 +517,7 @@ export default function PyraminxApp({
     }
   }
   const locked = s.busy || s.solving,
-    solved = !s.partial && isSolved(s.puzzle),
+    solved = !s.partials.length && isSolved(s.puzzle),
     selectedTile = TILES.find((t) => t.id === s.selected[0]);
   const sheetStyle =
     sheetSize === null
@@ -605,7 +606,7 @@ export default function PyraminxApp({
             <span>
               {s.currentMove
                 ? `转动 ${s.currentMove}`
-                : s.partial
+                : s.partials.length
                   ? '转层未对齐'
                   : solved
                     ? '已复原'
@@ -755,8 +756,8 @@ export default function PyraminxApp({
                 />
                 <p className="microcopy">
                   松手吸附到 120° 倍数。磁力为 0
-                  时停留在当前位置；切换转层前，会先对齐容错范围内的偏差。 默认
-                  120°，任意停留角度都可自动对齐并切换转轴。
+                  时停留在当前位置；只有转动发生冲突时，才对齐容错范围内的相关层。
+                  独立顶角和同轴层保留各自角度。默认容错 120°。
                 </p>
               </section>
               <div className="quick-actions">
@@ -1001,7 +1002,7 @@ export default function PyraminxApp({
                 <Layers3 size={27} />
                 <div>
                   <strong>看见四轴结构</strong>
-                  <p>凹槽贴片座、磁力轴心与 GES 弹力组件。</p>
+                  <p>贴合式蜂窝壳体、磁力轴心与四轴连接。</p>
                 </div>
                 <span>04</span>
               </div>
@@ -1097,7 +1098,7 @@ export default function PyraminxApp({
                   ['中心块 Center', 4],
                   ['棱块 Edge', 6],
                   ['彩色三角外壳', 36],
-                  ['轴杆 / 张力调节', 4],
+                  ['四轴连接杆', 4],
                 ].map(([label, count]) => (
                   <p key={label}>
                     <i style={{ background: '#c7d5ad' }} />
@@ -1163,12 +1164,8 @@ export default function PyraminxApp({
                   应用颜色
                 </button>
               </div>
-              <div className="explode-presets">
-                {[
-                  ['原厂', FACE_COLORS],
-                  ['霓虹', ['#ffdc21', '#fa277c', '#0beba3', '#6861ff']],
-                  ['撞色', ['#ffbc5d', '#be4050', '#309886', '#5779da']],
-                ].map(([name, colors]) => (
+              <div className="palette-presets">
+                {PYRAMINX_PALETTES.map(({ name, colors }) => (
                   <button
                     key={String(name)}
                     disabled={s.solving}
@@ -1177,12 +1174,13 @@ export default function PyraminxApp({
                         colors: Object.fromEntries(
                           TILES.map((t) => [
                             t.id,
-                            (colors as string[])[t.face],
+                            colors[t.face],
                           ]),
                         ),
                       })
                     }
                   >
+                    <span>{colors.map((c) => <i key={c} style={{ background: c }} />)}</span>
                     {name}
                   </button>
                 ))}
@@ -1269,7 +1267,7 @@ export default function PyraminxApp({
                 <span className="tag">状态搜索</span>
               </div>
               <p className="helper-text">
-                按当前块位置与方向计算上两层转动的最短复原序列，再对齐独立顶角。支持带底层转动的状态与整面照片。
+                按当前块位置与方向计算上两层转动的最短复原序列，再对齐独立顶角并恢复初始方位。支持带底层转动的状态与整面照片。
               </p>
               <button
                 className="wide-button"

@@ -1,15 +1,9 @@
 import * as T from 'three';
 import { PIECES, ROTATIONS, TILES, VERTICES, type Tile } from './model';
 import { createChassisRelief, createPlasticGrain } from '../cube/studio';
-import {
-  capSeat,
-  clipGeometry,
-  hollowChassis,
-  perforatedTrack,
-  sleeve,
-  springGeometry,
-} from './mechanics';
+import { hollowChassis, sleeve } from './mechanics';
 import type { State } from './store';
+import { capOutline, TIP_CUT } from './cap-profile';
 
 export const vertices = VERTICES.map((v) => new T.Vector3(...v));
 export const normals = vertices.map((v) => v.clone().normalize().negate());
@@ -32,7 +26,7 @@ export const tileCenter = (tile: Tile) =>
 
 function pieceBoundaries(piece: (typeof PIECES)[number], clearance = 0) {
   const bodyCut = 4 / 15,
-    tipCut = 4 / 3;
+    tipCut = TIP_CUT;
   return vertices.flatMap((v, axis) => {
     const n = v.clone().normalize();
     if (piece.kind === 'tip')
@@ -68,30 +62,7 @@ function capGeometry(tile: Tile) {
   });
   const side = p[0].distanceTo(p[1]),
     height = (side * Math.sqrt(3)) / 2;
-  const corners = [
-    new T.Vector2(0, (2 * height) / 3),
-    new T.Vector2(-side / 2, -height / 3),
-    new T.Vector2(side / 2, -height / 3),
-  ];
-  const outline: T.Vector2[] = [],
-    contactOutline: T.Vector2[] = [];
-  const radius = tile.piece >= 4 && tile.piece < 8 ? 0.09 : 0.045;
-  for (let i = 0; i < 3; i++) {
-    const corner = corners[i],
-      start = corner.clone().lerp(corners[(i + 2) % 3], radius),
-      end = corner.clone().lerp(corners[(i + 1) % 3], radius);
-    for (let j = 0; j <= 6; j++) {
-      const t = j / 6;
-      contactOutline.push(corner);
-      outline.push(
-        start
-          .clone()
-          .multiplyScalar((1 - t) ** 2)
-          .addScaledVector(corner, 2 * t * (1 - t))
-          .addScaledVector(end, t * t),
-      );
-    }
-  }
+  const outline = capOutline(tile);
   const positions: number[] = [],
     uv: number[] = [],
     indices: number[] = [];
@@ -115,22 +86,20 @@ function capGeometry(tile: Tile) {
       a * tile.uv[0][1] + b * tile.uv[1][1] + c * tile.uv[2][1],
     );
   };
-  // A full triangular contact belt at the original face plane closes both
-  // shared edges and corner junctions. Rounding every ring left real holes,
-  // even with stickerOffset = 0. The upper rings retain the moulded bevel.
+  // Preserve the reference silhouette through the entire lip; a sharp
+  // triangular belt here would fill the rounded junctions and central opening.
   const rings = [
-    [0.94, -0.043, 1],
-    [0.985, -0.029, 1],
-    [0.997, -0.008, 0.5],
-    [1, 0, 0],
-    [0.995, 0.016, 0.25],
-    [0.985, 0.026, 0.5],
-    [0.75, 0.032, 1],
-    [0.38, 0.038, 1],
+    [0.97, -0.043],
+    [0.992, -0.029],
+    [1, -0.008],
+    [1, 0],
+    [0.996, 0.012],
+    [0.985, 0.021],
+    [0.75, 0.027],
+    [0.38, 0.03],
   ];
-  for (const [scale, z, rounding] of rings)
-    for (let i = 0; i < outline.length; i++) {
-      const p = contactOutline[i].clone().lerp(outline[i], rounding);
+  for (const [scale, z] of rings)
+    for (const p of outline) {
       vertex(p.x * scale, p.y * scale, z);
     }
   const n = outline.length;
@@ -141,7 +110,7 @@ function capGeometry(tile: Tile) {
       indices.push(a, b, a + n, b, b + n, a + n);
     }
   const center = positions.length / 3;
-  vertex(0, 0, 0.04);
+  vertex(0, 0, 0.031);
   for (let i = 0; i < n; i++)
     indices.push(
       (rings.length - 1) * n + i,
@@ -161,7 +130,7 @@ function capGeometry(tile: Tile) {
   g.userData.occluder = outline.map((_, i) => [
     positions[(4 * n + i) * 3] * 0.995,
     positions[(4 * n + i) * 3 + 1] * 0.995,
-    0.016,
+    0.012,
   ]);
   return g;
 }
@@ -209,18 +178,8 @@ export function createModel(anisotropy: number) {
     metalness: 0.88,
     roughness: 0.24,
   });
-  const green = new T.MeshPhysicalMaterial({
-    color: '#78d639',
-    roughness: 0.24,
-    clearcoat: 0.3,
-  });
   const cylinder = new T.CylinderGeometry(1, 1, 1, 24),
-    box = new T.BoxGeometry(1, 1, 1),
-    trackGeometry = perforatedTrack(),
-    spring = springGeometry(),
-    washer = sleeve(0.13, 0.058, 0.025),
     bearing = sleeve(0.17, 0.074, 0.09),
-    nut = sleeve(0.143, 0.06, 0.14),
     magnetSeat = sleeve(0.089, 0.067, 0.05);
   const Y = new T.Vector3(0, 1, 0),
     Z = new T.Vector3(0, 0, 1);
@@ -331,23 +290,12 @@ export function createModel(anisotropy: number) {
       hits.push(mesh);
       return mesh;
     }
-    const untrimmedHull = hollowChassis(
-      points,
-      home,
-      pieceTiles.map((t) => normals[t.face]),
-      piece.kind === 'edge' ? undefined : radial,
-    );
-    // Every structural surface stays below the cap's -0.043 back plane,
-    // including at the acute edges shared by two or three colored faces.
-    const capClearance = normals.map((n) => new T.Plane(n.clone(), -0.742));
+    // Contact backings sit directly behind the caps (0.8 - 0.043), with only
+    // a numerical clearance. The same bound mitres all adjoining face seats.
+    const capClearance = normals.map((n) => new T.Plane(n.clone(), -0.7569));
     const cellPlanes = pieceBoundaries(piece, 0.008);
     const housingClearance = [...capClearance, ...cellPlanes];
-    const hull = clipGeometry(
-      untrimmedHull,
-      housingClearance,
-      new T.Matrix4().makeTranslation(...home.toArray()),
-    );
-    untrimmedHull.dispose();
+    const hull = hollowChassis(home, pieceTiles, housingClearance);
     const chassis = part(
       new T.Mesh(hull, [shell, smoothPlastic]),
       home,
@@ -359,11 +307,13 @@ export function createModel(anisotropy: number) {
       const material = new T.MeshPhysicalMaterial({
         color: '#ffffff',
         roughness: 0.24,
-        ior: 1.47,
-        clearcoat: 0.18,
-        clearcoatRoughness: 0.26,
+        ior: 1.48,
+        specularIntensity: 0.75,
+        clearcoat: 0.2,
+        clearcoatRoughness: 0.13,
         bumpMap: grain,
-        bumpScale: 0.0006,
+        bumpScale: 0.00022,
+        roughnessMap: grain,
       });
       const cap = new T.Mesh(capGeometry(tile), material),
         c = tileCenter(tile),
@@ -375,86 +325,8 @@ export function createModel(anisotropy: number) {
       cap.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(x, y, n));
       cap.userData = { tile: tile.id, face: tile.face, cap: true };
       cap.name = `${tile.id}-colored-cap`;
-      part(cap, c, n, 0.34, false, false, true);
+      part(cap, c, n, 0, false, false, true);
       tiles.set(tile.id, cap);
-      const seat = new T.Mesh<T.BufferGeometry, T.MeshStandardMaterial>(
-        capSeat(
-          new T.Vector3(...tile.points[0]).distanceTo(
-            new T.Vector3(...tile.points[1]),
-          ),
-          piece.kind === 'center' ? 0.09 : 0.045,
-        ),
-        smoothPlastic,
-      );
-      seat.quaternion.copy(cap.quaternion);
-      seat.name = `${tile.id}-open-cap-recess`;
-      const seatPosition = c.clone().addScaledVector(n, -0.084);
-      const originalSeat = seat.geometry;
-      seat.geometry = clipGeometry(
-        originalSeat,
-        [
-          ...normals.map((normal) => new T.Plane(normal.clone(), -0.7565)),
-          ...cellPlanes,
-        ],
-        new T.Matrix4().compose(
-          seatPosition,
-          seat.quaternion,
-          new T.Vector3(1, 1, 1),
-        ),
-      );
-      originalSeat.dispose();
-      part(seat, seatPosition, radial, 0);
-      for (const side of [-1, 1]) {
-        const clip = new T.Mesh(box, material);
-        clip.scale.set(0.085, 0.045, 0.105);
-        clip.quaternion.copy(cap.quaternion);
-        clip.name = `${tile.id}-snap-tab-${side}`;
-        part(
-          clip,
-          c
-            .clone()
-            .addScaledVector(x, side * 0.26)
-            .addScaledVector(y, -0.12)
-            .addScaledVector(n, -0.085),
-          n,
-          0.34,
-          true,
-          false,
-          true,
-        );
-        // Smooth bridge under the rim leaves the middle of the seat empty.
-        const bridge = new T.Mesh(box, smoothPlastic);
-        bridge.scale.set(0.14, 0.07, 0.055);
-        bridge.quaternion.copy(cap.quaternion);
-        part(
-          bridge,
-          c
-            .clone()
-            .addScaledVector(x, side * 0.26)
-            .addScaledVector(y, -0.12)
-            .addScaledVector(n, -0.155),
-          radial,
-          0,
-        );
-      }
-    }
-    function axial(
-      geometry: T.BufferGeometry,
-      material: T.Material,
-      distance: number,
-      separation: number,
-      name: string,
-    ) {
-      const mesh = new T.Mesh(geometry, material);
-      mesh.name = `${piece.id}-${name}`;
-      mesh.quaternion.setFromUnitVectors(Z, radial);
-      return part(
-        mesh,
-        radial.clone().multiplyScalar(distance),
-        radial,
-        separation,
-        true,
-      );
     }
     function magneticSocket(
       position: T.Vector3,
@@ -472,86 +344,14 @@ export function createModel(anisotropy: number) {
       magnet.quaternion.setFromUnitVectors(Y, normal);
       part(
         magnet,
-        position.clone().addScaledVector(normal, 0.006),
+        position.clone().addScaledVector(normal, 0.012),
         normal,
         separation + 0.15,
         true,
         true,
       );
     }
-    if (piece.kind === 'center') {
-      axial(sleeve(0.17, 0.07, 0.3), shell, 0.68, -0.1, 'axle-sleeve');
-      axial(bearing, shell, 0.48, -0.18, 'lower-bearing');
-      axial(washer, metal, 0.825, 0.1, 'spring-seat');
-      axial(spring, metal, 0.99, 0.26, 'helical-spring');
-      axial(washer, metal, 1.15, 0.39, 'upper-washer');
-      axial(nut, green, 1.245, 0.51, 'ges-adjustment-nut');
-      // Four finger grips around the hollow GES nut move with the nut.
-      const tangent = new T.Vector3()
-        .crossVectors(radial, new T.Vector3(1, 0.2, 0))
-        .normalize();
-      const bitangent = radial.clone().cross(tangent);
-      for (let j = 0; j < 4; j++) {
-        const direction = tangent
-          .clone()
-          .multiplyScalar(Math.cos((j * Math.PI) / 2))
-          .addScaledVector(bitangent, Math.sin((j * Math.PI) / 2));
-        const grip = new T.Mesh(box, green);
-        grip.scale.set(0.085, 0.032, 0.075);
-        grip.quaternion.setFromRotationMatrix(
-          new T.Matrix4().makeBasis(
-            radial.clone().cross(direction),
-            radial,
-            direction,
-          ),
-        );
-        part(
-          grip,
-          radial
-            .clone()
-            .multiplyScalar(1.245)
-            .addScaledVector(direction, 0.142),
-          radial,
-          0.51,
-          true,
-        );
-      }
-    } else if (piece.kind === 'edge') {
-      axial(sleeve(0.13, 0.075, 0.25), shell, 0.72, -0.1, 'hollow-foot-neck');
-      axial(trackGeometry, shell, 0.535, -0.19, 'perforated-circular-track');
-      axial(
-        sleeve(0.105, 0.067, 0.06),
-        smoothPlastic,
-        0.49,
-        -0.19,
-        'foot-magnet-hub',
-      );
-      const tangent = new T.Vector3()
-        .crossVectors(radial, new T.Vector3(1, 0.2, 0))
-        .normalize();
-      const bitangent = radial.clone().cross(tangent);
-      for (let j = 0; j < 3; j++) {
-        const direction = tangent
-          .clone()
-          .multiplyScalar(Math.cos((j * Math.PI * 2) / 3))
-          .addScaledVector(bitangent, Math.sin((j * Math.PI * 2) / 3));
-        const spoke = new T.Mesh(box, smoothPlastic);
-        spoke.scale.set(0.045, 0.06, 0.18);
-        spoke.quaternion.setFromRotationMatrix(
-          new T.Matrix4().makeBasis(
-            radial.clone().cross(direction),
-            radial,
-            direction,
-          ),
-        );
-        part(
-          spoke,
-          radial.clone().multiplyScalar(0.535).addScaledVector(direction, 0.17),
-          radial,
-          -0.19,
-          true,
-        );
-      }
+    if (piece.kind === 'edge') {
       magneticSocket(
         radial.clone().multiplyScalar(0.49),
         radial.clone().negate(),
@@ -563,19 +363,15 @@ export function createModel(anisotropy: number) {
           boundary = vertices[piece.vertices.find((axis) => axis !== endpoint)!]
             .clone()
             .normalize();
-        // Place paired magnets on opposite sides of the actual layer-cut
-        // plane. Tangential sockets at the ends crossed that plane mid-turn.
         const matingPoint = centerAxis
           .multiplyScalar(0.73)
           .addScaledVector(boundary, 0.51);
         magneticSocket(
-          matingPoint.addScaledVector(boundary, 0.045),
+          matingPoint.addScaledVector(boundary, 0.034),
           boundary.clone().negate(),
           `center-${endpoint}`,
         );
       }
-    } else {
-      axial(sleeve(0.17, 0.115, 0.12), shell, 1.405, -0.06, 'tip-bearing');
     }
     if (piece.kind !== 'edge') {
       const axis = piece.vertices[0];
@@ -589,7 +385,7 @@ export function createModel(anisotropy: number) {
         magneticSocket(
           radial
             .clone()
-            .multiplyScalar(isTip ? 1.372 : 1.3)
+            .multiplyScalar(TIP_CUT + (isTip ? 0.036 : -0.033))
             .addScaledVector(tangent, 0.245),
           radial.clone().multiplyScalar(isTip ? -1 : 1),
           `tip-detent-${other}`,
@@ -600,7 +396,7 @@ export function createModel(anisotropy: number) {
             radial
               .clone()
               .multiplyScalar(0.73)
-              .addScaledVector(boundary, 0.51 - 0.045),
+              .addScaledVector(boundary, 0.51 - 0.034),
             boundary,
             `edge-detent-${other}`,
           );

@@ -1,7 +1,8 @@
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { smoothBevels } from './geometry';
-import type { Piece } from './model';
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+import { smoothBevels, tileOutline } from './geometry';
+import { FACE, type Piece } from './model';
 import { clipGeometry } from '../rendering/clip-geometry';
 
 type AddPart = (
@@ -22,7 +23,7 @@ interface Materials {
 function extrude(shape: T.Shape, depth: number, bevel = 0.012) {
   const geometry = new T.ExtrudeGeometry(shape, {
     depth,
-    bevelEnabled: true,
+    bevelEnabled: bevel > 0,
     bevelSize: bevel,
     bevelThickness: bevel,
     bevelSegments: 3,
@@ -58,18 +59,205 @@ function innerPanel(magnet: boolean) {
   return extrude(s, 0.05);
 }
 
-function sidePanel() {
-  const s = new T.Shape();
-  s.moveTo(-0.4, 0.45);
-  s.lineTo(0.4, 0.45);
-  s.quadraticCurveTo(0.45, 0.45, 0.45, 0.38);
-  s.lineTo(0.45, -0.25);
-  s.bezierCurveTo(0.45, -0.48, 0.27, -0.49, 0.12, -0.34);
-  s.quadraticCurveTo(0, -0.23, -0.12, -0.34);
-  s.bezierCurveTo(-0.27, -0.49, -0.45, -0.48, -0.45, -0.25);
-  s.lineTo(-0.45, 0.38);
-  s.quadraticCurveTo(-0.45, 0.45, -0.4, 0.45);
-  return extrude(s, 0.05);
+// Intersect the two cap silhouettes. At each cross-section both inward
+// edges follow exactly the same quadratic curve as the coloured edge caps.
+function edgeHousing(piece: Piece, materials: Materials) {
+  const outline = tileOutline(0, 1).map(({ point }) =>
+      point.clone().multiplyScalar(0.968),
+    ),
+    occupied = piece.home
+      .map((sign, axis) => ({ sign, axis }))
+      .filter(({ sign }) => sign),
+    missing = piece.home.indexOf(0),
+    points: T.Vector3[] = [],
+    profile: { x: number; lower: number; length: number }[] = [];
+  for (const x of [...new Set(outline.map((p) => p.x))].sort((a, b) => a - b)) {
+    const crossings: number[] = [];
+    for (let i = 0; i < outline.length; i++) {
+      const a = outline[i],
+        b = outline[(i + 1) % outline.length];
+      if (Math.abs(a.x - x) < 1e-8) crossings.push(a.y);
+      if (x > Math.min(a.x, b.x) && x < Math.max(a.x, b.x))
+        crossings.push(a.y + ((x - a.x) / (b.x - a.x)) * (b.y - a.y));
+    }
+    const lower = Math.min(...crossings),
+      upper = Math.min(0.4045, Math.max(...crossings));
+    const previous = profile.at(-1);
+    profile.push({
+      x,
+      lower,
+      length: previous
+        ? previous.length + Math.hypot(x - previous.x, lower - previous.lower)
+        : 0,
+    });
+    for (const a of [lower, upper])
+      for (const b of [lower, upper])
+        points.push(
+          new T.Vector3()
+            .setComponent(missing, x)
+            .setComponent(occupied[0].axis, a * occupied[0].sign)
+            .setComponent(occupied[1].axis, b * occupied[1].sign),
+        );
+  }
+  const geometry = new ConvexGeometry(points),
+    positions = geometry.getAttribute('position'),
+    normals = geometry.getAttribute('normal'),
+    surfaces = [0, 1].map(() => ({
+      positions: [] as number[],
+      normals: [] as number[],
+      uv: [] as number[],
+    }));
+  for (let i = 0; i < positions.count; i += 3) {
+    const n = new T.Vector3().fromBufferAttribute(normals, i);
+    // Replace the two flat magnetic mating faces with drilled panels below.
+    if (Math.abs(n.getComponent(missing)) > 1 - 1e-6) continue;
+    const capBack = occupied.some(
+        ({ axis, sign }) => n.getComponent(axis) * sign > 0.999,
+      ),
+      dominant = [0, 1, 2].sort(
+        (a, b) => Math.abs(n.getComponent(b)) - Math.abs(n.getComponent(a)),
+      )[0],
+      axes = [0, 1, 2].filter((a) => a !== dominant),
+      surface = surfaces[capBack ? 1 : 0],
+      curved = occupied.find(
+        ({ axis, sign }) => n.getComponent(axis) * sign < -1e-5,
+      );
+    for (let j = 0; j < 3; j++) {
+      const p = new T.Vector3().fromBufferAttribute(positions, i + j);
+      surface.positions.push(...p.toArray());
+      surface.normals.push(...n.toArray());
+      if (curved) {
+        const along = profile.reduce((best, sample) =>
+            Math.abs(sample.x - p.getComponent(missing)) <
+            Math.abs(best.x - p.getComponent(missing))
+              ? sample
+              : best,
+          ),
+          other = occupied.find(({ axis }) => axis !== curved.axis)!;
+        surface.uv.push(
+          along.length,
+          p.getComponent(other.axis) * other.sign + 0.5,
+        );
+      } else
+        surface.uv.push(
+          p.getComponent(axes[0]) + 0.5,
+          p.getComponent(axes[1]) + 0.5,
+        );
+    }
+  }
+  for (const sign of [-1, 1]) {
+    const section = sign < 0 ? profile[0] : profile.at(-1)!,
+      shape = new T.Shape(),
+      lower = section.lower,
+      upper = 0.4045;
+    shape.moveTo(lower, lower);
+    shape.lineTo(upper, lower);
+    shape.lineTo(upper, upper);
+    shape.lineTo(lower, upper);
+    shape.closePath();
+    bore(shape, 0.2, 0.2, 0.115);
+    const panel = new T.ShapeGeometry(shape, 24),
+      normal = new T.Vector3().setComponent(missing, sign);
+    let u = new T.Vector3().setComponent(occupied[0].axis, occupied[0].sign),
+      v = new T.Vector3().setComponent(occupied[1].axis, occupied[1].sign);
+    if (u.clone().cross(v).dot(normal) < 0) [u, v] = [v, u];
+    const p = panel.getAttribute('position'),
+      surface = surfaces[0];
+    for (let i = 0; i < panel.index!.count; i++) {
+      const index = panel.index!.getX(i),
+        point = u
+          .clone()
+          .multiplyScalar(p.getX(index))
+          .addScaledVector(v, p.getY(index))
+          .setComponent(missing, section.x);
+      surface.positions.push(...point.toArray());
+      surface.normals.push(...normal.toArray());
+      surface.uv.push(p.getX(index) + 0.5, p.getY(index) + 0.5);
+    }
+    panel.dispose();
+  }
+  // Keep the entire honeycomb wall in one draw group, including its curves.
+  geometry.setAttribute(
+    'position',
+    new T.Float32BufferAttribute(
+      surfaces.flatMap((s) => s.positions),
+      3,
+    ),
+  );
+  geometry.setAttribute(
+    'normal',
+    new T.Float32BufferAttribute(
+      surfaces.flatMap((s) => s.normals),
+      3,
+    ),
+  );
+  geometry.setAttribute(
+    'uv',
+    new T.Float32BufferAttribute(
+      surfaces.flatMap((s) => s.uv),
+      2,
+    ),
+  );
+  const wallCount = surfaces[0].positions.length / 3;
+  geometry.addGroup(0, wallCount, 0);
+  geometry.addGroup(wallCount, surfaces[1].positions.length / 3, 1);
+  const mesh = new T.Mesh(geometry, [materials.body, materials.plastic]);
+  mesh.name = '棱块 · 随贴片曲线的蜂窝内壳';
+  return mesh;
+}
+
+export function createCenterHousing(
+  piece: Piece,
+  body: T.Material,
+  plastic: T.Material,
+) {
+  const housing = new T.Group(),
+    outline = tileOutline(1, 1).map(({ point }) =>
+      point.clone().multiplyScalar(0.968),
+    ),
+    count = outline.length / 4;
+  housing.name = '中心块 · 四面蜂窝内壳';
+  housing.userData.primary = true;
+  for (let side = 0; side < 4; side++) {
+    const outer = Array.from(
+        { length: count + 1 },
+        (_, i) => outline[(side * count + i) % outline.length],
+      ),
+      inner = outer.map((p) => p.clone().multiplyScalar(0.91)).reverse(),
+      panel = new T.Mesh(
+        extrude(new T.Shape([...outer, ...inner]), 0.56, 0),
+        body,
+      );
+    panel.position.z = 0.105;
+    panel.name = `中心块 · 蜂窝侧片 ${side + 1}`;
+    // Use arc length around the shell and physical depth so hexagons keep
+    // their aspect ratio on vertical walls and on the rounded corners.
+    const p = panel.geometry.getAttribute('position'),
+      uv = panel.geometry.getAttribute('uv');
+    const startAngle = Math.atan2(outer[0].y, outer[0].x);
+    for (let i = 0; i < p.count; i++) {
+      let angle = Math.atan2(p.getY(i), p.getX(i));
+      if (angle < startAngle - 1e-5) angle += Math.PI * 2;
+      uv.setXY(i, angle * 0.47, p.getZ(i) + 0.28);
+    }
+    housing.add(panel);
+  }
+  const backing = new T.Mesh(
+    extrude(new T.Shape(outline), 0.045, 0.004),
+    plastic,
+  );
+  backing.position.z = 0.377;
+  backing.name = '中心块 · 圆角贴片底座';
+  housing.add(backing);
+  const face = FACE[piece.stickers[0].face];
+  housing.quaternion.setFromRotationMatrix(
+    new T.Matrix4().makeBasis(
+      new T.Vector3(...face.r),
+      new T.Vector3(...face.u),
+      new T.Vector3(...face.n),
+    ),
+  );
+  return housing;
 }
 
 function triangle() {
@@ -140,8 +328,7 @@ export function magnetMounts(piece: Piece) {
 }
 
 export function createMechanics(materials: Materials) {
-  const panel = innerPanel(true),
-    plainPanel = sidePanel();
+  const panel = innerPanel(true);
   const backing = new RoundedBoxGeometry(0.97, 0.97, 0.065, 3, 0.06);
   const rib = new RoundedBoxGeometry(0.07, 0.56, 0.07, 2, 0.014);
   const socket = tube(0.112, 0.084, 0.058);
@@ -181,7 +368,8 @@ export function createMechanics(materials: Materials) {
       .map((sign, axis) => ({ sign, axis }))
       .filter(({ sign }) => sign);
     const missing = piece.home.indexOf(0);
-    for (const { sign, axis } of occupied) {
+    if (piece.kind === 'edge') chassis.add(edgeHousing(piece, materials));
+    for (const { sign, axis } of piece.kind === 'corner' ? occupied : []) {
       const normal = new T.Vector3().setComponent(axis, sign);
       const backingMesh = new T.Mesh(backing, materials.plastic);
       backingMesh.position.copy(normal).multiplyScalar(0.375);
@@ -189,24 +377,12 @@ export function createMechanics(materials: Materials) {
       chassis.add(backingMesh);
       const other = occupied.filter((a) => a.axis !== axis);
       const u = new T.Vector3().setComponent(other[0].axis, other[0].sign);
-      const v =
-        piece.kind === 'corner'
-          ? new T.Vector3().setComponent(other[1].axis, other[1].sign)
-          : new T.Vector3().setComponent(missing, 1);
-      const face = new T.Mesh(
-        piece.kind === 'corner' ? panel : plainPanel,
-        materials.body,
-      );
-      if (piece.kind === 'corner') {
-        if (u.clone().cross(v).dot(normal) > 0) {
-          const temp = u.clone();
-          u.copy(v);
-          v.copy(temp);
-        }
-      } else {
-        u.setComponent(other[0].axis, 0).setComponent(missing, 1);
-        v.set(0, 0, 0).setComponent(other[0].axis, other[0].sign);
-        if (u.clone().cross(v).dot(normal) > 0) u.negate();
+      const v = new T.Vector3().setComponent(other[1].axis, other[1].sign);
+      const face = new T.Mesh(panel, materials.body);
+      if (u.clone().cross(v).dot(normal) > 0) {
+        const temp = u.clone();
+        u.copy(v);
+        v.copy(temp);
       }
       face.quaternion.setFromRotationMatrix(
         new T.Matrix4().makeBasis(u, v, normal.clone().negate()),
@@ -221,37 +397,22 @@ export function createMechanics(materials: Materials) {
         .addScaledVector(radial, -0.16);
       chassis.add(brace);
     }
-    if (piece.kind === 'edge') {
-      for (const sign of [-1, 1]) {
-        const normal = new T.Vector3().setComponent(missing, sign);
-        let u = new T.Vector3().setComponent(
-          occupied[0].axis,
-          occupied[0].sign,
-        );
-        let v = new T.Vector3().setComponent(
-          occupied[1].axis,
-          occupied[1].sign,
-        );
-        if (u.clone().cross(v).dot(normal) < 0) [u, v] = [v, u];
-        const wall = new T.Mesh(panel, materials.body);
-        wall.quaternion.setFromRotationMatrix(
-          new T.Matrix4().makeBasis(u, v, normal),
-        );
-        wall.position.copy(normal).multiplyScalar(0.424);
-        chassis.add(wall);
-      }
-    }
-    // Trim all backing/side walls behind each mating cap, whose back is at
-    // 0.405. Their old square corners protruded through perpendicular caps.
+    // Corner mouldings need trimming at the cap backs. The curved edge shell
+    // already incorporates those bounds while constructing its cross-sections.
     const capPlanes = occupied.map(
       ({ sign, axis }) =>
         new T.Plane(new T.Vector3().setComponent(axis, sign), -0.4045),
     );
-    chassis.traverse((object) => {
-      if (!(object instanceof T.Mesh)) return;
-      object.updateMatrix();
-      object.geometry = clipGeometry(object.geometry, capPlanes, object.matrix);
-    });
+    if (piece.kind === 'corner')
+      chassis.traverse((object) => {
+        if (!(object instanceof T.Mesh)) return;
+        object.updateMatrix();
+        object.geometry = clipGeometry(
+          object.geometry,
+          capPlanes,
+          object.matrix,
+        );
+      });
     add(chassis, new T.Vector3(), radial, 0.06);
     const stem = new T.Mesh(neck, materials.plastic);
     stem.name = '空心连接颈';

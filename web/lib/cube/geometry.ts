@@ -147,7 +147,7 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
   return geometry;
 }
 
-function tileOutline(row: number, col: number) {
+export function tileOutline(row: number, col: number) {
   const radii = tileRadii(row, col),
     h = 0.498;
   const points: { point: Vector2; outward: Vector2 }[] = [];

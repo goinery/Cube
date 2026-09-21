@@ -125,6 +125,28 @@ export function solvePuzzle(
     const m = parseMove(token);
     return moveToken(ROTATIONS[original.frame][m.axis], m.layer, m.direction);
   });
-  if (!isSolved(apply(original, result))) throw new Error('求解结果校验失败。');
-  return { moves: result, bodyLength };
+  const tipLength = result.length - bodyLength;
+  // A base turn changes the puzzle frame. Matching all colours alone leaves
+  // that frame rotated, which also leaves face photos in the wrong direction.
+  // A matching body/base pair rotates the complete tetrahedron by 120 degrees.
+  const frames = [{ frame: original.frame, moves: [] as string[] }];
+  const seen = new Set([original.frame]);
+  for (let i = 0; i < frames.length; i++) {
+    const current = frames[i];
+    if (current.frame === 0) {
+      result.push(...current.moves);
+      break;
+    }
+    for (const move of specs) {
+      const frame = COMPOSE[moveRotation(move)][current.frame];
+      if (seen.has(frame)) continue;
+      seen.add(frame);
+      frames.push({ frame, moves: [...current.moves,
+        moveToken(move.axis, 'body', move.direction),
+        moveToken(move.axis, 'base', move.direction)] });
+    }
+  }
+  const restored = apply(original, result);
+  if (!isSolved(restored) || restored.frame !== 0) throw new Error('求解结果校验失败。');
+  return { moves: result, bodyLength, tipLength, orientationLength: result.length - bodyLength - tipLength };
 }

@@ -70,6 +70,28 @@ export function captureAlignment(
 const local = new Quaternion(),
   inverse = new Quaternion(),
   world = new Quaternion();
+export function applyPartialTurn(root: Object3D, orientation: number, partial: PartialTurn) {
+  world.setFromAxisAngle(vertices[partial.axis].clone().normalize(), partial.angle);
+  if (partial.layer === 'tip') {
+    // A tip twists on its own bearing, including while its carrier is offset.
+    const basis = quaternions[orientation];
+    local.copy(basis).invert().multiply(world).multiply(basis);
+    root.quaternion.multiply(local);
+  } else {
+    root.position.applyQuaternion(world);
+    root.quaternion.premultiply(world);
+  }
+}
+
+export function rebaseTipAlignment(pose: AlignmentPose, before: PuzzleState, after: PuzzleState) {
+  if (before.frame !== after.frame || before.rotations.slice(4).some((r, i) => r !== after.rotations[i + 4])) return;
+  for (let i = 0; i < 4; i++) {
+    if (before.rotations[i] === after.rotations[i]) continue;
+    const delta = quaternions[before.rotations[i]].clone().invert().multiply(quaternions[after.rotations[i]]);
+    pose.rotations[i].premultiply(delta.clone().invert()).multiply(delta);
+  }
+}
+
 export function applyAlignment(
   root: Object3D,
   rotation: Quaternion,

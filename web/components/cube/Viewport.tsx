@@ -40,7 +40,7 @@ import {
   alignedPartialForTurn,
 } from '@/lib/cube/interaction';
 import { createTileGeometry } from '@/lib/cube/geometry';
-import { createMechanics } from '@/lib/cube/mechanics';
+import { createCenterHousing, createMechanics } from '@/lib/cube/mechanics';
 import {
   CubeRenderOptimizer,
   isHierarchyVisible,
@@ -335,12 +335,12 @@ export default memo(function Viewport() {
       if (p.kind !== 'center') {
         buildMechanics(p, part);
       } else {
-        const backing = new T.Mesh(
-          new RoundedBoxGeometry(0.95, 0.95, 0.065, 3, 0.065),
-          plastic,
+        part(
+          createCenterHousing(p, chassisMaterial, plastic),
+          new T.Vector3(),
+          radial,
+          0.45,
         );
-        backing.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), radial);
-        part(backing, radial.clone().multiplyScalar(0.37), radial, 0.45);
         const carriage = new T.Mesh(
           new T.LatheGeometry(
             [

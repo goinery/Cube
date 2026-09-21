@@ -1,4 +1,7 @@
 import { useSyncExternalStore } from 'react';
+import { heldAngle, partialsAfterMove, sameLayer, turnsConflict, visibleTurns, type PartialTurn } from './interaction';
+import { magneticTarget } from '../cube/interaction';
+export type { PartialTurn } from './interaction';
 import {
   defaultSettings,
   type Mode,
@@ -7,6 +10,7 @@ import {
 } from '../cube/store';
 import {
   AXES,
+  FACE_COLORS,
   TILES,
   TURN,
   apply,
@@ -27,11 +31,6 @@ export interface Photo {
   x: number;
   y: number;
   rotation: number;
-}
-export interface PartialTurn {
-  axis: number;
-  layer: Move['layer'];
-  angle: number;
 }
 export interface Player {
   moves: string[];
@@ -70,7 +69,7 @@ export interface State {
   puzzle: PuzzleState;
   history: string[];
   cursor: number;
-  partial: PartialTurn | null;
+  partials: PartialTurn[];
   settings: Settings;
   mode: Mode;
   view: View;
@@ -97,7 +96,7 @@ export const defaultColors = () =>
   Object.fromEntries(
     TILES.map((t) => [
       t.id,
-      ['#f6df13', '#ed283b', '#13cd45', '#143cfa'][t.face],
+      FACE_COLORS[t.face],
     ]),
   );
 export const defaultPyraminxSettings = (): Settings => ({
@@ -109,7 +108,7 @@ let state: State = {
   puzzle: solved(),
   history: [],
   cursor: 0,
-  partial: null,
+  partials: [],
   settings: defaultPyraminxSettings(),
   mode: 'play',
   view: 'hidden',
@@ -194,45 +193,28 @@ export function pause() {
   generation++;
   if (state.player) patch({ player: { ...state.player, playing: false } });
 }
-const sameLayer = (a: PartialTurn, b: Move) =>
-  a.axis === b.axis && a.layer === b.layer;
-export function canAlign() {
-  return (
-    !state.partial ||
-    Math.abs(state.partial.angle) <=
-      (state.settings.turnTolerance * Math.PI) / 180 + 1e-8
-  );
+export function canAlign(partials = state.partials) {
+  return partials.every((p) => Math.abs(p.angle) <=
+    (state.settings.turnTolerance * Math.PI) / 180 + 1e-8);
 }
-function startAlignment() {
-  const partial = state.partial;
-  if (!partial) return Promise.resolve();
-  const animation = alignmentAnimator(
+function startAlignment(partials = state.partials) {
+  if (!partials.length) return Promise.resolve();
+  const animations = visibleTurns(partials).map((partial) => alignmentAnimator(
     partial,
-    Math.max(
-      180,
-      Math.min(
-        420,
-        (220 + (Math.abs(partial.angle) / TURN) * 160) / state.settings.speed,
-      ),
-    ),
-  );
-  // Keep the old pose in the renderer while the new layer can already turn.
-  patch({ partial: null });
-  return animation;
+    Math.max(180, Math.min(420,
+      (220 + (Math.abs(partial.angle) / TURN) * 160) / state.settings.speed)),
+  ));
+  patch({ partials: state.partials.filter((p) => !partials.includes(p)) });
+  return Promise.all(animations).then(() => {});
 }
 export async function align(force = false) {
-  const partial = state.partial;
-  if (!partial) return true;
+  if (!state.partials.length) return true;
   if (!force && !canAlign()) {
     notify(`转层偏差超出 ${state.settings.turnTolerance}°，请沿原层拖动对齐。`);
     return false;
   }
-  const wasBusy = state.busy,
-    previousMove = state.currentMove;
-  patch({
-    busy: true,
-    currentMove: `${moveToken(partial.axis, partial.layer)} · 对齐`,
-  });
+  const wasBusy = state.busy, previousMove = state.currentMove;
+  patch({ busy: true, currentMove: '转层对齐' });
   try {
     await startAlignment();
     return true;
@@ -248,7 +230,8 @@ export async function perform(
   if (source === 'manual') interruptSettling();
   if (state.busy || state.solving || state.dragging) return false;
   const move = parseMove(token);
-  if (state.partial && !canAlign()) {
+  const conflicts = state.partials.filter((p) => turnsConflict(p, move));
+  if (!canAlign(conflicts)) {
     notify('请先对齐当前转层。');
     return false;
   }
@@ -258,15 +241,19 @@ export async function perform(
   }
   patch({ busy: true, currentMove: token });
   try {
-    const alignment = startAlignment();
+    const alignment = startAlignment(conflicts);
     if (instant) await alignment;
-    else await animator({ move, from: 0, to: -TURN * move.direction });
+    else {
+      const from = heldAngle(state.partials, move);
+      await animator({ move, from, to: from - TURN * move.direction });
+    }
     const puzzle = turn(state.puzzle, token);
-    if (source === 'undo') patch({ puzzle, cursor: state.cursor - 1 });
-    else if (source === 'redo') patch({ puzzle, cursor: state.cursor + 1 });
+    const partials = partialsAfterMove(state.partials, move);
+    if (source === 'undo') patch({ puzzle, partials, cursor: state.cursor - 1 });
+    else if (source === 'redo') patch({ puzzle, partials, cursor: state.cursor + 1 });
     else {
       const history = [...state.history.slice(0, state.cursor), token];
-      patch({ puzzle, history, cursor: history.length });
+      patch({ puzzle, partials, history, cursor: history.length });
     }
     // Commit the new layer at its visible endpoint even if the old layer is
     // still aligning; its local visual offsets follow the committed pieces.
@@ -279,8 +266,8 @@ export async function perform(
 export function beginDrag(move: Move) {
   interruptSettling();
   if (state.busy || state.solving) return false;
-  const needsAlignment = state.partial && !sameLayer(state.partial, move);
-  if (needsAlignment && !canAlign()) {
+  const conflicts = state.partials.filter((p) => turnsConflict(p, move));
+  if (!canAlign(conflicts)) {
     notify(`转层偏差超出 ${state.settings.turnTolerance}°，请沿原层拖动对齐。`);
     return false;
   }
@@ -291,8 +278,8 @@ export function beginDrag(move: Move) {
     player: null,
     currentMove: moveToken(move.axis, move.layer),
   });
-  if (needsAlignment)
-    void startAlignment().catch(() => notify('归位未完成，请重试。'));
+  if (conflicts.length)
+    void startAlignment(conflicts).catch(() => notify('归位未完成，请重试。'));
   return true;
 }
 let dragCompletion = 0;
@@ -309,10 +296,13 @@ export function finishDrag(move: Move, angle: number) {
     puzzle: token ? turn(state.puzzle, token) : state.puzzle,
     history,
     cursor: token ? history.length : state.cursor,
-    partial:
-      Math.abs(residual) > 1e-5
-        ? { axis: move.axis, layer: move.layer, angle: residual }
-        : null,
+    partials: [
+      ...(token ? partialsAfterMove(state.partials, parseMove(token)) : state.partials)
+        .filter((p) => !sameLayer(p, move)),
+      ...(Math.abs(residual) > 1e-5
+        ? [{ axis: move.axis, layer: move.layer, angle: residual }]
+        : []),
+    ],
     busy: false,
     dragging: false,
     settling: false,
@@ -332,10 +322,7 @@ export async function releaseDrag(
   patch({ dragging: false, settling });
   if (settling) {
     const target = magnetic
-      ? Math.round(
-          (targetAngle + Math.max(-0.45, Math.min(0.45, velocity * 0.07))) /
-            TURN,
-        ) * TURN
+      ? magneticTarget(targetAngle, velocity / 1000, TURN)
       : targetAngle;
     angle = await animator({
       move,
@@ -356,7 +343,16 @@ export function settings(update: Partial<Settings>) {
   const enable =
     state.settings.magnetStrength === 0 && (update.magnetStrength ?? 0) > 0;
   patch({ settings: { ...state.settings, ...update } });
-  if (enable && state.partial && !state.busy) void align(true);
+  if (enable && state.partials.length && !state.busy) void settlePartials();
+}
+async function settlePartials() {
+  const token = generation;
+  while (state.partials.length && !state.busy && state.settings.magnetStrength > 0) {
+    const partial = state.partials[0];
+    patch({ busy: true });
+    await releaseDrag({ ...partial, direction: 1 }, partial.angle, 0);
+    if (token !== generation) break;
+  }
 }
 export async function undo() {
   if (!state.busy && !state.solving && state.cursor) {
@@ -379,7 +375,7 @@ export function resetPuzzle() {
     puzzle: solved(),
     history: [],
     cursor: 0,
-    partial: null,
+    partials: [],
     player: null,
     scramble: '',
     selected: [],
@@ -426,34 +422,37 @@ export async function play() {
 export async function seek(target: number) {
   if (!state.player || state.busy || state.solving) return;
   pause();
-  if (!(await align())) return;
   const p = state.player!;
   target = Math.max(0, Math.min(p.moves.length, Math.round(target)));
   const backwards = target < p.index;
   const moves = backwards
     ? p.moves.slice(target, p.index).reverse().map(inverseMove)
     : p.moves.slice(p.index, target);
-  const history = backwards
-    ? state.history
-    : [...state.history.slice(0, state.cursor), ...moves];
-  patch({
-    puzzle: apply(state.puzzle, moves),
-    history,
-    cursor: state.cursor + target - p.index,
-    player: { ...p, index: target, playing: false },
-  });
+  if (!canPerformSequence(moves)) return;
+  for (const token of moves) {
+    if (!(await perform(token, backwards ? 'undo' : 'player', true))) return;
+    patch({ player: { ...state.player!, index: state.player!.index + (backwards ? -1 : 1), playing: false } });
+  }
+}
+function canPerformSequence(moves: string[]) {
+  let partials = state.partials;
+  for (const token of moves) {
+    const move = parseMove(token), conflicts = partials.filter((p) => turnsConflict(p, move));
+    if (!canAlign(conflicts)) {
+      notify('请先对齐当前转层。');
+      return false;
+    }
+    partials = partialsAfterMove(partials.filter((p) => !conflicts.includes(p)), move);
+  }
+  return true;
 }
 export async function applyInstant(moves: string[]) {
   if (state.busy || state.solving) return;
   pause();
-  if (!(await align())) return;
-  const history = [...state.history.slice(0, state.cursor), ...moves];
-  patch({
-    puzzle: apply(state.puzzle, moves),
-    history,
-    cursor: history.length,
-    player: null,
-  });
+  if (!canPerformSequence(moves)) return;
+  patch({ player: null });
+  for (const token of moves)
+    if (!(await perform(token, 'player', true))) return;
 }
 export function replayHistory() {
   if (state.busy || state.solving) return;
@@ -482,7 +481,7 @@ export async function startSolve() {
   if (state.busy || state.solving) return;
   pause();
   if (!(await align())) return;
-  if (isSolved(state.puzzle)) {
+  if (isSolved(state.puzzle) && state.puzzle.frame === 0) {
     notify('金字塔已经复原。');
     return;
   }
@@ -540,7 +539,7 @@ export interface Project {
   puzzle: 'pyraminx';
   history: string[];
   cursor: number;
-  partial: PartialTurn | null;
+  partials: PartialTurn[];
   colors: State['colors'];
   photos: State['photos'];
   settings: Settings;
@@ -551,7 +550,7 @@ export function captureProject(): Project {
   const {
     history,
     cursor,
-    partial,
+    partials,
     colors,
     photos,
     settings,
@@ -563,7 +562,7 @@ export function captureProject(): Project {
     puzzle: 'pyraminx',
     history,
     cursor,
-    partial,
+    partials,
     colors,
     photos,
     settings,
@@ -589,13 +588,14 @@ export function validateProject(value: unknown): Project {
     if (typeof m !== 'string') throw new Error('转动无效。');
     parseMove(m);
   });
-  if (
-    p.partial &&
-    (!Number.isInteger(p.partial.axis) ||
-      !finite(p.partial.axis, 0, 3) ||
-      !['tip', 'body', 'base'].includes(p.partial.layer) ||
-      !finite(p.partial.angle, -TURN / 2, TURN / 2))
-  )
+  // Read older saved projects that had room for only one unfinished layer.
+  const legacy = (p as Project & { partial?: PartialTurn | null }).partial;
+  const partials = p.partials ?? (legacy ? [legacy] : []);
+  if (!Array.isArray(partials) || partials.length > 7 || partials.some((partial, index) =>
+    !partial || !Number.isInteger(partial.axis) || !finite(partial.axis, 0, 3) ||
+    !['tip', 'body', 'base'].includes(partial.layer) ||
+    !finite(partial.angle, -TURN / 2, TURN / 2) ||
+    partials.slice(0, index).some((other) => sameLayer(other, partial) || turnsConflict(other, partial))))
     throw new Error('未对齐转层无效。');
   const colors = defaultColors();
   for (const id of Object.keys(colors)) {
@@ -661,7 +661,7 @@ export function validateProject(value: unknown): Project {
     puzzle: 'pyraminx',
     history: [...p.history],
     cursor: p.cursor,
-    partial: p.partial ?? null,
+    partials: partials.map((p) => ({ ...p })),
     colors,
     photos,
     settings,

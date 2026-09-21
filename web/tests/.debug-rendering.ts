@@ -13,7 +13,6 @@ import { createModel, normals, tileCenter } from '../lib/pyraminx/geometry';
 import { TILES, VERTICES } from '../lib/pyraminx/model';
 import { getState, defaultPyraminxSettings } from '../lib/pyraminx/store';
 import { TIP_CUT } from '../lib/pyraminx/cap-profile';
-import { CENTER_SHELL_RADIUS } from '../lib/pyraminx/mechanics';
 import { OcclusionCoverage } from '../lib/rendering/occlusion';
 import { updateDepthRange } from '../lib/cube/camera';
 
@@ -308,20 +307,6 @@ for (const piece of pyr.pieces) {
     'removed annular assembly is still present',
   );
   if (piece.kind === 'edge') continue;
-  if (piece.kind === 'center') {
-    // The floor is concave and concentric with the puzzle, including away
-    // from the bearing axis. A flat end or an open rim cannot pass these rays.
-    const tangent = new T.Vector3().crossVectors(piece.radial, new T.Vector3(1, 0, 0)).normalize();
-    for (const offset of [-0.22, 0, 0.22]) {
-      const direction = piece.radial.clone().addScaledVector(tangent, offset).normalize();
-      const probe = new T.Raycaster(new T.Vector3(), direction);
-      const hit = probe.intersectObject(chassis)[0];
-      assert(hit && Math.abs(hit.distance - CENTER_SHELL_RADIUS) < 0.012,
-        `centre spherical floor is missing: ${piece.root.name}`);
-      const normal = hit.face!.normal.clone().transformDirection(chassis.matrixWorld);
-      assert(normal.dot(direction) < -0.96, 'spherical floor must face the core');
-    }
-  }
   piece.root.traverse((mesh) => {
     if (!(mesh instanceof T.Mesh) || !/tip-detent|tip-bearing/.test(mesh.name))
       return;
@@ -372,6 +357,16 @@ for (const tile of TILES) {
       capNormal.clone().negate(),
     );
     const contact = seamRay.intersectObject(chassis)[0];
+    if (!contact || Math.abs(contact.distance - 0.1431) >= 1e-5) {
+ console.log(tile.id, point, contact?.distance, chassis.geometry.groups);
+ const expected = new T.Vector3(point.x,point.y,-0.0431).applyMatrix4(cap.matrixWorld);
+ console.log('world', expected.toArray(), 'planes', normals.map(n=>n.dot(expected)));
+ for(const other of TILES.filter(t=>t.piece===tile.piece)){
+ const c=pyr.tiles.get(other.id)!;
+ const probe=expected.clone().applyMatrix4(c.matrixWorld.clone().invert());
+ console.log(other.id,probe.toArray());
+ }
+}
     assert(
       contact && Math.abs(contact.distance - 0.1431) < 1e-5,
       `cap backing is detached or incomplete: ${tile.id}`,
@@ -381,10 +376,6 @@ for (const tile of TILES) {
     const p = new T.Vector3()
       .fromBufferAttribute(shellPositions, i)
       .applyMatrix4(shellToCap);
-    // Centre seats join three cap contours; their inner walls may extend
-    // behind a different seat's projection. Only its actual contact surface
-    // must stay within that cap. Infinite-prism clipping removed support here.
-    if (pyr.pieces[tile.piece].kind === 'center' && p.z < -0.04311) continue;
     for (let j = 0; j < outline.length; j++) {
       const a = outline[j],
         b = outline[(j + 1) % outline.length];

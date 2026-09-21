@@ -1,3 +1,6 @@
+import { PALETTES } from '../cube/palettes';
+import type { Face } from '../cube/model';
+
 export type Vec3 = [number, number, number];
 export type Permutation = [number, number, number, number];
 export type PieceKind = 'tip' | 'center' | 'edge';
@@ -10,7 +13,11 @@ export const VERTICES: Vec3[] = [
   [Math.sqrt(3.84), -0.8, Math.sqrt(1.28)],
   [0, -0.8, -Math.sqrt(5.12)],
 ];
-export const FACE_COLORS = ['#f6df13', '#ed283b', '#13cd45', '#143cfa'];
+export const PALETTE_FACES: Face[] = ['D', 'R', 'F', 'B'];
+export const PYRAMINX_PALETTES = PALETTES.map(({ name, colors }) => ({
+  name, colors: PALETTE_FACES.map((face) => colors[face]),
+}));
+export const FACE_COLORS = PYRAMINX_PALETTES[0].colors;
 export const FACE_NAMES = ['底面 · 黄', '右面 · 红', '左面 · 绿', '正面 · 蓝'];
 export interface Piece {
   id: string;

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { turnsConflict } from '../lib/pyraminx/interaction';
 import {
   Matrix4,
   Object3D,
@@ -323,7 +324,8 @@ for (let sample = 0; sample < 150; sample++) {
     `mixed base/tip/body scramble ${sample}`,
   );
   assert.ok(result.bodyLength <= 11);
-  assert.ok(result.moves.length <= 15);
+  assert.deepEqual(apply(state, result.moves), solved(), `initial orientation ${sample}`);
+  assert.ok(result.moves.length <= 19);
 }
 setAnimator(async (a) => a.to);
 resetPuzzle();
@@ -361,7 +363,7 @@ assert.throws(() => validateProject({ ...project, puzzle: 'cube' }));
 assert.throws(() =>
   validateProject({
     ...project,
-    partial: { axis: 4, layer: 'tip', angle: 0.1 },
+    partials: [{ axis: 4, layer: 'tip', angle: 0.1 }],
   }),
 );
 assert.throws(() => validateProject({ ...project, cursor: 99 }));
@@ -392,33 +394,33 @@ const drag = parseMove('R');
 assert.ok(beginDrag(drag));
 finishDrag(drag, -TURN - 0.13);
 assert.deepEqual(getState().puzzle, turn(solved(), 'R'));
-assert.ok(Math.abs(getState().partial!.angle + 0.13) < 1e-8);
+assert.ok(Math.abs(getState().partials[0].angle + 0.13) < 1e-8);
 assert.ok(beginDrag(drag));
 finishDrag(drag, 0);
-assert.equal(getState().partial, null);
-patch({ partial: { axis: 2, layer: 'body', angle: 0.6 } });
+assert.equal(getState().partials.length, 0);
+patch({ partials: [{ axis: 2, layer: 'body', angle: 0.6 }] });
 settings({ turnTolerance: 10 });
 assert.equal(await perform('U'), false);
 settings({ turnTolerance: 120 });
 assert.equal(await perform('U'), true);
 for (const token of tokens) {
   patch({
-    partial: {
+    partials: [{
       axis: (parseMove(token).axis + 1) % 4,
       layer: 'body',
       angle: TURN / 2,
-    },
+    }],
   });
   assert.equal(
     await perform(token),
     true,
     `maximum tolerance must allow ${token}`,
   );
-  assert.equal(getState().partial, null);
+  assert.equal(getState().partials.length, parseMove(token).layer === 'tip' ? 1 : 0);
 }
-patch({ partial: { axis: 2, layer: 'body', angle: -TURN / 2 } });
+patch({ partials: [{ axis: 2, layer: 'body', angle: -TURN / 2 }] });
 await applyInstant(['U', 'Rw']);
-assert.equal(getState().partial, null);
+assert.equal(getState().partials.length, 0);
 resetPuzzle();
 const pending: { animation: Animation; resolve: (angle: number) => void }[] =
   [];
@@ -439,7 +441,7 @@ setAnimator(
   },
 );
 settings({ speed: 3, magnetStrength: 0 });
-patch({ partial: { axis: drag.axis, layer: drag.layer, angle: 0.6 } });
+patch({ partials: [{ axis: drag.axis, layer: drag.layer, angle: 0.6 }] });
 const otherLayer = parseMove('U');
 const handoff = beginDrag(otherLayer);
 assert.equal(handoff, true);
@@ -454,7 +456,7 @@ assert.equal(
   true,
   'the new layer must be draggable before the old layer finishes aligning',
 );
-assert.equal(getState().partial, null);
+assert.equal(getState().partials.length, 0);
 assert.deepEqual(getState().history, []);
 assert.equal(getState().currentMove, 'U');
 alignments.shift()!.resolve();
@@ -471,7 +473,7 @@ assert.equal(pending[0].animation.magnetic, true);
 assert.equal(getState().settling, true);
 const nextDrag = beginDrag(otherLayer);
 const heldPuzzle = getState().puzzle;
-const heldPartial = getState().partial;
+const heldPartial = getState().partials;
 assert.deepEqual(heldPuzzle, turn(solved(), 'R'));
 assert.equal(getState().settling, false);
 assert.equal(nextDrag, true);
@@ -481,16 +483,16 @@ pending.shift()!.resolve(-TURN);
 await releasing;
 assert.deepEqual(getState().puzzle, heldPuzzle);
 assert.deepEqual(getState().history, ['R']);
-assert.equal(getState().partial, heldPartial);
+assert.equal(getState().partials, heldPartial);
 assert.equal(getState().busy, true);
 assert.equal(getState().dragging, true);
 // Releasing the new layer before the old visual alignment ends must remain valid.
 finishDrag(otherLayer, -0.3);
-const newPartial = getState().partial;
+const newPartial = getState().partials;
 alignments.shift()!.resolve();
 await Promise.resolve();
-assert.equal(getState().partial, newPartial);
-assert.ok(Math.abs(newPartial!.angle + 0.3) < 1e-8);
+assert.equal(getState().partials, newPartial);
+assert.ok(Math.abs(newPartial[0].angle + 0.3) < 1e-8);
 assert.deepEqual(getState().history, ['R']);
 resetPuzzle();
 assert.ok(beginDrag(drag));
@@ -502,7 +504,7 @@ assert.equal(
   'same-layer takeover must not add an alignment',
 );
 assert.equal(alignments.length, 0);
-assert.ok(Math.abs(getState().partial!.angle + 0.35) < 1e-8);
+assert.ok(Math.abs(getState().partials[0].angle + 0.35) < 1e-8);
 assert.equal(getState().dragging, true);
 pending.shift()!.resolve(0);
 await sameLayerRelease;

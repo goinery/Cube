@@ -111,15 +111,15 @@ export function stepMagnet(
   }
   return { angle, velocity };
 }
-export function magneticTarget(angle: number, velocity = 0): number {
-  const progress = angle / QUARTER;
+export function magneticTarget(angle: number, velocity = 0, step = QUARTER): number {
+  const progress = angle / step;
   let quarter = Math.round(progress);
   if (Math.abs(velocity) > 0.0025 && Math.abs(angle) > 0.16) {
     const projected =
-      (angle + Math.max(-0.42, Math.min(0.42, velocity * 75))) / QUARTER;
+      (angle + Math.max(-0.42, Math.min(0.42, velocity * 75))) / step;
     quarter = Math.round(projected);
   }
-  return quarter * QUARTER;
+  return quarter * step;
 }
 export function moveForAngle(face: string, target: number): string | null {
   const spec = moveSpec(face),

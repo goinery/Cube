@@ -11,6 +11,7 @@ import {
   Unlink,
   Type,
 } from 'lucide-react';
+import { PALETTES } from '@/lib/cube/palettes';
 import { FACES, COLORS, FACE, type Face } from '@/lib/cube/model';
 import {
   defaultAppearance,
@@ -438,45 +439,21 @@ export default memo(function CustomizePanel() {
           </button>
         </div>
         <div className="palette-presets">
-          {[
-            ['原厂', Object.values(COLORS)],
-            [
-              '霓虹',
-              [
-                '#ffffff',
-                '#ff1744',
-                '#00e676',
-                '#ffea00',
-                '#aa00ff',
-                '#0091ff',
-              ],
-            ],
-            [
-              '撞色',
-              [
-                '#fff4cf',
-                '#e6007e',
-                '#00c9d4',
-                '#ffe000',
-                '#ff6500',
-                '#253acb',
-              ],
-            ],
-          ].map(([label, colors]) => (
+          {PALETTES.map(({ name: label, colors }) => (
             <button
-              key={label as string}
+              key={label}
               onClick={() => {
                 const a = structuredClone(s.appearance);
-                FACES.forEach((f, i) =>
+                FACES.forEach((f) =>
                   faceIds(f).forEach((id) => {
-                    a.stickers[id].color = (colors as string[])[i];
+                    a.stickers[id].color = colors[f];
                   }),
                 );
                 setAppearance(a);
               }}
             >
               <span>
-                {(colors as string[]).map((c) => (
+                {Object.values(colors).map((c) => (
                   <i key={c} style={{ background: c }} />
                 ))}
               </span>

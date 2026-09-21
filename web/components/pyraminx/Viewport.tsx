@@ -12,9 +12,12 @@ import {
 import { createModel, normals, vertices } from '@/lib/pyraminx/geometry';
 import { INITIAL_DIRECTION, INITIAL_UP } from '@/lib/pyraminx/camera';
 import { paintPhoto } from '@/lib/pyraminx/appearance';
+import { heldAngle, turnsConflict, visibleTurns } from '@/lib/pyraminx/interaction';
 import { FACE_BASES, createHiddenProjections } from '@/lib/pyraminx/projection';
 import {
   applyAlignment,
+  applyPartialTurn,
+  rebaseTipAlignment,
   captureAlignment,
   updateDragTransition,
   updateShapeTransition,
@@ -127,7 +130,7 @@ export default memo(function PyraminxViewport() {
     renderer.setClearColor(0, 0);
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.82;
+    renderer.toneMappingExposure = 0.78;
     // This scene uses a contact-shadow texture and no mesh receives a shadow.
     // A depth-map pass therefore had no visual contribution, even while dragging.
     renderer.shadowMap.enabled = false;
@@ -163,12 +166,12 @@ export default memo(function PyraminxViewport() {
     environment.dispose();
     pmrem.dispose();
     scene.environment = env.texture;
-    scene.environmentIntensity = 0.55;
-    scene.add(new T.HemisphereLight(0xf4f5fa, 0x22262c, 0.95));
+    scene.environmentIntensity = 0.5;
+    scene.add(new T.HemisphereLight(0xf2f4f7, 0x17191d, 0.4));
     const lights = new T.Group(),
-      key = new T.DirectionalLight(0xfff4e6, 2.8),
-      fill = new T.DirectionalLight(0xf0f5ff, 1.5),
-      rim = new T.DirectionalLight(0xe5eeff, 1.1);
+      key = new T.DirectionalLight(0xfff3e6, 2.8),
+      fill = new T.DirectionalLight(0xfffbf5, 1.2),
+      rim = new T.DirectionalLight(0xd6e5ff, 1.15);
     key.position.set(-3, 7, 5);
     key.castShadow = false;
     key.shadow.mapSize.set(1024, 1024);
@@ -384,11 +387,12 @@ export default memo(function PyraminxViewport() {
         ? { ...animation.move, angle: animation.angle }
         : drag?.move
           ? { ...drag.move, angle: drag.angle }
-          : s.partial;
+          : null;
       const progress = alignment?.progress ?? -1;
       if (
         !destination &&
         previousModel?.puzzle === s.puzzle &&
+        previousModel.partials === s.partials &&
         SHAPE_SETTINGS.every(
           (key) => previousModel!.settings[key] === layout[key],
         ) &&
@@ -402,6 +406,8 @@ export default memo(function PyraminxViewport() {
         return false;
       model.update({ ...s, settings: layout });
       if (alignment) {
+        if (previousModel && previousModel.puzzle !== s.puzzle)
+          rebaseTipAlignment(alignment, previousModel.puzzle, s.puzzle);
         model.pieces.forEach((piece, index) => {
           applyAlignment(
             piece.root,
@@ -415,17 +421,16 @@ export default memo(function PyraminxViewport() {
           alignment.progress,
         );
       }
-      if (turn) {
+      for (const visible of visibleTurns(s.partials, turn)) {
         rotation.setFromAxisAngle(
-          vertices[turn.axis].clone().normalize(),
-          turn.angle,
+          vertices[visible.axis].clone().normalize(),
+          visible.angle,
         );
         for (let i = 0; i < model.pieces.length; i++)
-          if (affects(i, s.puzzle.rotations[i], turn)) {
-            model.pieces[i].root.position.applyQuaternion(rotation);
-            model.pieces[i].root.quaternion.premultiply(rotation);
+          if (affects(i, s.puzzle.rotations[i], visible)) {
+            applyPartialTurn(model.pieces[i].root, s.puzzle.rotations[i], visible);
           }
-        if (turn.layer === 'base') model.core.quaternion.premultiply(rotation);
+        if (visible.layer === 'base') model.core.quaternion.premultiply(rotation);
       }
       model.root.updateMatrixWorld(true);
       previousModel = destination ? null : { ...s, settings: { ...layout } };
@@ -611,16 +616,15 @@ export default memo(function PyraminxViewport() {
               a.angle,
               a.velocity,
               a.to,
-              dt * s.settings.speed,
+              dt,
               s.settings.magnetStrength,
               s.settings.magnetDamping,
             );
             a.angle = next.angle;
             a.velocity = next.velocity;
             if (
-              (Math.abs(a.angle - a.to) < 0.0005 &&
-                Math.abs(a.velocity) < 0.006) ||
-              time - a.start > 3500 / s.settings.speed
+              Math.abs(a.angle - a.to) < 0.0001 &&
+              Math.abs(a.velocity) < 0.003
             ) {
               a.angle = a.to;
               done = true;
@@ -942,8 +946,12 @@ export default memo(function PyraminxViewport() {
             ? d.face
             : ROTATIONS[s.puzzle.rotations[d.piece]][d.localFace];
         const move = dragCandidates(s.puzzle, d.piece, face)[0];
-        const n = vertices[move.axis].clone().normalize(),
-          rotated = d.point.clone().applyAxisAngle(n, 0.01);
+        const n = vertices[move.axis].clone().normalize();
+        if (move.layer === 'tip')
+          for (const partial of s.partials)
+            if (partial.layer === 'base' && partial.axis !== move.axis)
+              n.applyAxisAngle(vertices[partial.axis].clone().normalize(), partial.angle);
+        const rotated = d.point.clone().applyAxisAngle(n, 0.01);
         const tangent = screen(rotated)
           .sub(screen(d.point))
           .multiplyScalar(100);
@@ -951,14 +959,12 @@ export default memo(function PyraminxViewport() {
           notify('请从更靠近块边缘的位置拖动。');
           return;
         }
-        const needsAlignment =
-          s.partial &&
-          (s.partial.axis !== move.axis || s.partial.layer !== move.layer);
+        const needsAlignment = s.partials.some((p) => turnsConflict(p, move));
         if (!beginDrag(move)) return;
         d.move = move;
         d.scale = tangent.length();
         d.tangent = tangent.normalize();
-        d.initial = getState().partial?.angle ?? 0;
+        d.initial = heldAngle(getState().partials, move);
         d.angle = d.targetAngle = d.initial;
         if (needsAlignment)
           d.transition = {
