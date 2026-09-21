@@ -1080,9 +1080,9 @@ export default function PyraminxApp({
                   settings({
                     explode: 0,
                     internal: 1,
-                    gap: 0.006,
+                    gap: 0,
                     size: 1,
-                    stickerOffset: 0.002,
+                    stickerOffset: 0,
                   });
                   cameraActions.reset();
                 }}

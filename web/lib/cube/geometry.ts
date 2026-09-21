@@ -47,7 +47,29 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
     [0.82, 0.054],
     [0.52, 0.058],
   ];
+  let miterX = 0,
+    miterY = 0;
   const vertex = (x: number, y: number, z: number) => {
+    // Adjacent caps meet at a mitred underside, not overlapping thick slabs.
+    // These are piece-local dimensions, so small cubies retain the same fit.
+    const seam = 0.455 + z - 0.001;
+    miterX = miterY = 0;
+    if (sticker.col === 0 && x < -seam) {
+      x = -seam;
+      miterX = -1;
+    }
+    if (sticker.col === 2 && x > seam) {
+      x = seam;
+      miterX = 1;
+    }
+    if (sticker.row === 0 && y > seam) {
+      y = seam;
+      miterY = 1;
+    }
+    if (sticker.row === 2 && y < -seam) {
+      y = -seam;
+      miterY = -1;
+    }
     positions.push(x, y, z);
     uv.push(x / 0.996 + 0.5, y / 0.996 + 0.5);
     const shade = z < 0.019 ? 0.82 + ((z + 0.05) / 0.069) * 0.18 : 1;
@@ -82,6 +104,10 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
         const [radial, axial] = lipNormals[ring];
         normal.set(outward.x * radial, outward.y * radial, axial).normalize();
       }
+      if (miterX || miterY)
+        normal
+          .set(miterX, miterY, -Math.abs(miterX) - Math.abs(miterY))
+          .normalize();
       normals.push(...normal.toArray());
     }
   const count = outline.length;
@@ -113,9 +139,9 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   // This convex polygon is inside the solid cap at z=0.019, including its bevel.
-  geometry.userData.occluder = outline.map((p) => [
-    p.point.x * 0.995,
-    p.point.y * 0.995,
+  geometry.userData.occluder = outline.map((_, i) => [
+    positions[(3 * count + i) * 3] * 0.995,
+    positions[(3 * count + i) * 3 + 1] * 0.995,
     0.019,
   ]);
   return geometry;

@@ -1,4 +1,24 @@
-import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
+import { Box3, MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
+
+const depthCenter = new Vector3(),
+  depthSize = new Vector3();
+
+/** Keep depth precision when zooming out without separating mating surfaces.
+ * The padded sphere also leaves room for contact shadows and auxiliary faces.
+ */
+export function updateDepthRange(camera: PerspectiveCamera, bounds: Box3) {
+  if (bounds.isEmpty()) return;
+  const radius = bounds.getSize(depthSize).length() / 2;
+  const depth = -bounds
+    .getCenter(depthCenter)
+    .applyMatrix4(camera.matrixWorldInverse).z;
+  const near = Math.max(0.005, (depth - radius * 1.25) * 0.25);
+  const far = Math.max(50, depth + radius * 8 + 20);
+  if (camera.near === near && camera.far === far) return;
+  camera.near = near;
+  camera.far = far;
+  camera.updateProjectionMatrix();
+}
 
 export const PRODUCT_DIRECTION = new Vector3(1, 0.65, 1).normalize();
 export const PRODUCT_OCCUPANCY = 0.68;

@@ -58,7 +58,7 @@ export const defaultSettings = (): Settings => ({
   explode: 0,
   gap: 0.006,
   size: 1,
-  stickerOffset: 0.002,
+  stickerOffset: 0,
   internal: 1,
   speed: 1,
   easing: 'magnetic',

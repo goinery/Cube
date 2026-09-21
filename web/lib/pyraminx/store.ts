@@ -102,6 +102,7 @@ export const defaultColors = () =>
   );
 export const defaultPyraminxSettings = (): Settings => ({
   ...defaultSettings(),
+  gap: 0,
   turnTolerance: 120,
 });
 let state: State = {

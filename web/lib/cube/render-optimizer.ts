@@ -1,5 +1,4 @@
 import {
-  Box3,
   Camera,
   Frustum,
   Group,
@@ -14,14 +13,15 @@ import {
   BufferGeometry,
   MeshBasicMaterial,
 } from 'three';
+import { OcclusionCoverage } from '../rendering/occlusion';
 
 interface Source {
   mesh: Mesh;
-  center: Vector3;
-  extent: Vector3;
   sphere: Sphere;
   active: boolean;
   visible: boolean;
+  localBounds: Vector3[];
+  worldBounds: Vector3[];
 }
 interface Batch {
   sources: Source[];
@@ -58,14 +58,19 @@ export class CubeRenderOptimizer {
   private readonly occluders: Occluder[] = [];
   private readonly frustum = new Frustum();
   private readonly projection = new Matrix4();
-  private readonly box = new Box3();
   private readonly eye = new Vector3();
   private readonly behind = new Vector3();
   private readonly volumes: Occluder[] = [];
+  private readonly coverage = new OcclusionCoverage();
+  private perspective = true;
+  private cameraDirty = true;
+  private readonly lastView = new Matrix4();
+  private readonly lastProjection = new Matrix4();
 
   constructor(
     mechanics: Mesh[],
     private readonly caps: Mesh[],
+    options: { shadows?: boolean } = {},
   ) {
     this.group.name = 'Visible mechanical instances';
     this.group.add(this.main, this.shadows);
@@ -73,19 +78,34 @@ export class CubeRenderOptimizer {
     const shadowGroups = new Map<BufferGeometry, Source[]>();
     const geometryCache = new GeometryCache();
     for (const mesh of [...mechanics, ...caps]) {
+      if (!mesh.geometry.getAttribute('position').count) {
+        mesh.visible = false;
+        mesh.layers.set(1);
+        continue;
+      }
       mesh.geometry.computeBoundingBox();
       mesh.geometry.computeBoundingSphere();
+      const bounds = mesh.geometry.boundingBox!;
+      const localBounds = Array.from(
+        { length: 8 },
+        (_, i) =>
+          new Vector3(
+            i & 1 ? bounds.max.x : bounds.min.x,
+            i & 2 ? bounds.max.y : bounds.min.y,
+            i & 4 ? bounds.max.z : bounds.min.z,
+          ),
+      );
       const source: Source = {
         mesh,
-        center: new Vector3(),
-        extent: new Vector3(),
         sphere: new Sphere(),
         active: true,
         visible: true,
+        localBounds,
+        worldBounds: localBounds.map(() => new Vector3()),
       };
       this.sources.push(source);
       this.byMesh.set(mesh, source);
-      if (mesh.castShadow) {
+      if (mesh.castShadow && options.shadows !== false) {
         const geometry = geometryCache.get(mesh.geometry);
         const shadows = shadowGroups.get(geometry) || [];
         shadows.push(source);
@@ -93,6 +113,7 @@ export class CubeRenderOptimizer {
       }
     }
     for (const mesh of mechanics) {
+      if (!this.byMesh.has(mesh)) continue;
       // Keep original nodes and transforms for picking and exploded assembly.
       mesh.layers.set(1);
       const material = Array.isArray(mesh.material)
@@ -142,7 +163,16 @@ export class CubeRenderOptimizer {
       this.shadowBatches.push({ sources, draw });
     }
     for (const mesh of caps) {
-      const points = mesh.geometry.userData.occluder as number[][];
+      const polygon = mesh.geometry.userData.occluder as number[][] | undefined;
+      // Mitred corners can collapse consecutive outline vertices onto one
+      // point. Such zero-length edges cannot define a coverage halfspace.
+      const points = polygon?.filter((p, i) => {
+        const next = polygon[(i + 1) % polygon.length];
+        return (
+          Math.hypot(p[0] - next[0], p[1] - next[1], p[2] - next[2]) > 1e-8
+        );
+      });
+      if (!points || points.length < 3) continue;
       this.occluders.push({
         mesh,
         local: points.map(
@@ -157,20 +187,23 @@ export class CubeRenderOptimizer {
   }
 
   updateBounds() {
+    this.cameraDirty = true;
     // Caps may still carry the preceding view's visibility flag.
     for (const cap of this.caps) cap.visible = true;
     for (const source of this.sources) {
       const { mesh } = source;
       source.active = isHierarchyVisible(mesh);
-      this.box.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld);
-      this.box.getCenter(source.center);
-      this.box.getSize(source.extent).multiplyScalar(0.5);
       source.sphere
         .copy(mesh.geometry.boundingSphere!)
         .applyMatrix4(mesh.matrixWorld);
+      source.worldBounds.forEach((p, i) =>
+        p.copy(source.localBounds[i]).applyMatrix4(mesh.matrixWorld),
+      );
     }
     for (const occluder of this.occluders) {
-      occluder.center.set(0, 0, 0.019).applyMatrix4(occluder.mesh.matrixWorld);
+      occluder.center
+        .set(0, 0, occluder.local[0].z)
+        .applyMatrix4(occluder.mesh.matrixWorld);
       occluder.normal
         .set(0, 0, 1)
         .transformDirection(occluder.mesh.matrixWorld);
@@ -178,23 +211,30 @@ export class CubeRenderOptimizer {
         p.copy(occluder.local[i]).applyMatrix4(occluder.mesh.matrixWorld),
       );
     }
-    for (const batch of this.shadowBatches) {
-      let count = 0;
-      for (const source of batch.sources)
-        if (source.active)
-          batch.draw.setMatrixAt(count++, source.mesh.matrixWorld);
-      batch.draw.count = count;
-      batch.draw.instanceMatrix.needsUpdate = true;
-    }
     for (const batch of this.batches) batch.previous = [];
   }
 
-  prepareShadow() {
+  prepareShadow(camera?: Camera) {
     // Camera-hidden parts can still cast visible shadows. Use a separate full
     // instance buffer for the light pass; view culling never truncates it.
     this.main.visible = false;
     this.shadows.visible = true;
     for (const cap of this.caps) cap.visible = false;
+    if (camera) this.prepareOcclusion(camera);
+    for (const batch of this.shadowBatches) {
+      let count = 0;
+      for (const source of batch.sources)
+        if (
+          source.active &&
+          (!camera ||
+            (this.frustum.intersectsSphere(source.sphere) &&
+              !this.occluded(source)))
+        )
+          batch.draw.setMatrixAt(count++, source.mesh.matrixWorld);
+      batch.draw.count = count;
+      batch.draw.visible = count > 0;
+      batch.draw.instanceMatrix.needsUpdate = true;
+    }
   }
 
   restoreCamera() {
@@ -203,9 +243,8 @@ export class CubeRenderOptimizer {
     for (const cap of this.caps) cap.visible = this.byMesh.get(cap)!.visible;
   }
 
-  prepareCamera(camera: Camera) {
-    this.main.visible = true;
-    this.shadows.visible = false;
+  private prepareOcclusion(camera: Camera) {
+    this.perspective = camera.projectionMatrix.elements[15] === 0;
     this.eye.setFromMatrixPosition(camera.matrixWorld);
     this.frustum.setFromProjectionMatrix(
       this.projection.multiplyMatrices(
@@ -214,7 +253,9 @@ export class CubeRenderOptimizer {
       ),
     );
     this.volumes.length = 0;
+    this.coverage.reset(this.projection);
     for (const volume of this.occluders) {
+      if (!this.byMesh.get(volume.mesh)?.active) continue;
       if (
         volume.normal.dot(this.behind.copy(this.eye).sub(volume.center)) <=
         0.0001
@@ -237,7 +278,23 @@ export class CubeRenderOptimizer {
         if (plane.distanceToPoint(this.behind) < 0) plane.negate();
       }
       this.volumes.push(volume);
+      this.coverage.add(volume.world);
     }
+  }
+
+  prepareCamera(camera: Camera) {
+    if (
+      !this.cameraDirty &&
+      this.lastView.equals(camera.matrixWorldInverse) &&
+      this.lastProjection.equals(camera.projectionMatrix)
+    ) {
+      this.restoreCamera();
+      return;
+    }
+    this.cameraDirty = false;
+    this.lastView.copy(camera.matrixWorldInverse);
+    this.lastProjection.copy(camera.projectionMatrix);
+    this.prepareOcclusion(camera);
     for (const source of this.sources) {
       source.visible =
         source.active &&
@@ -268,18 +325,14 @@ export class CubeRenderOptimizer {
   }
 
   private occluded(source: Source) {
-    const { center, extent } = source;
-    for (const volume of this.volumes) {
+    for (const volume of this.perspective ? this.volumes : []) {
       if (volume.mesh === source.mesh) continue;
       let contained = true;
       for (const plane of volume.planes) {
-        const n = plane.normal;
         if (
-          plane.distanceToPoint(center) -
-            Math.abs(n.x) * extent.x -
-            Math.abs(n.y) * extent.y -
-            Math.abs(n.z) * extent.z <=
-          0.0001
+          source.worldBounds.some(
+            (corner) => plane.distanceToPoint(corner) <= 0.0001,
+          )
         ) {
           contained = false;
           break;
@@ -287,11 +340,34 @@ export class CubeRenderOptimizer {
       }
       if (contained) return true;
     }
-    return false;
+    return this.coverage.occludes(source.worldBounds);
+  }
+
+  /** Upload every active instance once before interaction, including occluded
+   * mechanisms. The warmup target is offscreen and is never presented. */
+  prepareWarmup() {
+    this.cameraDirty = true;
+    this.main.visible = true;
+    this.shadows.visible = false;
+    for (const cap of this.caps) cap.visible = true;
+    for (const batch of this.batches) {
+      let count = 0;
+      for (const source of batch.sources)
+        if (source.active)
+          batch.draw.setMatrixAt(count++, source.mesh.matrixWorld);
+      batch.draw.count = count;
+      batch.draw.visible = count > 0;
+      batch.draw.instanceMatrix.needsUpdate = true;
+      batch.previous = [];
+    }
   }
 
   isVisible(mesh: Mesh) {
     return this.byMesh.get(mesh)?.visible ?? isHierarchyVisible(mesh);
+  }
+
+  invalidateVisibility() {
+    this.cameraDirty = true;
   }
 
   get stats() {
@@ -335,7 +411,7 @@ class GeometryCache {
       );
       for (const value of bytes) hash = Math.imul(hash ^ value, 16777619);
     }
-    const key = `${Object.keys(geometry.attributes).sort().join(',')}:${attributes.map((a) => `${a.itemSize}/${a.normalized}/${a.array.constructor.name}/${a.array.length}`).join(',')}:${hash}`;
+    const key = `${JSON.stringify(geometry.groups)}:${Object.keys(geometry.attributes).sort().join(',')}:${attributes.map((a) => `${a.itemSize}/${a.normalized}/${a.array.constructor.name}/${a.array.length}`).join(',')}:${hash}`;
     const bucket = this.buckets.get(key) || [];
     const equal = bucket.find((candidate) =>
       this.arrays(candidate).every((a, i) =>

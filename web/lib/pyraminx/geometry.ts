@@ -30,23 +30,42 @@ export const tileCenter = (tile: Tile) =>
     .reduce((c, p) => c.add(new T.Vector3(...p)), new T.Vector3())
     .divideScalar(3);
 
+function pieceBoundaries(piece: (typeof PIECES)[number], clearance = 0) {
+  const bodyCut = 4 / 15,
+    tipCut = 4 / 3;
+  return vertices.flatMap((v, axis) => {
+    const n = v.clone().normalize();
+    if (piece.kind === 'tip')
+      return axis === piece.vertices[0]
+        ? [new T.Plane(n.negate(), tipCut + clearance)]
+        : [];
+    if (piece.kind === 'center' && axis === piece.vertices[0])
+      return [new T.Plane(n, -tipCut + clearance)];
+    return piece.vertices.includes(axis)
+      ? [new T.Plane(n.negate(), bodyCut + clearance)]
+      : [new T.Plane(n, -bodyCut + clearance)];
+  });
+}
+
 function capGeometry(tile: Tile) {
   const p = tile.points.map((p) => new T.Vector3(...p));
   const centerPoint = tileCenter(tile),
     faceNormal = normals[tile.face],
     tangent = p[2].clone().sub(p[1]).normalize(),
     up = p[0].clone().sub(centerPoint).normalize();
-  const seams = normals
-    .filter((_, face) => face !== tile.face)
-    .map((normal) => {
-      const bisector = normal.clone().sub(faceNormal);
-      return {
-        x: bisector.dot(tangent),
-        y: bisector.dot(up),
-        z: bisector.dot(faceNormal),
-        offset: bisector.dot(centerPoint),
-      };
-    });
+  const seams = [
+    ...normals
+      .filter((_, face) => face !== tile.face)
+      .map((normal) => new T.Plane(normal.clone().sub(faceNormal), 0)),
+    ...pieceBoundaries(PIECES[tile.piece]),
+  ].map(({ normal, constant }) => {
+    return {
+      x: normal.dot(tangent),
+      y: normal.dot(up),
+      z: normal.dot(faceNormal),
+      offset: normal.dot(centerPoint) + constant,
+    };
+  });
   const side = p[0].distanceTo(p[1]),
     height = (side * Math.sqrt(3)) / 2;
   const corners = [
@@ -54,7 +73,8 @@ function capGeometry(tile: Tile) {
     new T.Vector2(-side / 2, -height / 3),
     new T.Vector2(side / 2, -height / 3),
   ];
-  const outline: T.Vector2[] = [];
+  const outline: T.Vector2[] = [],
+    contactOutline: T.Vector2[] = [];
   const radius = tile.piece >= 4 && tile.piece < 8 ? 0.09 : 0.045;
   for (let i = 0; i < 3; i++) {
     const corner = corners[i],
@@ -62,6 +82,7 @@ function capGeometry(tile: Tile) {
       end = corner.clone().lerp(corners[(i + 1) % 3], radius);
     for (let j = 0; j <= 6; j++) {
       const t = j / 6;
+      contactOutline.push(corner);
       outline.push(
         start
           .clone()
@@ -75,13 +96,13 @@ function capGeometry(tile: Tile) {
     uv: number[] = [],
     indices: number[] = [];
   const vertex = (x: number, y: number, z: number) => {
-    // Mitre the underside at each tetrahedral edge. Thick flat triangular caps
-    // otherwise overlap their neighbours even when their front outlines fit.
+    // Mate at each tetrahedral edge and stay inside the actual layer cuts.
+    // The latter prevents the flush belt from crossing a neighbour mid-turn.
     let scale = 1;
     for (const seam of seams) {
       const radial = x * seam.x + y * seam.y;
       if (radial > 0)
-        scale = Math.min(scale, (-0.006 - seam.offset - z * seam.z) / radial);
+        scale = Math.min(scale, (-seam.offset - z * seam.z) / radial);
     }
     x *= scale;
     y *= scale;
@@ -94,18 +115,24 @@ function capGeometry(tile: Tile) {
       a * tile.uv[0][1] + b * tile.uv[1][1] + c * tile.uv[2][1],
     );
   };
+  // A full triangular contact belt at the original face plane closes both
+  // shared edges and corner junctions. Rounding every ring left real holes,
+  // even with stickerOffset = 0. The upper rings retain the moulded bevel.
   const rings = [
-    [0.92, -0.043],
-    [0.97, -0.029],
-    [0.983, -0.008],
-    [0.98, 0.003],
-    [0.966, 0.016],
-    [0.93, 0.026],
-    [0.75, 0.032],
-    [0.38, 0.038],
+    [0.94, -0.043, 1],
+    [0.985, -0.029, 1],
+    [0.997, -0.008, 0.5],
+    [1, 0, 0],
+    [0.995, 0.016, 0.25],
+    [0.985, 0.026, 0.5],
+    [0.75, 0.032, 1],
+    [0.38, 0.038, 1],
   ];
-  for (const [scale, z] of rings)
-    for (const p of outline) vertex(p.x * scale, p.y * scale, z);
+  for (const [scale, z, rounding] of rings)
+    for (let i = 0; i < outline.length; i++) {
+      const p = contactOutline[i].clone().lerp(outline[i], rounding);
+      vertex(p.x * scale, p.y * scale, z);
+    }
   const n = outline.length;
   for (let r = 0; r < rings.length - 1; r++)
     for (let i = 0; i < n; i++) {
@@ -129,6 +156,13 @@ function capGeometry(tile: Tile) {
   g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
   g.setIndex(indices);
   g.computeVertexNormals();
+  g.computeBoundingBox();
+  g.computeBoundingSphere();
+  g.userData.occluder = outline.map((_, i) => [
+    positions[(4 * n + i) * 3] * 0.995,
+    positions[(4 * n + i) * 3 + 1] * 0.995,
+    0.016,
+  ]);
   return g;
 }
 interface Part {
@@ -306,21 +340,7 @@ export function createModel(anisotropy: number) {
     // Every structural surface stays below the cap's -0.043 back plane,
     // including at the acute edges shared by two or three colored faces.
     const capClearance = normals.map((n) => new T.Plane(n.clone(), -0.742));
-    const bodyCut = 4 / 15,
-      tipCut = 4 / 3,
-      clearance = 0.008;
-    const cellPlanes = vertices.flatMap((v, axis) => {
-      const n = v.clone().normalize();
-      if (piece.kind === 'tip')
-        return axis === piece.vertices[0]
-          ? [new T.Plane(n.negate(), tipCut + clearance)]
-          : [];
-      if (piece.kind === 'center' && axis === piece.vertices[0])
-        return [new T.Plane(n, -tipCut + clearance)];
-      return piece.vertices.includes(axis)
-        ? [new T.Plane(n.negate(), bodyCut + clearance)]
-        : [new T.Plane(n, -bodyCut + clearance)];
-    });
+    const cellPlanes = pieceBoundaries(piece, 0.008);
     const housingClearance = [...capClearance, ...cellPlanes];
     const hull = clipGeometry(
       untrimmedHull,
@@ -368,11 +388,14 @@ export function createModel(anisotropy: number) {
       );
       seat.quaternion.copy(cap.quaternion);
       seat.name = `${tile.id}-open-cap-recess`;
-      const seatPosition = c.clone().addScaledVector(n, -0.09);
+      const seatPosition = c.clone().addScaledVector(n, -0.084);
       const originalSeat = seat.geometry;
       seat.geometry = clipGeometry(
         originalSeat,
-        housingClearance,
+        [
+          ...normals.map((normal) => new T.Plane(normal.clone(), -0.7565)),
+          ...cellPlanes,
+        ],
         new T.Matrix4().compose(
           seatPosition,
           seat.quaternion,
@@ -586,26 +609,39 @@ export function createModel(anisotropy: number) {
     }
     pieces.push({ root: group, home, radial, kind: piece.kind, parts });
   }
-  function update(s: State, moving = false) {
+  root.traverse((object) => {
+    if (object instanceof T.Mesh) {
+      object.updateMatrix();
+      object.matrixAutoUpdate = false;
+      object.geometry.computeBoundingBox();
+      object.geometry.computeBoundingSphere();
+    }
+  });
+  let previousLayout: State['settings'] | null = null;
+  function update(s: State, _moving = false) {
     const { explode, internal, stickerOffset, size, gap } = s.settings;
     const inner = Math.max(0, explode - 1) * internal;
-    const expose =
-      explode > 0.00001 ||
-      stickerOffset > 0.003 ||
-      !!s.partial ||
-      moving ||
-      s.settings.gap > 0.06 ||
-      s.settings.size < 0.96;
-    core.visible = expose;
+    const partsChanged =
+      !previousLayout ||
+      previousLayout.explode !== explode ||
+      previousLayout.internal !== internal ||
+      previousLayout.stickerOffset !== stickerOffset ||
+      previousLayout.showMagnets !== s.settings.showMagnets;
+    if (partsChanged) previousLayout = { ...s.settings };
+    // Visibility is determined by the view occlusion pass, not by a first-drag
+    // toggle that suddenly uploads and compiles every hidden component.
+    core.visible = true;
     const enlargement = Math.max(1, size);
     core.scale.setScalar(enlargement);
     core.quaternion.copy(quaternions[s.puzzle.frame]);
-    for (const part of coreParts) {
-      part.mesh.position
-        .copy(part.base)
-        .addScaledVector(part.direction, inner * part.separation);
-      part.mesh.visible = !part.magnet || s.settings.showMagnets;
-    }
+    if (partsChanged)
+      for (const part of coreParts) {
+        part.mesh.position
+          .copy(part.base)
+          .addScaledVector(part.direction, inner * part.separation);
+        part.mesh.visible = !part.magnet || s.settings.showMagnets;
+        part.mesh.updateMatrix();
+      }
     for (let i = 0; i < pieces.length; i++) {
       const p = pieces[i],
         q = quaternions[s.puzzle.rotations[i]];
@@ -623,17 +659,18 @@ export function createModel(anisotropy: number) {
         )
         .applyQuaternion(q);
       p.root.scale.setScalar(size * (1 - gap * 0.7));
-      for (const part of p.parts) {
-        part.mesh.visible =
-          (!part.internal || expose) &&
-          (!part.magnet || s.settings.showMagnets);
-        part.mesh.position
-          .copy(part.base)
-          .addScaledVector(
-            part.direction,
-            part.separation * inner + (part.capAttachment ? stickerOffset : 0),
-          );
-      }
+      if (partsChanged)
+        for (const part of p.parts) {
+          part.mesh.visible = !part.magnet || s.settings.showMagnets;
+          part.mesh.position
+            .copy(part.base)
+            .addScaledVector(
+              part.direction,
+              part.separation * inner +
+                (part.capAttachment ? stickerOffset : 0),
+            );
+          part.mesh.updateMatrix();
+        }
     }
   }
   function dispose() {

@@ -2,6 +2,7 @@ import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { smoothBevels } from './geometry';
 import type { Piece } from './model';
+import { clipGeometry } from '../rendering/clip-geometry';
 
 type AddPart = (
   object: T.Object3D,
@@ -240,6 +241,17 @@ export function createMechanics(materials: Materials) {
         chassis.add(wall);
       }
     }
+    // Trim all backing/side walls behind each mating cap, whose back is at
+    // 0.405. Their old square corners protruded through perpendicular caps.
+    const capPlanes = occupied.map(
+      ({ sign, axis }) =>
+        new T.Plane(new T.Vector3().setComponent(axis, sign), -0.4045),
+    );
+    chassis.traverse((object) => {
+      if (!(object instanceof T.Mesh)) return;
+      object.updateMatrix();
+      object.geometry = clipGeometry(object.geometry, capPlanes, object.matrix);
+    });
     add(chassis, new T.Vector3(), radial, 0.06);
     const stem = new T.Mesh(neck, materials.plastic);
     stem.name = '空心连接颈';

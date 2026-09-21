@@ -45,9 +45,15 @@ import {
   rotateView,
   transitionView,
   zoomView,
+  updateDepthRange,
 } from '@/lib/cube/camera';
 import { magneticEase, stepMagnet } from '@/lib/cube/interaction';
 import { StudioEnvironment, createContactShadow } from '@/lib/cube/studio';
+import {
+  CubeRenderOptimizer,
+  isHierarchyVisible,
+} from '@/lib/cube/render-optimizer';
+import { warmRenderer } from '@/lib/rendering/warmup';
 
 interface Drag extends DragMotion {
   pointer: number;
@@ -84,6 +90,7 @@ export default memo(function PyraminxViewport() {
       return;
     }
     let disposed = false,
+      warming = true,
       frame = 0,
       lastTime = 0,
       drag: Drag | null = null;
@@ -121,7 +128,9 @@ export default memo(function PyraminxViewport() {
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.82;
-    renderer.shadowMap.enabled = true;
+    // This scene uses a contact-shadow texture and no mesh receives a shadow.
+    // A depth-map pass therefore had no visual contribution, even while dragging.
+    renderer.shadowMap.enabled = false;
     renderer.shadowMap.autoUpdate = false;
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     const maps = document.createElement('canvas');
@@ -133,6 +142,17 @@ export default memo(function PyraminxViewport() {
       target = new T.Vector3(0, 0.15, 0);
     const model = createModel(renderer.capabilities.getMaxAnisotropy());
     scene.add(model.root);
+    const mechanics: T.Mesh[] = [];
+    model.root.traverse((object) => {
+      if (object instanceof T.Mesh && !object.userData.cap)
+        mechanics.push(object);
+    });
+    const optimizer = new CubeRenderOptimizer(
+      mechanics,
+      [...model.tiles.values()],
+      { shadows: false },
+    );
+    scene.add(optimizer.group);
     const projections = createHiddenProjections(model.tiles, (face) =>
       cameraActions.face(face),
     );
@@ -150,7 +170,7 @@ export default memo(function PyraminxViewport() {
       fill = new T.DirectionalLight(0xf0f5ff, 1.5),
       rim = new T.DirectionalLight(0xe5eeff, 1.1);
     key.position.set(-3, 7, 5);
-    key.castShadow = true;
+    key.castShadow = false;
     key.shadow.mapSize.set(1024, 1024);
     Object.assign(key.shadow.camera, {
       left: -7,
@@ -164,6 +184,11 @@ export default memo(function PyraminxViewport() {
     rim.position.set(4, 3, -5);
     lights.add(key, fill, rim);
     scene.add(lights);
+    if (import.meta.env.DEV)
+      Object.defineProperty(canvas, 'renderStats', {
+        configurable: true,
+        get: () => optimizer.stats,
+      });
     const shadowTexture = createContactShadow(),
       shadow = new T.Mesh(
         new T.PlaneGeometry(8, 8),
@@ -191,8 +216,19 @@ export default memo(function PyraminxViewport() {
     const raycaster = new T.Raycaster(),
       pointer = new T.Vector2(),
       rotation = new T.Quaternion();
+    raycaster.layers.enable(1);
     const touches = new Map<number, T.Vector2>();
     let previousState: State | null = null;
+    let previousAlignmentPose: AlignmentPose | null = null,
+      surfaceBoundsDirty = true;
+    let previousModel: State | null = null,
+      previousTurnAngle = NaN,
+      previousTurnAxis = -1,
+      previousTurnLayer = '',
+      previousAlignment = -1;
+    const surfaceBounds = new T.Box3(),
+      meshBounds = new T.Box3(),
+      surfaceSize = new T.Vector3();
     function invalidate() {
       if (!disposed && !frame && !document.hidden)
         frame = requestAnimationFrame(render);
@@ -221,7 +257,7 @@ export default memo(function PyraminxViewport() {
       let distance = 0;
       // Fit the tetrahedron's actual silhouette; its enclosing box has empty
       // corners that would make the assembled puzzle appear unnecessarily small.
-      object.traverseVisible((object) => {
+      object.traverse((object) => {
         if (!(object instanceof T.Mesh)) return;
         const positions = object.geometry.getAttribute('position');
         const p = new T.Vector3();
@@ -343,10 +379,28 @@ export default memo(function PyraminxViewport() {
     }
     function updateModel(destination = false) {
       const s = getState();
-      model.update(
-        destination ? s : { ...s, settings: displayedSettings },
-        !!animation || !!drag?.move || !!alignment,
-      );
+      const layout = destination ? s.settings : displayedSettings;
+      const turn = animation
+        ? { ...animation.move, angle: animation.angle }
+        : drag?.move
+          ? { ...drag.move, angle: drag.angle }
+          : s.partial;
+      const progress = alignment?.progress ?? -1;
+      if (
+        !destination &&
+        previousModel?.puzzle === s.puzzle &&
+        SHAPE_SETTINGS.every(
+          (key) => previousModel!.settings[key] === layout[key],
+        ) &&
+        previousModel.settings.showMagnets === layout.showMagnets &&
+        previousTurnAngle === (turn?.angle ?? 0) &&
+        previousTurnAxis === (turn?.axis ?? -1) &&
+        previousTurnLayer === (turn?.layer ?? '') &&
+        previousAlignment === progress &&
+        previousAlignmentPose === alignment
+      )
+        return false;
+      model.update({ ...s, settings: layout });
       if (alignment) {
         model.pieces.forEach((piece, index) => {
           applyAlignment(
@@ -361,11 +415,6 @@ export default memo(function PyraminxViewport() {
           alignment.progress,
         );
       }
-      const turn = animation
-        ? { ...animation.move, angle: animation.angle }
-        : drag?.move
-          ? { ...drag.move, angle: drag.angle }
-          : s.partial;
       if (turn) {
         rotation.setFromAxisAngle(
           vertices[turn.axis].clone().normalize(),
@@ -379,6 +428,15 @@ export default memo(function PyraminxViewport() {
         if (turn.layer === 'base') model.core.quaternion.premultiply(rotation);
       }
       model.root.updateMatrixWorld(true);
+      previousModel = destination ? null : { ...s, settings: { ...layout } };
+      previousTurnAngle = turn?.angle ?? 0;
+      previousTurnAxis = turn?.axis ?? -1;
+      previousTurnLayer = turn?.layer ?? '';
+      previousAlignment = progress;
+      previousAlignmentPose = alignment;
+      surfaceBoundsDirty = true;
+      optimizer.updateBounds();
+      return true;
     }
     const faceBases = FACE_BASES;
     function drawMaps(s: State, net: boolean, opacity: number) {
@@ -517,7 +575,7 @@ export default memo(function PyraminxViewport() {
     }
     function render(time: number) {
       frame = 0;
-      if (disposed) return;
+      if (disposed || warming) return;
       const dt = Math.min(0.04, (time - (lastTime || time)) / 1000);
       lastTime = time;
       const s = getState();
@@ -622,10 +680,25 @@ export default memo(function PyraminxViewport() {
       );
       key.intensity = s.settings.lightIntensity;
       updateModel();
-      const bounds = new T.Box3().setFromObject(model.root);
-      shadow.position.y = bounds.min.y - 0.08;
+      if (surfaceBoundsDirty) {
+        surfaceBounds.makeEmpty();
+        for (const mesh of model.tiles.values())
+          surfaceBounds.union(
+            meshBounds
+              .copy(mesh.geometry.boundingBox!)
+              .applyMatrix4(mesh.matrixWorld),
+          );
+        surfaceBounds.getSize(surfaceSize);
+        shadow.position.y = surfaceBounds.min.y - 0.08;
+        shadow.scale.set(
+          (surfaceSize.x * 1.5) / 8,
+          (surfaceSize.z * 1.5) / 8,
+          1,
+        );
+        surfaceBoundsDirty = false;
+      }
       shadow.material.opacity = 0.22 / (1 + displayedSettings.explode);
-      renderer.shadowMap.needsUpdate = true;
+      updateDepthRange(camera, surfaceBounds);
       canvas.style.opacity = String(1 - viewWeights.net);
       canvas.style.visibility = viewWeights.net === 1 ? 'hidden' : 'visible';
       const projectionsMoving = projections.update(
@@ -636,6 +709,7 @@ export default memo(function PyraminxViewport() {
         dt,
       );
       if (canvas.style.visibility !== 'hidden') {
+        optimizer.prepareCamera(camera);
         renderer.render(scene, camera);
         if (viewWeights.hidden > 0) {
           // Preserve the main model's depth so it occludes the auxiliary faces.
@@ -766,7 +840,11 @@ export default memo(function PyraminxViewport() {
       raycaster.setFromCamera(pointer, camera);
       const physical = raycaster
         .intersectObjects(model.hits, false)
-        .find((h) => h.object.visible && h.object.parent?.visible);
+        .find(
+          (h) =>
+            isHierarchyVisible(h.object) &&
+            optimizer.isVisible(h.object as T.Mesh),
+        );
       return (
         physical ??
         raycaster
@@ -779,6 +857,7 @@ export default memo(function PyraminxViewport() {
       return new T.Vector2((v.x * width) / 2, (-v.y * height) / 2);
     }
     function down(e: PointerEvent) {
+      if (warming) return;
       if (getState().solving) return;
       if (getState().busy && !drag && !getState().settling) return;
       cameraDestination = null;
@@ -1026,7 +1105,26 @@ export default memo(function PyraminxViewport() {
     resize();
     moveCameraToFit(INITIAL_DIRECTION, model.root, INITIAL_UP, true);
     sync();
-    patch({ ready: true });
+    patch({ ready: false });
+    const warmup = warmRenderer(
+      renderer,
+      scene,
+      camera,
+      optimizer,
+      projections.scene,
+      () => disposed,
+    )
+      .then(() => {
+        warming = false;
+        if (disposed) return;
+        previousModel = null;
+        patch({ ready: true });
+        invalidate();
+      })
+      .catch(() => {
+        warming = false;
+        if (!disposed) setError('3D 资源准备失败，请重新加载。');
+      });
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
@@ -1055,15 +1153,20 @@ export default memo(function PyraminxViewport() {
       canvas.removeEventListener('contextmenu', context);
       canvas.removeEventListener('webglcontextlost', contextLost);
       document.removeEventListener('visibilitychange', visibility);
-      model.dispose();
-      projections.dispose();
-      textures.forEach((v) => v.texture.dispose());
-      key.shadow.dispose();
-      shadowTexture.dispose();
-      shadow.geometry.dispose();
-      shadow.material.dispose();
-      env.dispose();
-      renderer.dispose();
+      const disposeResources = () => {
+        optimizer.dispose();
+        model.dispose();
+        projections.dispose();
+        textures.forEach((v) => v.texture.dispose());
+        key.shadow.dispose();
+        shadowTexture.dispose();
+        shadow.geometry.dispose();
+        shadow.material.dispose();
+        env.dispose();
+        renderer.dispose();
+      };
+      if (warming) void warmup.then(disposeResources);
+      else disposeResources();
       el.replaceChildren();
     };
   }, []);

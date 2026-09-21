@@ -45,6 +45,7 @@ import {
   CubeRenderOptimizer,
   isHierarchyVisible,
 } from '@/lib/cube/render-optimizer';
+import { warmRenderer } from '@/lib/rendering/warmup';
 import {
   PRODUCT_DIRECTION,
   PRODUCT_OCCUPANCY,
@@ -53,6 +54,7 @@ import {
   lightDirection,
   lightRotation,
   transitionView,
+  updateDepthRange,
 } from '@/lib/cube/camera';
 import { projectionTransform, facesProjection } from '@/lib/cube/projection';
 import {
@@ -93,6 +95,7 @@ export default memo(function Viewport() {
   useEffect(() => {
     const el = host.current!;
     let disposed = false,
+      warming = true,
       frame = 0,
       last = performance.now();
     function invalidate() {
@@ -687,7 +690,8 @@ export default memo(function Viewport() {
       renderer.shadowMap.render = (lights, shadowScene, shadowCamera) => {
         if (!renderer.shadowMap.enabled || !renderer.shadowMap.needsUpdate)
           return drawShadows(lights, shadowScene, shadowCamera);
-        optimizer.prepareShadow();
+        key.shadow.updateMatrices(key);
+        optimizer.prepareShadow(key.shadow.camera);
         try {
           drawShadows(lights, shadowScene, shadowCamera);
         } finally {
@@ -710,6 +714,8 @@ export default memo(function Viewport() {
     const unsub = subscribe(() => {
       const s = getState();
       if (s.artVersion !== lastArt) void updateArt();
+      if (s.selected !== previousState.selected)
+        optimizer?.invalidateVisibility();
       if (s.selected !== previousState.selected)
         for (const [id, o] of selectedOutlines)
           o.visible = s.selected.includes(id);
@@ -1019,6 +1025,7 @@ export default memo(function Viewport() {
         );
     }
     function onDown(e: PointerEvent) {
+      if (warming) return;
       invalidate();
       if (getState().solving) {
         e.stopImmediatePropagation();
@@ -1337,7 +1344,7 @@ export default memo(function Viewport() {
       coreMagnets: boolean | undefined;
     function render(now: number) {
       frame = 0;
-      if (disposed) return;
+      if (disposed || warming) return;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       const s = getState();
@@ -1518,6 +1525,7 @@ export default memo(function Viewport() {
         boundsDirty = false;
       }
       const floorHeight = surfaceBounds.min.y - 0.065;
+      updateDepthRange(camera, surfaceBounds);
       ground.position.y = Math.min(
         floorHeight,
         T.MathUtils.damp(ground.position.y, floorHeight, 10, dt),
@@ -1716,9 +1724,30 @@ export default memo(function Viewport() {
       )
         frame = requestAnimationFrame(render);
     }
-    void updateArt();
-    invalidate();
-    patch({ ready: true });
+    patch({ ready: false });
+    const warmup = updateArt()
+      .then(() => {
+        if (!disposed)
+          return warmRenderer(
+            renderer,
+            scene,
+            camera,
+            optimizer,
+            mappingScene,
+            () => disposed,
+          );
+      })
+      .then(() => {
+        warming = false;
+        if (disposed) return;
+        optimizerBoundsDirty = true;
+        patch({ ready: true });
+        invalidate();
+      })
+      .catch(() => {
+        warming = false;
+        if (!disposed) setError('3D 资源准备失败，请重新加载。');
+      });
     const visibility = () => {
       if (document.hidden) {
         cancelAnimationFrame(frame);
@@ -1742,6 +1771,7 @@ export default memo(function Viewport() {
       else animation?.resolve();
       setAnimator(async () => {});
       unsub();
+      patch({ ready: false });
       observer.disconnect();
       renderer.domElement.removeEventListener('wheel', onWheel);
       renderer.domElement.removeEventListener('contextmenu', onContextMenu);
@@ -1752,27 +1782,31 @@ export default memo(function Viewport() {
       renderer.domElement.removeEventListener('pointerup', onUp, true);
       renderer.domElement.removeEventListener('pointercancel', cancel, true);
       renderer.domElement.removeEventListener('webglcontextlost', loss);
-      const geos = new Set<T.BufferGeometry>(),
-        mats = new Set<T.Material>();
-      scene.traverse((o) => {
-        if (o instanceof T.Mesh) {
-          geos.add(o.geometry);
-          (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) =>
-            mats.add(m),
-          );
-        }
-      });
-      geos.forEach((g) => g.dispose());
-      mats.forEach((m) => m.dispose());
-      textures.forEach((t) => t.dispose());
-      ghostMaterials.forEach((m) => m.dispose());
-      optimizer?.dispose();
-      grain.dispose();
-      relief.dispose();
-      contactTexture.dispose();
-      key.shadow.dispose();
-      env.dispose();
-      renderer.dispose();
+      const disposeResources = () => {
+        const geos = new Set<T.BufferGeometry>(),
+          mats = new Set<T.Material>();
+        scene.traverse((o) => {
+          if (o instanceof T.Mesh) {
+            geos.add(o.geometry);
+            (Array.isArray(o.material) ? o.material : [o.material]).forEach(
+              (m) => mats.add(m),
+            );
+          }
+        });
+        geos.forEach((g) => g.dispose());
+        mats.forEach((m) => m.dispose());
+        textures.forEach((t) => t.dispose());
+        ghostMaterials.forEach((m) => m.dispose());
+        optimizer?.dispose();
+        grain.dispose();
+        relief.dispose();
+        contactTexture.dispose();
+        key.shadow.dispose();
+        env.dispose();
+        renderer.dispose();
+      };
+      if (warming) void warmup.then(disposeResources);
+      else disposeResources();
       el.replaceChildren();
     };
   }, []);

@@ -872,7 +872,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                       explode: 0,
                       gap: 0.006,
                       size: 1,
-                      stickerOffset: 0.002,
+                      stickerOffset: 0,
                       internal: 1,
                     });
                     setTimeout(() => cameraActions.reset(), 30);
