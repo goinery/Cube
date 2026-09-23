@@ -1,4 +1,5 @@
 'use client';
+import { tx } from '@/lib/i18n';
 import { useMemo, useSyncExternalStore } from 'react';
 import {
   solved,
@@ -116,7 +117,12 @@ export interface AppState {
   ready: boolean;
   faceAnchors: Record<
     string,
-    { x: number; y: number; fromX: number; fromY: number }
+    {
+      x: number;
+      y: number;
+      fromX: number;
+      fromY: number;
+    }
   >;
 }
 let state: AppState = {
@@ -242,6 +248,13 @@ export function setAnimator(fn: Animator) {
 export function setAlignmentAnimator(fn: typeof animateAlignment) {
   animateAlignment = fn;
 }
+export async function alignCube() {
+  const partial = state.partialTurns;
+  if (!partial) return;
+  const pending = animateAlignment(partial);
+  patch({ partialTurns: null });
+  await pending;
+}
 function alignmentFor(token: string) {
   const partial = state.partialTurns;
   return alignedPartialForTurn(partial, token, state.settings.turnTolerance) !==
@@ -257,29 +270,27 @@ export function beginAlignedDrag(token: string) {
     busy: true,
     dragging: true,
     player: null,
-    currentMove: token + ' · 对齐',
+    currentMove: token + tx('legacy.m486'),
   });
   const partial = alignmentFor(token);
   try {
     if (partial) {
       void animateAlignment(partial).catch((error) => {
-        notify(error instanceof Error ? error.message : '归位未完成，请重试。');
+        notify(error instanceof Error ? error.message : tx('legacy.m487'));
       });
       patch({ partialTurns: null });
     }
     return true;
   } catch (error) {
     patch({ busy: false, dragging: false, currentMove: '' });
-    notify(error instanceof Error ? error.message : '归位未完成，请重试。');
+    notify(error instanceof Error ? error.message : tx('legacy.m487'));
     return false;
   }
 }
 export function allowMoves(moves: string[]): boolean {
   if (canTurnSequence(state.partialTurns, moves, state.settings.turnTolerance))
     return true;
-  notify(
-    `转层偏差超出 ${state.settings.turnTolerance}° 容错范围。请沿原轴拖动对齐，或增大转层容错角度。`,
-  );
+  notify(tx('legacy.m488', { p0: state.settings.turnTolerance }));
   return false;
 }
 export function finishLayerTurn(axis: number, layer: number, angle: number) {
@@ -397,7 +408,7 @@ export function resetCube() {
     scrambleCursor: 0,
     partialTurns: null,
   });
-  notify('魔方已复原，保留当前外观。');
+  notify(tx('legacy.m489'));
 }
 export function loadPlayer(
   moves: string[],
@@ -533,13 +544,13 @@ export function stopReplay() {
   if (!state.player) return;
   pause();
   patch({ player: null });
-  notify('回放已终止，魔方停在当前步骤。');
+  notify(tx('legacy.m490'));
 }
 export function runAlgorithm(input: string) {
   if (state.busy || state.solving) return;
   try {
     const moves = parseAlgorithm(input);
-    if (!moves.length) throw new Error('请先输入算法。');
+    if (!moves.length) throw new Error(tx('legacy.m491'));
     if (!allowMoves(moves)) return;
     loadPlayer(moves, 'Algorithm');
     void play();

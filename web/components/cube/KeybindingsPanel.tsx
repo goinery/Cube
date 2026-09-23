@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { useState } from 'react';
 import { Keyboard, RotateCcw } from 'lucide-react';
 import { FACES } from '@/lib/cube/model';
@@ -11,8 +12,8 @@ import {
   shortcutLabels,
   type ShortcutAction,
 } from '@/lib/cube/keybindings';
-
 export default function KeybindingsPanel() {
+  useLanguage();
   const s = useCube('settings', 'solving');
   const [recording, setRecording] = useState<ShortcutAction | null>(null);
   const [message, setMessage] = useState('');
@@ -20,11 +21,11 @@ export default function KeybindingsPanel() {
     return (
       <input
         className={recording === action ? 'recording' : ''}
-        aria-label={`设置${shortcutLabels[action]}键位`}
+        aria-label={tx('legacy.m231', { p0: shortcutLabels[action] })}
         title={formatShortcut(s.settings.keybindings[action])}
         value={
           recording === action
-            ? '请按键…'
+            ? tx('legacy.m232')
             : formatShortcut(s.settings.keybindings[action])
         }
         readOnly
@@ -54,13 +55,16 @@ export default function KeybindingsPanel() {
           );
           if (conflict) {
             setMessage(
-              `${formatShortcut(shortcut)} 已用于「${shortcutLabels[conflict]}」，请换一个键位或先清除原绑定。`,
+              tx('legacy.m233', {
+                p0: formatShortcut(shortcut),
+                p1: shortcutLabels[conflict],
+              }),
             );
             return;
           }
           settings({ keybindings: { ...bindings, [action]: shortcut } });
           setMessage(
-            `「${shortcutLabels[action]}」${shortcut ? `已设为 ${formatShortcut(shortcut)}` : '已清除绑定'}。`,
+            `「${shortcutLabels[action]}」${shortcut ? tx('legacy.m234', { p0: formatShortcut(shortcut) }) : tx('legacy.m235')}。`,
           );
           event.currentTarget.blur();
         }}
@@ -70,14 +74,12 @@ export default function KeybindingsPanel() {
   return (
     <details className="keybindings-panel">
       <summary>
-        <Keyboard size={14} /> 自定义操作键位
+        <Keyboard size={14} />
+        {tx('legacy.m236')}
       </summary>
-      <p className="microcopy">
-        点击键位后按下单键或组合键。Delete / Backspace 清除，Esc
-        取消。设置随方案保存。
-      </p>
+      <p className="microcopy">{tx('legacy.m237')}</p>
       <div className="keybindings-grid">
-        <span>面</span>
+        <span>{tx('legacy.m203')}</span>
         <span>90°</span>
         <span>−90°</span>
         <span>180°</span>
@@ -108,10 +110,11 @@ export default function KeybindingsPanel() {
         disabled={s.solving}
         onClick={() => {
           settings({ keybindings: defaultKeybindings() });
-          setMessage('已恢复默认键位。');
+          setMessage(tx('legacy.m238'));
         }}
       >
-        <RotateCcw size={14} /> 恢复默认键位
+        <RotateCcw size={14} />
+        {tx('legacy.m239')}
       </button>
     </details>
   );

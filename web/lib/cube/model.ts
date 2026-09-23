@@ -1,3 +1,4 @@
+import { tx, localized } from '@/lib/i18n';
 export type Vec = [number, number, number];
 export type Face = 'U' | 'R' | 'F' | 'D' | 'L' | 'B';
 export const FACES: Face[] = ['U', 'R', 'F', 'D', 'L', 'B'];
@@ -9,14 +10,22 @@ export const COLORS: Record<Face, string> = {
   L: '#ff851c',
   B: '#0767eb',
 };
-export const FACE: Record<Face, { n: Vec; r: Vec; u: Vec; name: string }> = {
-  U: { n: [0, 1, 0], r: [1, 0, 0], u: [0, 0, -1], name: '上' },
-  D: { n: [0, -1, 0], r: [1, 0, 0], u: [0, 0, 1], name: '下' },
-  F: { n: [0, 0, 1], r: [1, 0, 0], u: [0, 1, 0], name: '前' },
-  B: { n: [0, 0, -1], r: [-1, 0, 0], u: [0, 1, 0], name: '后' },
-  R: { n: [1, 0, 0], r: [0, 0, -1], u: [0, 1, 0], name: '右' },
-  L: { n: [-1, 0, 0], r: [0, 0, 1], u: [0, 1, 0], name: '左' },
-};
+export const FACE: Record<
+  Face,
+  {
+    n: Vec;
+    r: Vec;
+    u: Vec;
+    name: string;
+  }
+> = localized(() => ({
+  U: { n: [0, 1, 0], r: [1, 0, 0], u: [0, 0, -1], name: tx('legacy.m114') },
+  D: { n: [0, -1, 0], r: [1, 0, 0], u: [0, 0, 1], name: tx('legacy.m115') },
+  F: { n: [0, 0, 1], r: [1, 0, 0], u: [0, 1, 0], name: tx('legacy.m118') },
+  B: { n: [0, 0, -1], r: [-1, 0, 0], u: [0, 1, 0], name: tx('legacy.m119') },
+  R: { n: [1, 0, 0], r: [0, 0, -1], u: [0, 1, 0], name: tx('legacy.m116') },
+  L: { n: [-1, 0, 0], r: [0, 0, 1], u: [0, 1, 0], name: tx('legacy.m117') },
+}));
 export const dot = (a: Vec, b: Vec) => a.reduce((s, v, i) => s + v * b[i], 0);
 export const cross = (a: Vec, b: Vec): Vec => [
   a[1] * b[2] - a[2] * b[1],
@@ -79,10 +88,8 @@ export function parseAlgorithm(input: string): string[] {
       !/^[URFDLBMESxyzurfdlb](w)?(2'?|')?$/.test(t) ||
       (t.includes('w') && !/^[URFDLB]w/.test(t))
     )
-      throw new Error(
-        `第 ${i + 1} 步「${t}」不是有效记号。示例：R U R' U2（各步以空格分隔）`,
-      );
-  if (tokens.length > 20000) throw new Error('算法最多支持 20,000 步。');
+      throw new Error(tx('legacy.m439', { p0: i + 1, p1: t }));
+  if (tokens.length > 20000) throw new Error(tx('legacy.m440'));
   return tokens.map((t) => t.replace("2'", '2'));
 }
 export function moveSpec(token: string): Move {
@@ -233,7 +240,10 @@ export function scramble(length = 25): string[] {
   return moves;
 }
 export function uprightMoves(state: CubeState): string[] {
-  const q: { state: CubeState; moves: string[] }[] = [{ state, moves: [] }],
+  const q: {
+      state: CubeState;
+      moves: string[];
+    }[] = [{ state, moves: [] }],
     seen = new Set<string>();
   while (q.length) {
     const item = q.shift()!,
@@ -245,5 +255,5 @@ export function uprightMoves(state: CubeState): string[] {
     for (const m of ['x', 'y', 'z'])
       q.push({ state: turn(item.state, m), moves: [...item.moves, m] });
   }
-  throw new Error('中心块关系非法。');
+  throw new Error(tx('legacy.m441'));
 }

@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { memo, useState } from 'react';
 import {
   Play,
@@ -22,6 +23,7 @@ import {
 } from '@/lib/cube/store';
 import { Range } from './Controls';
 export default memo(function Player() {
+  useLanguage();
   const s = useCube('player', 'busy', 'solving', 'settings'),
     p = s.player,
     [open, setOpen] = useState(true);
@@ -43,8 +45,8 @@ export default memo(function Player() {
         <button
           className="player-collapse"
           aria-expanded={open}
-          aria-label={open ? '收起播放器' : '展开播放器'}
-          title={open ? '收起播放器' : '展开播放器'}
+          aria-label={open ? tx('legacy.m241') : tx('legacy.m242')}
+          title={open ? tx('legacy.m241') : tx('legacy.m242')}
           onClick={() => setOpen(!open)}
         >
           <ChevronDown size={16} />
@@ -58,7 +60,7 @@ export default memo(function Player() {
               className={`${p.index >= st.end ? 'complete' : ''} ${stage === st ? 'current' : ''}`}
               onClick={() => void seek(st.start)}
               disabled={s.busy}
-              title={`跳转到 ${st.label}`}
+              title={tx('legacy.m243', { p0: st.label })}
             >
               <span>
                 {p.index >= st.end ? (
@@ -83,11 +85,11 @@ export default memo(function Player() {
               void seek(stage.start).then(() => play());
             }}
           >
-            重新播放此阶段 ↺
+            {tx('legacy.m244')}
           </button>
         </div>
       )}
-      <div className="move-track" aria-label="算法步骤">
+      <div className="move-track" aria-label={tx('legacy.m245')}>
         {p.moves.length ? (
           p.moves.map((m, i) => (
             <button
@@ -95,13 +97,13 @@ export default memo(function Player() {
               className={`${i < p.index ? 'done' : ''} ${i === p.index ? 'active' : ''}`}
               onClick={() => void seek(i)}
               disabled={s.busy}
-              title={`定位到第 ${i + 1} 步`}
+              title={tx('legacy.m246', { p0: i + 1 })}
             >
               {m}
             </button>
           ))
         ) : (
-          <span>当前阶段已完成</span>
+          <span>{tx('legacy.m247')}</span>
         )}
       </div>
       <div className="progress-line">
@@ -114,8 +116,8 @@ export default memo(function Player() {
       <div className="player-buttons">
         <button
           className="icon-button"
-          title="从头定位"
-          aria-label="从头定位"
+          title={tx('legacy.m248')}
+          aria-label={tx('legacy.m248')}
           disabled={s.busy || p.index === 0}
           onClick={() => void seek(0)}
         >
@@ -123,8 +125,8 @@ export default memo(function Player() {
         </button>
         <button
           className="icon-button"
-          title="上一步"
-          aria-label="上一步"
+          title={tx('legacy.m249')}
+          aria-label={tx('legacy.m249')}
           disabled={s.busy || p.index === 0}
           onClick={() => void playerPrevious()}
         >
@@ -132,7 +134,7 @@ export default memo(function Player() {
         </button>
         <button
           className="play-button"
-          aria-label={p.playing ? '暂停' : '播放'}
+          aria-label={p.playing ? tx('legacy.m050') : tx('legacy.m250')}
           onClick={() =>
             p.playing
               ? pause()
@@ -146,8 +148,8 @@ export default memo(function Player() {
         </button>
         <button
           className="icon-button"
-          title="下一步"
-          aria-label="下一步"
+          title={tx('legacy.m251')}
+          aria-label={tx('legacy.m251')}
           disabled={s.busy || p.index === p.moves.length}
           onClick={() => {
             pause();
@@ -158,12 +160,12 @@ export default memo(function Player() {
         </button>
         <button
           className="icon-button"
-          title="复制算法"
-          aria-label="复制算法"
+          title={tx('legacy.m252')}
+          aria-label={tx('legacy.m252')}
           onClick={() => {
             void navigator.clipboard.writeText(p.moves.join(' ')).then(
-              () => notify('算法已复制。'),
-              () => notify('浏览器未授予剪贴板权限。'),
+              () => notify(tx('legacy.m253')),
+              () => notify(tx('legacy.m254')),
             );
           }}
         >
@@ -171,7 +173,7 @@ export default memo(function Player() {
         </button>
       </div>
       <Range
-        label="播放速度"
+        label={tx('legacy.m255')}
         value={s.settings.speed}
         min={0.25}
         max={3}

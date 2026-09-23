@@ -1,6 +1,6 @@
+import { tx, localized } from '@/lib/i18n';
 import { PALETTES } from '../cube/palettes';
 import type { Face } from '../cube/model';
-
 export type Vec3 = [number, number, number];
 export type Permutation = [number, number, number, number];
 export type PieceKind = 'tip' | 'center' | 'edge';
@@ -14,11 +14,19 @@ export const VERTICES: Vec3[] = [
   [0, -0.8, -Math.sqrt(5.12)],
 ];
 export const PALETTE_FACES: Face[] = ['D', 'R', 'F', 'B'];
-export const PYRAMINX_PALETTES = PALETTES.map(({ name, colors }) => ({
-  name, colors: PALETTE_FACES.map((face) => colors[face]),
-}));
+export const PYRAMINX_PALETTES = localized(() =>
+  PALETTES.map(({ name, colors }) => ({
+    name,
+    colors: PALETTE_FACES.map((face) => colors[face]),
+  })),
+);
 export const FACE_COLORS = PYRAMINX_PALETTES[0].colors;
-export const FACE_NAMES = ['底面 · 黄', '右面 · 红', '左面 · 绿', '正面 · 蓝'];
+export const FACE_NAMES = localized(() => [
+  tx('legacy.m492'),
+  tx('legacy.m493'),
+  tx('legacy.m494'),
+  tx('legacy.m495'),
+]);
 export interface Piece {
   id: string;
   kind: PieceKind;
@@ -106,9 +114,7 @@ export function parseMove(token: string): Move {
     !/^[ULRBulrb](?:w)?'?$/.test(token) ||
     (/^[ulrb]/.test(token) && token.includes('w'))
   )
-    throw new Error(
-      `无法识别「${token}」：使用 U/L/R/B、u/l/r/b 或 Uw/Lw/Rw/Bw。`,
-    );
+    throw new Error(tx('legacy.m496', { p0: token }));
   return {
     axis: AXES.indexOf(token[0].toUpperCase() as (typeof AXES)[number]),
     layer: token.includes('w')
@@ -134,7 +140,7 @@ export function parseAlgorithm(input: string) {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-  if (tokens.length > 20000) throw new Error('算法不能超过 20000 步。');
+  if (tokens.length > 20000) throw new Error(tx('legacy.m497'));
   return tokens.map((token) => {
     parseMove(token);
     return token;

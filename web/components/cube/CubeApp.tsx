@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage, localized } from '@/lib/i18n';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   Box,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import Viewport from './Viewport';
 import PuzzleSwitcher, { type PuzzleType } from './PuzzleSwitcher';
+import LanguageSwitcher from './LanguageSwitcher';
 import FaceMaps from './FaceMaps';
 import CustomizePanel from './CustomizePanel';
 import KeybindingsPanel from './KeybindingsPanel';
@@ -70,15 +72,14 @@ import {
   keyboardShortcut,
   shortcutActions,
 } from '@/lib/cube/keybindings';
-
-const modes: [Mode, string, typeof Box][] = [
-  ['play', '玩魔方', Box],
-  ['explode', '拆解', Layers3],
-  ['customize', '定制', Palette],
-  ['solver', '求解', WandSparkles],
-  ['camera', '视角', Move3D],
-  ['inspect', '检查', Scan],
-];
+const modes: [Mode, string, typeof Box][] = localized(() => [
+  ['play', tx('legacy.m028'), Box],
+  ['explode', tx('legacy.m029'), Layers3],
+  ['customize', tx('legacy.m030'), Palette],
+  ['solver', tx('legacy.m031'), WandSparkles],
+  ['camera', tx('legacy.m032'), Move3D],
+  ['inspect', tx('legacy.m033'), Scan],
+]);
 const phoneLayout =
   '(max-width: 760px), (max-height: 530px) and (orientation: landscape)';
 const railLayout = '(max-height: 530px) and (orientation: landscape)';
@@ -100,7 +101,12 @@ function matches(query: string) {
   return typeof window !== 'undefined' && window.matchMedia(query).matches;
 }
 let restoredSession = false;
-export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) => void }) {
+export default function CubeApp({
+  onSwitch,
+}: {
+  onSwitch: (puzzle: PuzzleType) => void;
+}) {
+  useLanguage();
   const s = useCube(
       'cube',
       'partialTurns',
@@ -133,7 +139,10 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     scrollRef = useRef<HTMLDivElement>(null),
     sectionRefs = useRef<Partial<Record<Mode, HTMLElement | null>>>({}),
-    pendingJump = useRef<{ mode: Mode; until: number } | null>(null),
+    pendingJump = useRef<{
+      mode: Mode;
+      until: number;
+    } | null>(null),
     deferredJump = useRef<Mode | null>(null),
     panelRef = useRef<HTMLElement>(null),
     handleRef = useRef<HTMLButtonElement>(null),
@@ -377,12 +386,12 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
   function saveOnce() {
     void saveProject().then(
       () => {
-        notify('当前魔方状态已保存到本机。');
+        notify(tx('legacy.m034'));
         setSaved(true);
         if (savedTimer.current) clearTimeout(savedTimer.current);
         savedTimer.current = setTimeout(() => setSaved(false), 1600);
       },
-      () => notify('保存失败：本机存储不可用或空间不足，请导出方案备份。'),
+      () => notify(tx('legacy.m035')),
     );
   }
   function toggleAutoSave(on: boolean) {
@@ -390,8 +399,8 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
     setAutosavePreference(on);
     if (on) {
       void saveAutosave();
-      notify('自动保存已开启，改动会自动写入本机。');
-    } else notify('自动保存已关闭，可用保存按钮留存进度。');
+      notify(tx('legacy.m036'));
+    } else notify(tx('legacy.m037'));
   }
   function newScramble() {
     if (s.busy || s.solving) return;
@@ -425,27 +434,28 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
       className={`cube-app ${s.presentation ? 'presentation' : ''} ${panelOpen ? '' : 'panel-collapsed'}`}
     >
       <header className="app-header">
-        <div className="brand" aria-label="AXIS 魔方工作室">
+        <div className="brand" aria-label={tx('legacy.m038')}>
           <PuzzleSwitcher value="cube" onChange={onSwitch} disabled={locked} />
           <strong>
             AXIS<span>/</span>03
           </strong>
           <span className="brand-divider" />
-          <span className="brand-subtitle">魔方工作室</span>
+          <span className="brand-subtitle">{tx('legacy.m039')}</span>
         </div>
         <div className="header-center">
           MAGNETIC PRECISION CUBE <span>·</span> DIGITAL EDITION
         </div>
         <div className="header-actions">
+          <LanguageSwitcher />
           <span className="local-badge">
             <i />
-            本地工作区
+            {tx('legacy.m040')}
           </span>
           <div className="autosave-switch">
-            <label htmlFor={autoSaveId}>自动保存</label>
+            <label htmlFor={autoSaveId}>{tx('legacy.m041')}</label>
             <Switch
               id={autoSaveId}
-              aria-label="自动保存"
+              aria-label={tx('legacy.m041')}
               checked={s.autoSave}
               onCheckedChange={toggleAutoSave}
             />
@@ -453,22 +463,22 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
           <button
             className="icon-button"
             disabled={locked}
-            title={saved ? '已保存' : '保存当前状态'}
-            aria-label="保存当前状态"
+            title={saved ? tx('legacy.m042') : tx('legacy.m043')}
+            aria-label={tx('legacy.m043')}
             onClick={saveOnce}
           >
             {saved ? <Check size={18} /> : <Save size={18} />}
           </button>
           <button
             className="icon-button"
-            title="全屏"
-            aria-label="全屏"
+            title={tx('legacy.m044')}
+            aria-label={tx('legacy.m044')}
             onClick={() => {
               if (document.fullscreenElement) void document.exitFullscreen();
               else
                 void document.documentElement
                   .requestFullscreen()
-                  .catch(() => notify('可使用浏览器菜单进入全屏。'));
+                  .catch(() => notify(tx('legacy.m045')));
             }}
           >
             <Expand size={18} />
@@ -476,8 +486,8 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
           <button
             className="icon-button presentation-toggle"
             disabled={s.solving}
-            title="展示模式"
-            aria-label="展示模式"
+            title={tx('legacy.m046')}
+            aria-label={tx('legacy.m046')}
             onClick={() => setPresentation(!s.presentation)}
           >
             <Eye size={18} />
@@ -493,38 +503,42 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
           <Viewport />
           {s.presentation && (
             <div className="presentation-hint" aria-live="polite">
-              {s.settings.autoRotate ? '自动旋转中' : '自动旋转已暂停'} ·
-              点击空白{s.settings.autoRotate ? '暂停' : '继续'}
+              {s.settings.autoRotate ? tx('legacy.m047') : tx('legacy.m048')}
+              {tx('legacy.m049')}
+              {s.settings.autoRotate ? tx('legacy.m050') : tx('legacy.m051')}
             </div>
           )}
           {s.solving && (
             <div className="solve-lock" aria-live="polite">
-              正在计算 · 魔方已锁定 · 可在求解面板终止
+              {tx('legacy.m052')}
             </div>
           )}
           <div className="stage-state">
             <i className={solved ? 'solved' : ''} />
             <span>
               {s.currentMove
-                ? `转动 ${s.currentMove}`
+                ? tx('legacy.m053', { p0: s.currentMove })
                 : s.partialTurns
-                  ? '转层未对齐'
+                  ? tx('legacy.m054')
                   : solved
-                    ? '已复原'
-                    : '自由探索'}
+                    ? tx('legacy.m055')
+                    : tx('legacy.m056')}
             </span>
             <span className="state-divider" />
-            <span>{s.cursor} 步</span>
+            <span>
+              {s.cursor}
+              {tx('legacy.m057')}
+            </span>
           </div>
           <div className="view-controls">
             <Choice
-              label="视图"
+              label={tx('legacy.m058')}
               value={s.view}
               options={[
-                ['normal', '纯 3D'],
-                ['hidden', '隐藏面映射'],
-                ['six', '六面总览'],
-                ['net', '平面展开'],
+                ['normal', tx('legacy.m059')],
+                ['hidden', tx('legacy.m060')],
+                ['six', tx('legacy.m061')],
+                ['net', tx('legacy.m062')],
               ]}
               onChange={(v) => patch({ view: v as View })}
             />
@@ -535,31 +549,31 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
               <MousePointer2 size={15} />
               <span>
                 {s.mode === 'customize'
-                  ? '点击贴片多选 · 在右侧编辑外观'
+                  ? tx('legacy.m063')
                   : s.mode === 'explode' || s.mode === 'camera'
-                    ? '拖动自由旋转 · Shift 拖动滚转 · 双指或滚轮缩放'
+                    ? tx('legacy.m064')
                     : s.mode === 'inspect'
-                      ? '点击零件查看信息 · 拖动空白旋转视角'
+                      ? tx('legacy.m065')
                       : s.settings.magnetStrength === 0
-                        ? '按住拖动转层 · 松手停留当前位置'
-                        : '按住拖动转层 · 松手磁力归位'}
+                        ? tx('legacy.m066')
+                        : tx('legacy.m067')}
               </span>
             </div>
             <div className="camera-buttons">
               <button
-                title="重置视角"
-                aria-label="重置视角"
+                title={tx('legacy.m068')}
+                aria-label={tx('legacy.m068')}
                 onClick={() => cameraActions.reset()}
               >
                 <RotateCcw size={16} />
               </button>
               <button
-                title="适配视图"
-                aria-label="适配视图"
+                title={tx('legacy.m069')}
+                aria-label={tx('legacy.m069')}
                 onClick={() => cameraActions.fit()}
               >
                 <Focus size={18} />
-                <span>适配视图</span>
+                <span>{tx('legacy.m069')}</span>
               </button>
             </div>
           </div>
@@ -572,7 +586,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
             <div className="loading-overlay">
               <Box size={36} />
               <strong>AXIS / 03</strong>
-              <span>正在装配模型与材质…</span>
+              <span>{tx('legacy.m070')}</span>
               <div className="loading-bar" />
             </div>
           )}
@@ -582,11 +596,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
             className="mobile-handle"
             ref={handleRef}
             aria-expanded={panelOpen}
-            aria-label={
-              panelOpen
-                ? '收起控制面板，可拖动调整面板高度'
-                : '展开控制面板，可拖动调整面板高度'
-            }
+            aria-label={panelOpen ? tx('legacy.m071') : tx('legacy.m072')}
             onPointerDown={startDrag}
             onPointerMove={moveDrag}
             onPointerUp={() => endDrag()}
@@ -601,7 +611,11 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
           >
             <span className="handle-bar" />
           </button>
-          <nav className="panel-nav" ref={navRef} aria-label="面板导航">
+          <nav
+            className="panel-nav"
+            ref={navRef}
+            aria-label={tx('legacy.m073')}
+          >
             {modes.map(([id, label, Icon]) => (
               <button
                 key={id}
@@ -619,13 +633,15 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
             <section {...blockProps('play')}>
               <section className="panel-section magnetic-controls">
                 <div className="section-head">
-                  <h3>磁力与手感</h3>
+                  <h3>{tx('legacy.m074')}</h3>
                   <span className="tag">
-                    {s.settings.magnetStrength === 0 ? '无磁力' : '磁力归位'}
+                    {s.settings.magnetStrength === 0
+                      ? tx('legacy.m075')
+                      : tx('legacy.m076')}
                   </span>
                 </div>
                 <Range
-                  label="磁力强度"
+                  label={tx('legacy.m077')}
                   value={s.settings.magnetStrength}
                   min={0}
                   max={2}
@@ -634,7 +650,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   onChange={(v) => settings({ magnetStrength: v })}
                 />
                 <Range
-                  label="归位阻尼"
+                  label={tx('legacy.m078')}
                   value={s.settings.magnetDamping}
                   min={0.05}
                   max={2}
@@ -643,7 +659,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   onChange={(v) => settings({ magnetDamping: v })}
                 />
                 <Range
-                  label="转层容错角度"
+                  label={tx('legacy.m079')}
                   value={s.settings.turnTolerance}
                   disabled={s.solving}
                   min={0}
@@ -653,22 +669,16 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   unit="°"
                   onChange={(v) => settings({ turnTolerance: v })}
                 />
-                <p className="microcopy">
-                  转动垂直层时，先将容错范围内的错位层平滑归位，再转动新层。设为
-                  0° 时要求严格对齐。
-                </p>
-                <p className="microcopy">
-                  强度为 0
-                  时可停在任意角度。阻尼越低，归位回弹越明显；越高，回弹越小。
-                </p>
+                <p className="microcopy">{tx('legacy.m080')}</p>
+                <p className="microcopy">{tx('legacy.m081')}</p>
                 {s.partialTurns && (
                   <p className="help-text" aria-live="polite">
                     {withinTurnTolerance(
                       s.partialTurns,
                       s.settings.turnTolerance,
                     )
-                      ? `错位在 ${s.settings.turnTolerance}° 容错范围内：转动垂直层时会自动就近归位。`
-                      : `错位超出 ${s.settings.turnTolerance}° 容错范围：请先沿原轴对齐，或增大容错角度。`}
+                      ? tx('legacy.m082', { p0: s.settings.turnTolerance })
+                      : tx('legacy.m083', { p0: s.settings.turnTolerance })}
                   </p>
                 )}
               </section>
@@ -680,7 +690,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     disabled={locked}
                   >
                     <Shuffle size={17} />
-                    随机打乱
+                    {tx('legacy.m084')}
                     <ArrowUpRight size={17} />
                   </button>
                   <button
@@ -689,7 +699,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     disabled={locked}
                   >
                     <RotateCcw size={16} />
-                    复原
+                    {tx('legacy.m085')}
                   </button>
                 </div>
                 <div className="history-actions">
@@ -698,34 +708,34 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     onClick={() => void undo()}
                   >
                     <Undo2 size={16} />
-                    撤销
+                    {tx('legacy.m086')}
                   </button>
                   <button
                     disabled={locked || s.cursor === s.history.length}
                     onClick={() => void redo()}
                   >
                     <Redo2 size={16} />
-                    重做
+                    {tx('legacy.m087')}
                   </button>
                   <span>
                     {s.cursor} / {s.history.length}
                   </span>
                 </div>
                 <Toggle
-                  label="播放打乱动画"
+                  label={tx('legacy.m088')}
                   value={animateScramble}
                   onChange={setAnimateScramble}
                 />
                 {s.scramble && (
                   <div className="scramble-record">
                     <div className="control-label">
-                      <span>当前打乱</span>
+                      <span>{tx('legacy.m089')}</span>
                       <button
-                        aria-label="复制打乱"
+                        aria-label={tx('legacy.m090')}
                         onClick={() =>
                           void navigator.clipboard.writeText(s.scramble).then(
-                            () => notify('打乱已复制。'),
-                            () => notify('复制失败，请手动选择文字。'),
+                            () => notify(tx('legacy.m091')),
+                            () => notify(tx('legacy.m092')),
                           )
                         }
                       >
@@ -737,7 +747,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                 )}
                 <section className="panel-section">
                   <div className="section-head">
-                    <h3>面转动</h3>
+                    <h3>{tx('legacy.m093')}</h3>
                     <div className="modifier-buttons">
                       {['', "'", '2'].map((v) => (
                         <button
@@ -770,7 +780,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                             f + modifier,
                             s.settings.turnTolerance,
                           )
-                            ? '请先对齐错位转层'
+                            ? tx('legacy.m094')
                             : undefined
                         }
                       >
@@ -792,13 +802,13 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                 <div className="engineering-card">
                   <Layers3 size={27} />
                   <div>
-                    <strong>从装配，到每一颗磁铁</strong>
-                    <p>分层展开，原位聚合。</p>
+                    <strong>{tx('legacy.m095')}</strong>
+                    <p>{tx('legacy.m096')}</p>
                   </div>
                   <span>03</span>
                 </div>
                 <Range
-                  label="拆解程度"
+                  label={tx('legacy.m097')}
                   value={s.settings.explode}
                   min={0}
                   max={3}
@@ -809,10 +819,10 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                 />
                 <div className="explode-presets">
                   {[
-                    [0, '完整'],
-                    [1, '分块'],
-                    [2, '结构'],
-                    [3, '完全拆解'],
+                    [0, tx('legacy.m098')],
+                    [1, tx('legacy.m099')],
+                    [2, tx('legacy.m100')],
+                    [3, tx('legacy.m101')],
                   ].map(([v, l]) => (
                     <button
                       key={v}
@@ -831,14 +841,14 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   ))}
                 </div>
                 <Range
-                  label="内部组件分离"
+                  label={tx('legacy.m102')}
                   value={s.settings.internal}
                   min={0}
                   max={1.5}
                   onChange={(v) => settings({ internal: v })}
                 />
                 <Range
-                  label="块间间隙"
+                  label={tx('legacy.m103')}
                   value={s.settings.gap}
                   step={0.001}
                   digits={3}
@@ -847,21 +857,21 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   onChange={(v) => settings({ gap: v })}
                 />
                 <Range
-                  label="块体尺寸"
+                  label={tx('legacy.m104')}
                   value={s.settings.size}
                   min={0.65}
                   max={1.08}
                   onChange={(v) => settings({ size: v })}
                 />
                 <Range
-                  label="贴片偏移"
+                  label={tx('legacy.m105')}
                   value={s.settings.stickerOffset}
                   min={0}
                   max={0.2}
                   onChange={(v) => settings({ stickerOffset: v })}
                 />
                 <Toggle
-                  label="显示磁性组件"
+                  label={tx('legacy.m106')}
                   value={s.settings.showMagnets}
                   onChange={(v) => settings({ showMagnets: v })}
                 />
@@ -878,29 +888,35 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     setTimeout(() => cameraActions.reset(), 30);
                   }}
                 >
-                  恢复完整装配 <RotateCcw size={16} />
+                  {tx('legacy.m107')}
+                  <RotateCcw size={16} />
                 </button>
                 <div className="part-legend">
-                  <h3>结构索引</h3>
+                  <h3>{tx('legacy.m108')}</h3>
                   <p>
                     <i style={{ background: '#cccfbd' }} />
-                    彩色外壳 <span>54</span>
+                    {tx('legacy.m109')}
+                    <span>54</span>
                   </p>
                   <p>
                     <i style={{ background: '#5e6870' }} />
-                    角块 / 棱块骨架 <span>8 / 12</span>
+                    {tx('legacy.m110')}
+                    <span>8 / 12</span>
                   </p>
                   <p>
                     <i style={{ background: '#b7c4cd' }} />
-                    磁力定位 / 轴心磁铁 <span>48 / 16</span>
+                    {tx('legacy.m111')}
+                    <span>48 / 16</span>
                   </p>
                   <p>
                     <i style={{ background: '#b1c5a2' }} />
-                    中心张力调节 <span>6</span>
+                    {tx('legacy.m112')}
+                    <span>6</span>
                   </p>
                   <p>
                     <i style={{ background: '#333f4a' }} />
-                    六轴核心 <span>1</span>
+                    {tx('legacy.m113')}
+                    <span>1</span>
                   </p>
                 </div>
               </>
@@ -920,16 +936,16 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                       {
                         (
                           {
-                            U: '上',
-                            D: '下',
-                            R: '右',
-                            L: '左',
-                            F: '前',
-                            B: '后',
+                            U: tx('legacy.m114'),
+                            D: tx('legacy.m115'),
+                            R: tx('legacy.m116'),
+                            L: tx('legacy.m117'),
+                            F: tx('legacy.m118'),
+                            B: tx('legacy.m119'),
                           } as Record<Face, string>
                         )[f]
                       }
-                      视图
+                      {tx('legacy.m058')}
                     </button>
                   ))}
                 </div>
@@ -937,44 +953,45 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   className="wide-button"
                   onClick={() => cameraActions.reset()}
                 >
-                  标准产品视角 <Move3D size={18} />
+                  {tx('legacy.m120')}
+                  <Move3D size={18} />
                 </button>
                 <button
                   className="wide-button"
                   onClick={() => cameraActions.focus()}
                 >
-                  所选部件特写 <Focus size={18} />
+                  {tx('legacy.m121')}
+                  <Focus size={18} />
                 </button>
                 <button
                   className="wide-button"
                   onClick={() => cameraActions.fit()}
                 >
-                  适配当前模型 <Focus size={18} />
+                  {tx('legacy.m122')}
+                  <Focus size={18} />
                 </button>
                 <Toggle
-                  label="自动旋转展示"
+                  label={tx('legacy.m123')}
                   value={s.settings.autoRotate}
                   onChange={(v) => settings({ autoRotate: v })}
                 />
                 <Range
-                  label="塑料表面粗糙度"
+                  label={tx('legacy.m124')}
                   value={s.settings.roughness}
                   min={0.18}
                   max={0.65}
                   onChange={(v) => settings({ roughness: v })}
                 />
                 <section className="panel-section">
-                  <h3>棚拍光源</h3>
+                  <h3>{tx('legacy.m125')}</h3>
                   <Toggle
-                    label="光源跟随视角"
+                    label={tx('legacy.m126')}
                     value={s.settings.lightFollowCamera}
                     onChange={(v) => settings({ lightFollowCamera: v })}
                   />
-                  <p className="helper-text">
-                    关闭时光源固定在场景中。可独立调整方向、仰角与亮度。
-                  </p>
+                  <p className="helper-text">{tx('legacy.m127')}</p>
                   <Range
-                    label="光源方向"
+                    label={tx('legacy.m128')}
                     value={s.settings.lightAzimuth}
                     min={-180}
                     max={180}
@@ -984,7 +1001,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     onChange={(v) => settings({ lightAzimuth: v })}
                   />
                   <Range
-                    label="光源仰角"
+                    label={tx('legacy.m129')}
                     value={s.settings.lightElevation}
                     min={-80}
                     max={80}
@@ -994,7 +1011,7 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     onChange={(v) => settings({ lightElevation: v })}
                   />
                   <Range
-                    label="光源强度"
+                    label={tx('legacy.m130')}
                     value={s.settings.lightIntensity}
                     min={0}
                     max={5}
@@ -1004,24 +1021,24 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   />
                 </section>
                 <Choice
-                  label="显示品质"
+                  label={tx('legacy.m131')}
                   value={s.settings.quality}
                   options={[
-                    ['auto', '自动'],
-                    ['high', '高品质'],
-                    ['low', '流畅'],
+                    ['auto', tx('legacy.m132')],
+                    ['high', tx('legacy.m133')],
+                    ['low', tx('legacy.m134')],
                   ]}
                   onChange={(v) =>
                     settings({ quality: v as 'auto' | 'high' | 'low' })
                   }
                 />
                 <Choice
-                  label="按键与算法动画"
+                  label={tx('legacy.m135')}
                   value={s.settings.easing}
                   options={[
-                    ['magnetic', '柔和减速'],
-                    ['smooth', '平滑'],
-                    ['linear', '线性'],
+                    ['magnetic', tx('legacy.m136')],
+                    ['smooth', tx('legacy.m137')],
+                    ['linear', tx('legacy.m138')],
                   ]}
                   onChange={(v) =>
                     settings({ easing: v as 'magnetic' | 'smooth' | 'linear' })
@@ -1031,14 +1048,19 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   className="wide-button"
                   onClick={() => setPresentation(true)}
                 >
-                  进入展示模式 <Expand size={17} />
+                  {tx('legacy.m139')}
+                  <Expand size={17} />
                 </button>
                 <p className="microcopy">
-                  点击空白暂停 / 继续自动旋转。
+                  {tx('legacy.m140')}
                   {s.settings.keybindings.exitPresentation
-                    ? `按 ${formatShortcut(s.settings.keybindings.exitPresentation)} 或点击`
-                    : '点击'}
-                  右上角眼睛按钮退出展示。
+                    ? tx('legacy.m141', {
+                        p0: formatShortcut(
+                          s.settings.keybindings.exitPresentation,
+                        ),
+                      })
+                    : tx('legacy.m142')}
+                  {tx('legacy.m143')}
                 </p>
               </>
             </section>
@@ -1046,12 +1068,10 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
               <>
                 <div className="inspection-state">
                   <span className="live-dot" />
-                  物理状态合法 <strong>26 / 26</strong>
+                  {tx('legacy.m144')}
+                  <strong>26 / 26</strong>
                 </div>
-                <p className="help-text">
-                  点击 3D
-                  贴片或辅助面格子，交叉高亮同一贴片。颜色与图片是外观，不会改变魔方的真实状态。
-                </p>
+                <p className="help-text">{tx('legacy.m145')}</p>
                 <div className="inspection-list">
                   {s.selected.length ? (
                     s.selected.map((id) => {
@@ -1063,17 +1083,17 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                           <strong>{id}</strong>
                           <span>
                             {p.kind === 'corner'
-                              ? '角块'
+                              ? tx('legacy.m146')
                               : p.kind === 'edge'
-                                ? '棱块'
-                                : '中心块'}
+                                ? tx('legacy.m147')
+                                : tx('legacy.m148')}
                           </span>
                           <code>{p.pos.join(' , ')}</code>
                         </div>
                       );
                     })
                   ) : (
-                    <p>选择一个贴片以查看所属零件。</p>
+                    <p>{tx('legacy.m149')}</p>
                   )}
                 </div>
                 {replay ? (
@@ -1081,7 +1101,8 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     className="wide-button replay-stop"
                     onClick={() => anchorPanel('inspect', stopReplay)}
                   >
-                    终止回放 · {replay.index} / {replay.moves.length}
+                    {tx('legacy.m150')}
+                    {replay.index} / {replay.moves.length}
                     <CircleStop size={16} />
                   </button>
                 ) : (
@@ -1090,7 +1111,8 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                     disabled={locked || !s.history.length}
                     onClick={() => anchorPanel('inspect', replayHistory)}
                   >
-                    回放操作历史 <ArrowUpRight size={16} />
+                    {tx('legacy.m151')}
+                    <ArrowUpRight size={16} />
                   </button>
                 )}
                 <button
@@ -1100,11 +1122,10 @@ export default function CubeApp({ onSwitch }: { onSwitch: (puzzle: PuzzleType) =
                   }
                   onClick={() => restoreHistory(s.history, s.scrambleCursor)}
                 >
-                  回到打乱状态 <RotateCcw size={16} />
+                  {tx('legacy.m152')}
+                  <RotateCcw size={16} />
                 </button>
-                <p className="microcopy">
-                  转动、撤销与求解共用同一个物理状态；拆解、材质与镜头独立于状态。
-                </p>
+                <p className="microcopy">{tx('legacy.m153')}</p>
               </>
             </section>
             <div className="panel-footer">

@@ -1,3 +1,4 @@
+import { tx, useLanguage, localized } from '@/lib/i18n';
 import {
   useCallback,
   useEffect,
@@ -34,6 +35,7 @@ import {
   X,
 } from 'lucide-react';
 import PuzzleSwitcher, { type PuzzleType } from '../cube/PuzzleSwitcher';
+import LanguageSwitcher from '../cube/LanguageSwitcher';
 import { Choice, Range, Toggle } from '../cube/Controls';
 import { useCube, type Mode, type View } from '@/lib/cube/store';
 import { formatShortcut, keyboardShortcut } from '@/lib/cube/keybindings';
@@ -88,15 +90,17 @@ import {
   type Photo,
 } from '@/lib/pyraminx/store';
 import Viewport from './Viewport';
-
-const modes = [
-  ['play', '玩魔方', Box],
-  ['explode', '拆解', Layers3],
-  ['customize', '定制', Palette],
-  ['solver', '求解', WandSparkles],
-  ['camera', '视角', Move3D],
-  ['inspect', '检查', Scan],
-] as const;
+const modes = localized(
+  () =>
+    [
+      ['play', tx('legacy.m028'), Box],
+      ['explode', tx('legacy.m029'), Layers3],
+      ['customize', tx('legacy.m030'), Palette],
+      ['solver', tx('legacy.m031'), WandSparkles],
+      ['camera', tx('legacy.m032'), Move3D],
+      ['inspect', tx('legacy.m033'), Scan],
+    ] as const,
+);
 const phone =
   '(max-width: 760px), (max-height: 530px) and (orientation: landscape)';
 const landscape = '(max-height: 530px) and (orientation: landscape)';
@@ -111,8 +115,7 @@ function download(value: unknown, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function readJSON(file: File) {
-  if (file.size > 12_000_000)
-    throw new Error('文件过大，请选择 12 MB 以内的方案。');
+  if (file.size > 12000000) throw new Error(tx('legacy.m299'));
   return JSON.parse(await file.text());
 }
 function PhotoDialog({
@@ -126,11 +129,16 @@ function PhotoDialog({
   onClose: () => void;
   onApply: (photo: Photo) => void;
 }) {
+  useLanguage();
   const [draft, setDraft] = useState(photo),
     [photoImage, setPhotoImage] = useState<HTMLImageElement | null>(null),
     preview = useRef<HTMLCanvasElement>(null),
     dialog = useRef<HTMLDialogElement>(null);
-  const drag = useRef<{ x: number; y: number; base: Photo } | null>(null);
+  const drag = useRef<{
+    x: number;
+    y: number;
+    base: Photo;
+  } | null>(null);
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
@@ -144,7 +152,7 @@ function PhotoDialog({
         if (active) setPhotoImage(image);
       })
       .catch(() => {
-        if (active) notify('图片无法解码，请重新选择。');
+        if (active) notify(tx('legacy.m300'));
       });
     return () => {
       active = false;
@@ -157,15 +165,18 @@ function PhotoDialog({
   return (
     <dialog className="pyr-photo-dialog" ref={dialog} onCancel={onClose}>
       <div className="section-head">
-        <h3>{FACE_NAMES[face]} · 整面图片预览</h3>
-        <button aria-label="取消图片编辑" onClick={onClose}>
+        <h3>
+          {FACE_NAMES[face]}
+          {tx('legacy.m301')}
+        </h3>
+        <button aria-label={tx('legacy.m302')} onClick={onClose}>
           <X size={20} />
         </button>
       </div>
       <div
         className="pyr-photo-preview"
         style={{ aspectRatio: `1 / ${FACE_HEIGHT_RATIO}` }}
-        aria-label="正三角形整面图片预览"
+        aria-label={tx('legacy.m303')}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           drag.current = { x: e.clientX, y: e.clientY, base: draft };
@@ -188,7 +199,7 @@ function PhotoDialog({
         }}
       >
         <div className="pyr-photo-clip">
-          <canvas ref={preview} aria-label="金字塔整面照片裁切预览" />
+          <canvas ref={preview} aria-label={tx('legacy.m304')} />
         </div>
         <svg
           viewBox="0 0 300 300"
@@ -198,18 +209,16 @@ function PhotoDialog({
           <path d="M150 0 L0 300 L300 300 Z M100 100 L200 100 M50 200 L250 200 M100 100 L200 300 M200 100 L100 300 M50 200 L100 300 M250 200 L200 300 M50 200 L100 100 M250 200 L200 100" />
         </svg>
       </div>
-      <p className="microcopy">
-        拖动图片定位，正三角形范围内的内容会铺满九片外壳。
-      </p>
+      <p className="microcopy">{tx('legacy.m305')}</p>
       <Range
-        label="图片缩放"
+        label={tx('legacy.m306')}
         value={draft.scale}
         min={0.25}
         max={4}
         onChange={(scale) => setDraft({ ...draft, scale })}
       />
       <Range
-        label="图片旋转"
+        label={tx('legacy.m224')}
         value={draft.rotation}
         min={-180}
         max={180}
@@ -225,25 +234,26 @@ function PhotoDialog({
             setDraft({ ...draft, scale: 1, x: 0, y: 0, rotation: 0 })
           }
         >
-          重置裁切
+          {tx('legacy.m307')}
         </button>
         <button className="secondary-button" onClick={onClose}>
-          取消
+          {tx('legacy.m024')}
         </button>
         <button className="primary-button" onClick={() => onApply(draft)}>
-          应用图片
+          {tx('legacy.m308')}
         </button>
       </div>
     </dialog>
   );
 }
 function TilePicker() {
+  useLanguage();
   const s = usePyraminx();
   return (
     <div
       className="pyr-tile-picker"
       style={{ aspectRatio: `1 / ${FACE_HEIGHT_RATIO}` }}
-      aria-label="选择三角贴片"
+      aria-label={tx('legacy.m309')}
     >
       {TILES.filter((t) => t.face === s.editFace).map((tile) => {
         const points = tile.uv
@@ -291,6 +301,7 @@ export default function PyraminxApp({
 }: {
   onSwitch: (puzzle: PuzzleType) => void;
 }) {
+  useLanguage();
   const s = usePyraminx(),
     cubeNotice = useCube('notice');
   const [layer, setLayer] = useState<Layer>('body'),
@@ -299,7 +310,10 @@ export default function PyraminxApp({
   const [algorithm, setAlgorithm] = useState("R U R' U R U R' U"),
     [presetName, setPresetName] = useState('');
   const [color, setColor] = useState(FACE_COLORS[3]),
-    [photo, setPhoto] = useState<{ face: number; photo: Photo } | null>(null);
+    [photo, setPhoto] = useState<{
+      face: number;
+      photo: Photo;
+    } | null>(null);
   const [mobile, setMobile] = useState(() => matchMedia(phone).matches),
     [rail, setRail] = useState(() => matchMedia(landscape).matches);
   const [panelOpen, setPanelOpen] = useState(() => !matchMedia(phone).matches),
@@ -454,8 +468,8 @@ export default function PyraminxApp({
   }
   async function uploadPhoto(file: File) {
     try {
-      if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 20_000_000)
-        throw new Error('请选择 20 MB 以内的 PNG、JPEG 或 WebP 图片。');
+      if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 20000000)
+        throw new Error(tx('legacy.m310'));
       const face = getState().editFace,
         url = URL.createObjectURL(file),
         img = new Image();
@@ -492,7 +506,7 @@ export default function PyraminxApp({
     const moves = scramble();
     patch({ scramble: moves.join(' ') });
     if (animated) {
-      loadPlayer(moves, '随机打乱');
+      loadPlayer(moves, tx('legacy.m084'));
       void play();
     } else await applyInstant(moves);
   }
@@ -500,10 +514,10 @@ export default function PyraminxApp({
     try {
       const moves = parseAlgorithm(algorithm);
       if (!moves.length || !presetName.trim())
-        throw new Error('请输入算法名称和公式。');
-      if (s.presets.length >= 100) throw new Error('最多保存 100 个算法。');
+        throw new Error(tx('legacy.m311'));
+      if (s.presets.length >= 100) throw new Error(tx('legacy.m312'));
       if (s.presets.some((p) => p.algorithm === moves.join(' ')))
-        throw new Error('这条公式已在算法列表中。');
+        throw new Error(tx('legacy.m313'));
       patch({
         presets: [
           ...s.presets,
@@ -511,7 +525,7 @@ export default function PyraminxApp({
         ],
       });
       setPresetName('');
-      notify('算法已添加。');
+      notify(tx('legacy.m314'));
     } catch (error) {
       notify((error as Error).message);
     }
@@ -551,23 +565,24 @@ export default function PyraminxApp({
             AXIS<span>/</span>04
           </strong>
           <span className="brand-divider" />
-          <span className="brand-subtitle">魔方工作室</span>
+          <span className="brand-subtitle">{tx('legacy.m039')}</span>
         </div>
         <div className="header-center">
           MAGNETIC PYRAMINX <span>·</span> DIGITAL EDITION
         </div>
         <div className="header-actions">
+          <LanguageSwitcher />
           <div className="autosave-switch">
             <Toggle
-              label="自动保存"
+              label={tx('legacy.m041')}
               value={s.autoSave}
               onChange={setAutoSave}
             />
           </div>
           <button
             className="icon-button"
-            aria-label="保存当前状态"
-            title="保存当前状态"
+            aria-label={tx('legacy.m043')}
+            title={tx('legacy.m043')}
             disabled={locked}
             onClick={() => saveLocal()}
           >
@@ -575,22 +590,22 @@ export default function PyraminxApp({
           </button>
           <button
             className="icon-button"
-            aria-label="全屏"
-            title="全屏"
+            aria-label={tx('legacy.m044')}
+            title={tx('legacy.m044')}
             onClick={() => {
               if (document.fullscreenElement) void document.exitFullscreen();
               else
                 void document.documentElement
                   .requestFullscreen()
-                  .catch(() => notify('可使用浏览器菜单进入全屏。'));
+                  .catch(() => notify(tx('legacy.m045')));
             }}
           >
             <Expand size={18} />
           </button>
           <button
             className="icon-button"
-            aria-label={s.presentation ? '退出展示模式' : '展示模式'}
-            title="展示模式"
+            aria-label={s.presentation ? tx('legacy.m315') : tx('legacy.m046')}
+            title={tx('legacy.m046')}
             disabled={s.solving}
             onClick={() => setPresentation(!s.presentation)}
           >
@@ -605,37 +620,38 @@ export default function PyraminxApp({
             <i className={solved ? 'solved' : ''} />
             <span>
               {s.currentMove
-                ? `转动 ${s.currentMove}`
+                ? tx('legacy.m053', { p0: s.currentMove })
                 : s.partials.length
-                  ? '转层未对齐'
+                  ? tx('legacy.m054')
                   : solved
-                    ? '已复原'
-                    : '自由探索'}
+                    ? tx('legacy.m055')
+                    : tx('legacy.m056')}
             </span>
             <span className="state-divider" />
-            <span>{s.cursor} 步</span>
+            <span>
+              {s.cursor}
+              {tx('legacy.m057')}
+            </span>
           </div>
           <div className="view-controls">
             <Choice
-              label="视图"
+              label={tx('legacy.m058')}
               value={s.view}
               options={[
-                ['normal', '纯 3D'],
-                ['hidden', '隐藏面映射'],
-                ['six', '四面总览'],
-                ['net', '平面展开'],
+                ['normal', tx('legacy.m059')],
+                ['hidden', tx('legacy.m060')],
+                ['six', tx('legacy.m316')],
+                ['net', tx('legacy.m062')],
               ]}
               onChange={(view) => patch({ view: view as View })}
             />
           </div>
           {s.solving && (
-            <output className="solve-lock">正在计算 · 可在求解面板终止</output>
+            <output className="solve-lock">{tx('legacy.m317')}</output>
           )}
           {s.presentation && (
             <div className="presentation-hint">
-              {s.settings.autoRotate
-                ? '自动旋转中 · 点击空白暂停'
-                : '自动旋转已暂停 · 点击空白继续'}
+              {s.settings.autoRotate ? tx('legacy.m318') : tx('legacy.m319')}
             </div>
           )}
           <div className="stage-bottom">
@@ -643,23 +659,26 @@ export default function PyraminxApp({
               <MousePointer2 size={15} />
               <span>
                 {s.mode === 'customize'
-                  ? '点击贴片多选 · 在右侧编辑外观'
+                  ? tx('legacy.m063')
                   : s.mode === 'explode' || s.mode === 'camera'
-                    ? '拖动旋转视角 · Shift 滚转 · 双指或滚轮缩放'
-                    : '顶角单转 · 棱块转底层 · 中心转上两层'}
+                    ? tx('legacy.m320')
+                    : tx('legacy.m321')}
               </span>
             </div>
             <div className="camera-buttons">
               <button
-                aria-label="重置视角"
-                title="重置视角"
+                aria-label={tx('legacy.m068')}
+                title={tx('legacy.m068')}
                 onClick={() => cameraActions.reset()}
               >
                 <RotateCcw size={16} />
               </button>
-              <button aria-label="适配视图" onClick={() => cameraActions.fit()}>
+              <button
+                aria-label={tx('legacy.m069')}
+                onClick={() => cameraActions.fit()}
+              >
                 <Focus size={18} />
-                <span>适配视图</span>
+                <span>{tx('legacy.m069')}</span>
               </button>
             </div>
           </div>
@@ -672,7 +691,7 @@ export default function PyraminxApp({
             <div className="loading-overlay">
               <Pyramid size={36} />
               <strong>AXIS / 04</strong>
-              <span>正在装配金字塔模型…</span>
+              <span>{tx('legacy.m322')}</span>
               <div className="loading-bar" />
             </div>
           )}
@@ -682,7 +701,7 @@ export default function PyraminxApp({
             className="mobile-handle"
             ref={handle}
             aria-expanded={panelOpen}
-            aria-label="展开或收起控制面板，可拖动调整高度"
+            aria-label={tx('legacy.m323')}
             onPointerDown={startSheet}
             onPointerMove={moveSheet}
             onPointerUp={() => endSheet()}
@@ -697,7 +716,7 @@ export default function PyraminxApp({
           >
             <span className="handle-bar" />
           </button>
-          <nav className="panel-nav" ref={nav} aria-label="金字塔控制面板">
+          <nav className="panel-nav" ref={nav} aria-label={tx('legacy.m324')}>
             {modes.map(([mode, title, Icon]) => (
               <button
                 key={mode}
@@ -715,18 +734,20 @@ export default function PyraminxApp({
             <section {...section('play')}>
               <div className="pyr-intro">
                 <span className="tag">PYRAMINX / 120°</span>
-                <h2>四轴，三种转动。</h2>
-                <p>从指尖的一次轻转开始。</p>
+                <h2>{tx('legacy.m325')}</h2>
+                <p>{tx('legacy.m326')}</p>
               </div>
               <section className="panel-section magnetic-controls">
                 <div className="section-head">
-                  <h3>磁力与手感</h3>
+                  <h3>{tx('legacy.m074')}</h3>
                   <span className="tag">
-                    {s.settings.magnetStrength === 0 ? '无磁力' : '磁力归位'}
+                    {s.settings.magnetStrength === 0
+                      ? tx('legacy.m075')
+                      : tx('legacy.m076')}
                   </span>
                 </div>
                 <Range
-                  label="磁力强度"
+                  label={tx('legacy.m077')}
                   value={s.settings.magnetStrength}
                   min={0}
                   max={2}
@@ -735,7 +756,7 @@ export default function PyraminxApp({
                   onChange={(magnetStrength) => settings({ magnetStrength })}
                 />
                 <Range
-                  label="归位阻尼"
+                  label={tx('legacy.m078')}
                   value={s.settings.magnetDamping}
                   min={0.05}
                   max={2}
@@ -744,21 +765,17 @@ export default function PyraminxApp({
                   onChange={(magnetDamping) => settings({ magnetDamping })}
                 />
                 <Range
-                  label="转层容错角度"
+                  label={tx('legacy.m079')}
                   value={s.settings.turnTolerance}
                   min={0}
-                  max={120}
+                  max={60}
                   step={1}
                   digits={0}
                   unit="°"
                   disabled={s.solving}
                   onChange={(turnTolerance) => settings({ turnTolerance })}
                 />
-                <p className="microcopy">
-                  松手吸附到 120° 倍数。磁力为 0
-                  时停留在当前位置；只有转动发生冲突时，才对齐容错范围内的相关层。
-                  独立顶角和同轴层保留各自角度。默认容错 120°。
-                </p>
+                <p className="microcopy">{tx('legacy.m327')}</p>
               </section>
               <div className="quick-actions">
                 <button
@@ -767,7 +784,7 @@ export default function PyraminxApp({
                   onClick={newScramble}
                 >
                   <Shuffle size={17} />
-                  随机打乱
+                  {tx('legacy.m084')}
                 </button>
                 <button
                   className="secondary-button"
@@ -775,7 +792,7 @@ export default function PyraminxApp({
                   onClick={resetPuzzle}
                 >
                   <RotateCcw size={16} />
-                  复原
+                  {tx('legacy.m085')}
                 </button>
               </div>
               <div className="history-actions">
@@ -784,34 +801,34 @@ export default function PyraminxApp({
                   onClick={() => void undo()}
                 >
                   <Undo2 size={16} />
-                  撤销
+                  {tx('legacy.m086')}
                 </button>
                 <button
                   disabled={locked || s.cursor === s.history.length}
                   onClick={() => void redo()}
                 >
                   <Redo2 size={16} />
-                  重做
+                  {tx('legacy.m087')}
                 </button>
                 <span>
                   {s.cursor} / {s.history.length}
                 </span>
               </div>
               <Toggle
-                label="播放打乱动画"
+                label={tx('legacy.m088')}
                 value={animated}
                 onChange={setAnimated}
               />
               {s.scramble && (
                 <div className="scramble-record">
                   <div className="control-label">
-                    <span>当前打乱</span>
+                    <span>{tx('legacy.m089')}</span>
                     <button
-                      aria-label="复制打乱"
+                      aria-label={tx('legacy.m090')}
                       onClick={() =>
                         void navigator.clipboard.writeText(s.scramble).then(
-                          () => notify('打乱已复制。'),
-                          () => notify('复制失败，请手动选择文字。'),
+                          () => notify(tx('legacy.m091')),
+                          () => notify(tx('legacy.m092')),
                         )
                       }
                     >
@@ -823,7 +840,7 @@ export default function PyraminxApp({
               )}
               <section className="panel-section">
                 <div className="section-head">
-                  <h3>轴与层级</h3>
+                  <h3>{tx('legacy.m328')}</h3>
                   <div className="modifier-buttons">
                     <button
                       className={!reverse ? 'active' : ''}
@@ -840,12 +857,12 @@ export default function PyraminxApp({
                   </div>
                 </div>
                 <Choice
-                  label="旋转层级"
+                  label={tx('legacy.m329')}
                   value={layer}
                   options={[
-                    ['tip', 'Tip · 仅顶角'],
-                    ['body', 'Center · 上两层含顶角'],
-                    ['base', 'Edge · 底层'],
+                    ['tip', tx('legacy.m330')],
+                    ['body', tx('legacy.m331')],
+                    ['base', tx('legacy.m332')],
                   ]}
                   onChange={(value) => setLayer(value as Layer)}
                 />
@@ -863,29 +880,24 @@ export default function PyraminxApp({
                     </button>
                   ))}
                 </div>
-                <p className="microcopy">
-                  U 顶轴 · L 左轴 · R 右轴 · B 后轴。小写转顶角，大写转上两层，w
-                  转该轴底层；′ 表示反向。
-                </p>
+                <p className="microcopy">{tx('legacy.m333')}</p>
                 <details className="pyr-keybindings">
-                  <summary>自定义操作键位</summary>
-                  <p className="microcopy">
-                    点击输入框后按下组合键，Delete 清除，Esc 取消。
-                  </p>
+                  <summary>{tx('legacy.m236')}</summary>
+                  <p className="microcopy">{tx('legacy.m334')}</p>
                   {Object.entries(s.keybindings).map(([action, value]) => (
                     <label key={action}>
                       <span>
                         {(
                           {
-                            undo: '撤销',
-                            redo: '重做',
-                            playPause: '播放 / 暂停',
-                            exitPresentation: '退出展示',
+                            undo: tx('legacy.m086'),
+                            redo: tx('legacy.m087'),
+                            playPause: tx('legacy.m335'),
+                            exitPresentation: tx('legacy.m336'),
                           } as Record<string, string>
                         )[action] || action}
                       </span>
                       <input
-                        aria-label={`${action} 键位`}
+                        aria-label={tx('legacy.m337', { p0: action })}
                         readOnly
                         value={formatShortcut(value)}
                         disabled={s.solving}
@@ -906,7 +918,7 @@ export default function PyraminxApp({
                               ([a, k]) => a !== action && k === key,
                             )
                           ) {
-                            notify('该键位已被占用。');
+                            notify(tx('legacy.m338'));
                             return;
                           }
                           patch({
@@ -921,13 +933,13 @@ export default function PyraminxApp({
                     className="wide-button"
                     onClick={() => patch({ keybindings: defaultKeys() })}
                   >
-                    恢复默认键位
+                    {tx('legacy.m239')}
                   </button>
                 </details>
               </section>
               <section className="panel-section">
                 <div className="section-head">
-                  <h3>算法实验室</h3>
+                  <h3>{tx('legacy.m009')}</h3>
                   <span className="tag">PYRAMINX</span>
                 </div>
                 <div className="algorithm-presets">
@@ -943,7 +955,7 @@ export default function PyraminxApp({
                 </div>
                 <textarea
                   className="pyr-algorithm"
-                  aria-label="金字塔算法"
+                  aria-label={tx('legacy.m339')}
                   value={algorithm}
                   onChange={(e) => setAlgorithm(e.target.value)}
                   spellCheck={false}
@@ -953,14 +965,14 @@ export default function PyraminxApp({
                   disabled={locked}
                   onClick={() => runAlgorithm(algorithm)}
                 >
-                  播放算法
+                  {tx('legacy.m018')}
                   <Play size={16} />
                 </button>
                 <div className="pyr-button-row">
                   <input
                     className="pyr-text-input"
-                    aria-label="算法名称"
-                    placeholder="算法名称"
+                    aria-label={tx('legacy.m021')}
+                    placeholder={tx('legacy.m021')}
                     value={presetName}
                     onChange={(e) => setPresetName(e.target.value)}
                   />
@@ -969,7 +981,7 @@ export default function PyraminxApp({
                     disabled={locked}
                     onClick={addPreset}
                   >
-                    添加
+                    {tx('legacy.m016')}
                   </button>
                 </div>
                 <div className="pyr-button-row">
@@ -979,20 +991,20 @@ export default function PyraminxApp({
                     }
                   >
                     <Download size={14} />
-                    导出算法
+                    {tx('legacy.m340')}
                   </button>
                   <button
                     disabled={locked}
                     onClick={() => algorithmInput.current?.click()}
                   >
                     <Upload size={14} />
-                    导入算法
+                    {tx('legacy.m341')}
                   </button>
                   <button
                     disabled={locked}
                     onClick={() => patch({ presets: defaultPresets() })}
                   >
-                    恢复默认
+                    {tx('legacy.m342')}
                   </button>
                 </div>
               </section>
@@ -1001,13 +1013,13 @@ export default function PyraminxApp({
               <div className="engineering-card">
                 <Layers3 size={27} />
                 <div>
-                  <strong>看见四轴结构</strong>
-                  <p>贴合式蜂窝壳体、磁力轴心与四轴连接。</p>
+                  <strong>{tx('legacy.m343')}</strong>
+                  <p>{tx('legacy.m344')}</p>
                 </div>
                 <span>04</span>
               </div>
               <Range
-                label="拆解程度"
+                label={tx('legacy.m097')}
                 value={s.settings.explode}
                 min={0}
                 max={3}
@@ -1017,7 +1029,12 @@ export default function PyraminxApp({
                 }}
               />
               <div className="explode-presets">
-                {['完整', '分块', '结构', '完全拆解'].map((label, explode) => (
+                {[
+                  tx('legacy.m098'),
+                  tx('legacy.m099'),
+                  tx('legacy.m100'),
+                  tx('legacy.m101'),
+                ].map((label, explode) => (
                   <button
                     key={label}
                     disabled={s.solving}
@@ -1035,7 +1052,7 @@ export default function PyraminxApp({
                 ))}
               </div>
               <Range
-                label="内部组件分离"
+                label={tx('legacy.m102')}
                 value={s.settings.internal}
                 min={0}
                 max={1.5}
@@ -1043,7 +1060,7 @@ export default function PyraminxApp({
                 onChange={(internal) => settings({ internal })}
               />
               <Range
-                label="块间间隙"
+                label={tx('legacy.m103')}
                 value={s.settings.gap}
                 min={0}
                 max={0.3}
@@ -1053,7 +1070,7 @@ export default function PyraminxApp({
                 onChange={(gap) => settings({ gap })}
               />
               <Range
-                label="块体尺寸"
+                label={tx('legacy.m104')}
                 value={s.settings.size}
                 min={0.65}
                 max={1.08}
@@ -1061,7 +1078,7 @@ export default function PyraminxApp({
                 onChange={(size) => settings({ size })}
               />
               <Range
-                label="贴片偏移"
+                label={tx('legacy.m105')}
                 value={s.settings.stickerOffset}
                 min={0}
                 max={0.2}
@@ -1069,7 +1086,7 @@ export default function PyraminxApp({
                 onChange={(stickerOffset) => settings({ stickerOffset })}
               />
               <Toggle
-                label="显示磁性组件"
+                label={tx('legacy.m106')}
                 value={s.settings.showMagnets}
                 disabled={s.solving}
                 onChange={(showMagnets) => settings({ showMagnets })}
@@ -1088,17 +1105,17 @@ export default function PyraminxApp({
                   cameraActions.reset();
                 }}
               >
-                恢复完整装配
+                {tx('legacy.m107')}
                 <RotateCcw size={16} />
               </button>
               <div className="part-legend">
-                <h3>结构索引</h3>
+                <h3>{tx('legacy.m108')}</h3>
                 {[
-                  ['顶角块 Tip', 4],
-                  ['中心块 Center', 4],
-                  ['棱块 Edge', 6],
-                  ['彩色三角外壳', 36],
-                  ['四轴连接杆', 4],
+                  [tx('legacy.m345'), 4],
+                  [tx('legacy.m346'), 4],
+                  [tx('legacy.m347'), 6],
+                  [tx('legacy.m348'), 36],
+                  [tx('legacy.m349'), 4],
                 ].map(([label, count]) => (
                   <p key={label}>
                     <i style={{ background: '#c7d5ad' }} />
@@ -1110,11 +1127,14 @@ export default function PyraminxApp({
             </section>
             <section {...section('customize')}>
               <div className="section-head">
-                <h3>外壳定制</h3>
-                <span className="tag">{s.selected.length} 片已选</span>
+                <h3>{tx('legacy.m350')}</h3>
+                <span className="tag">
+                  {s.selected.length}
+                  {tx('legacy.m351')}
+                </span>
               </div>
               <Choice
-                label="原始面"
+                label={tx('legacy.m352')}
                 value={String(s.editFace)}
                 options={FACE_NAMES.map((n, i) => [String(i), n])}
                 onChange={(value) =>
@@ -1133,17 +1153,17 @@ export default function PyraminxApp({
                     })
                   }
                 >
-                  选择整面
+                  {tx('legacy.m160')}
                 </button>
                 <button
                   disabled={s.solving}
                   onClick={() => patch({ selected: [] })}
                 >
-                  取消选择
+                  {tx('legacy.m353')}
                 </button>
               </div>
               <div className="pyr-color-edit">
-                <label htmlFor="pyr-color">贴片颜色</label>
+                <label htmlFor="pyr-color">{tx('legacy.m354')}</label>
                 <input
                   id="pyr-color"
                   type="color"
@@ -1161,7 +1181,7 @@ export default function PyraminxApp({
                     patch({ colors });
                   }}
                 >
-                  应用颜色
+                  {tx('legacy.m355')}
                 </button>
               </div>
               <div className="palette-presets">
@@ -1172,30 +1192,29 @@ export default function PyraminxApp({
                     onClick={() =>
                       patch({
                         colors: Object.fromEntries(
-                          TILES.map((t) => [
-                            t.id,
-                            colors[t.face],
-                          ]),
+                          TILES.map((t) => [t.id, colors[t.face]]),
                         ),
                       })
                     }
                   >
-                    <span>{colors.map((c) => <i key={c} style={{ background: c }} />)}</span>
+                    <span>
+                      {colors.map((c) => (
+                        <i key={c} style={{ background: c }} />
+                      ))}
+                    </span>
                     {name}
                   </button>
                 ))}
               </div>
               <section className="panel-section">
-                <h3>整面照片</h3>
-                <p className="microcopy">
-                  每面一张照片，裁切后分配到九片外壳，随合法转层保持位置和方向。
-                </p>
+                <h3>{tx('legacy.m356')}</h3>
+                <p className="microcopy">{tx('legacy.m357')}</p>
                 <button
                   className="wide-button"
                   disabled={s.solving}
                   onClick={() => photoInput.current?.click()}
                 >
-                  上传 / 替换图片
+                  {tx('legacy.m358')}
                   <Upload size={16} />
                 </button>
                 {s.photos[s.editFace] && (
@@ -1210,7 +1229,7 @@ export default function PyraminxApp({
                         })
                       }
                     >
-                      打开预览调整
+                      {tx('legacy.m176')}
                       <Focus size={16} />
                     </button>
                     <button
@@ -1222,14 +1241,14 @@ export default function PyraminxApp({
                         patch({ photos });
                       }}
                     >
-                      移除当前面图片
+                      {tx('legacy.m359')}
                       <X size={16} />
                     </button>
                   </>
                 )}
               </section>
               <section className="panel-section">
-                <h3>本地方案</h3>
+                <h3>{tx('legacy.m360')}</h3>
                 <button
                   className="wide-button"
                   disabled={locked}
@@ -1237,7 +1256,7 @@ export default function PyraminxApp({
                     download(captureProject(), 'AXIS-pyraminx.json')
                   }
                 >
-                  导出完整方案
+                  {tx('legacy.m361')}
                   <Download size={16} />
                 </button>
                 <button
@@ -1245,7 +1264,7 @@ export default function PyraminxApp({
                   disabled={locked}
                   onClick={() => importInput.current?.click()}
                 >
-                  导入完整方案
+                  {tx('legacy.m362')}
                   <Upload size={16} />
                 </button>
                 <button
@@ -1253,22 +1272,18 @@ export default function PyraminxApp({
                   disabled={locked}
                   onClick={() => patch({ colors: defaultColors(), photos: {} })}
                 >
-                  恢复原厂外观
+                  {tx('legacy.m363')}
                   <RotateCcw size={16} />
                 </button>
-                <p className="microcopy">
-                  三阶与金字塔分别保存。切换保留本次进度；点击顶部保存后，下次打开仍可继续。
-                </p>
+                <p className="microcopy">{tx('legacy.m364')}</p>
               </section>
             </section>
             <section {...section('solver')}>
               <div className="section-head">
-                <h3>金字塔求解</h3>
-                <span className="tag">状态搜索</span>
+                <h3>{tx('legacy.m365')}</h3>
+                <span className="tag">{tx('legacy.m366')}</span>
               </div>
-              <p className="helper-text">
-                按当前块位置与方向计算上两层转动的最短复原序列，再对齐独立顶角并恢复初始方位。支持带底层转动的状态与整面照片。
-              </p>
+              <p className="helper-text">{tx('legacy.m367')}</p>
               <button
                 className="wide-button"
                 disabled={s.busy}
@@ -1277,7 +1292,7 @@ export default function PyraminxApp({
                   else void startSolve();
                 }}
               >
-                {s.solving ? '终止求解' : '开始求解'}
+                {s.solving ? tx('legacy.m368') : tx('legacy.m369')}
                 {s.solving ? (
                   <CircleStop size={16} />
                 ) : (
@@ -1288,7 +1303,7 @@ export default function PyraminxApp({
                 <output className="microcopy">{s.solveStatus}</output>
               )}
               <Range
-                label="播放速度"
+                label={tx('legacy.m255')}
                 value={s.settings.speed}
                 min={0.2}
                 max={3}
@@ -1299,12 +1314,12 @@ export default function PyraminxApp({
                 onChange={(speed) => settings({ speed })}
               />
               <Choice
-                label="转动曲线"
+                label={tx('legacy.m370')}
                 value={s.settings.easing}
                 options={[
-                  ['magnetic', '磁力'],
-                  ['smooth', '平滑'],
-                  ['linear', '线性'],
+                  ['magnetic', tx('legacy.m371')],
+                  ['smooth', tx('legacy.m137')],
+                  ['linear', tx('legacy.m138')],
                 ]}
                 onChange={(value) =>
                   settings({ easing: value as typeof s.settings.easing })
@@ -1320,14 +1335,16 @@ export default function PyraminxApp({
                   </div>
                   <div className="player-buttons">
                     <button
-                      aria-label="上一步"
+                      aria-label={tx('legacy.m249')}
                       disabled={locked || !s.player.index}
                       onClick={() => void previous()}
                     >
                       <SkipBack size={19} />
                     </button>
                     <button
-                      aria-label={s.player.playing ? '暂停播放' : '播放序列'}
+                      aria-label={
+                        s.player.playing ? tx('legacy.m372') : tx('legacy.m373')
+                      }
                       disabled={s.solving || (s.busy && !s.player.playing)}
                       onClick={() => {
                         if (s.player?.playing) pause();
@@ -1341,7 +1358,7 @@ export default function PyraminxApp({
                       )}
                     </button>
                     <button
-                      aria-label="下一步"
+                      aria-label={tx('legacy.m251')}
                       disabled={
                         locked || s.player.index === s.player.moves.length
                       }
@@ -1350,7 +1367,7 @@ export default function PyraminxApp({
                       <SkipForward size={19} />
                     </button>
                     <button
-                      aria-label="终止播放"
+                      aria-label={tx('legacy.m374')}
                       disabled={s.solving}
                       onClick={() => {
                         pause();
@@ -1362,7 +1379,7 @@ export default function PyraminxApp({
                   </div>
                   <input
                     className="pyr-player-range"
-                    aria-label="播放进度"
+                    aria-label={tx('legacy.m375')}
                     type="range"
                     min={0}
                     max={s.player.moves.length}
@@ -1374,19 +1391,19 @@ export default function PyraminxApp({
                   {s.player.bodyLength !== undefined && (
                     <div className="pyr-button-row">
                       <button disabled={locked} onClick={() => void seek(0)}>
-                        主体复原
+                        {tx('legacy.m376')}
                       </button>
                       <button
                         disabled={locked}
                         onClick={() => void seek(s.player!.bodyLength!)}
                       >
-                        顶角对齐
+                        {tx('legacy.m377')}
                       </button>
                       <button
                         disabled={locked}
                         onClick={() => void seek(s.player!.moves.length)}
                       >
-                        完成
+                        {tx('legacy.m378')}
                       </button>
                     </div>
                   )}
@@ -1413,7 +1430,7 @@ export default function PyraminxApp({
             </section>
             <section {...section('camera')}>
               <div className="section-head">
-                <h3>视角与材质</h3>
+                <h3>{tx('legacy.m379')}</h3>
               </div>
               <div className="camera-grid">
                 {FACE_NAMES.map((name, face) => (
@@ -1424,13 +1441,13 @@ export default function PyraminxApp({
                 ))}
               </div>
               <Toggle
-                label="自动旋转"
+                label={tx('legacy.m380')}
                 value={s.settings.autoRotate}
                 disabled={s.solving}
                 onChange={(autoRotate) => settings({ autoRotate })}
               />
               <Range
-                label="塑料粗糙度"
+                label={tx('legacy.m381')}
                 value={s.settings.roughness}
                 min={0.05}
                 max={1}
@@ -1438,21 +1455,21 @@ export default function PyraminxApp({
                 onChange={(roughness) => settings({ roughness })}
               />
               <Choice
-                label="显示品质"
+                label={tx('legacy.m131')}
                 value={s.settings.quality}
                 options={[
-                  ['auto', '自适应'],
-                  ['high', '高品质'],
-                  ['low', '性能优先'],
+                  ['auto', tx('legacy.m382')],
+                  ['high', tx('legacy.m133')],
+                  ['low', tx('legacy.m383')],
                 ]}
                 onChange={(quality) =>
                   settings({ quality: quality as typeof s.settings.quality })
                 }
               />
               <section className="panel-section">
-                <h3>棚拍光源</h3>
+                <h3>{tx('legacy.m125')}</h3>
                 <Toggle
-                  label="灯光跟随视角"
+                  label={tx('legacy.m384')}
                   value={s.settings.lightFollowCamera}
                   disabled={s.solving}
                   onChange={(lightFollowCamera) =>
@@ -1460,7 +1477,7 @@ export default function PyraminxApp({
                   }
                 />
                 <Range
-                  label="光源方向"
+                  label={tx('legacy.m128')}
                   value={s.settings.lightAzimuth}
                   min={-180}
                   max={180}
@@ -1470,7 +1487,7 @@ export default function PyraminxApp({
                   onChange={(lightAzimuth) => settings({ lightAzimuth })}
                 />
                 <Range
-                  label="光源仰角"
+                  label={tx('legacy.m129')}
                   value={s.settings.lightElevation}
                   min={-10}
                   max={90}
@@ -1480,7 +1497,7 @@ export default function PyraminxApp({
                   onChange={(lightElevation) => settings({ lightElevation })}
                 />
                 <Range
-                  label="光源强度"
+                  label={tx('legacy.m130')}
                   value={s.settings.lightIntensity}
                   min={0}
                   max={6}
@@ -1493,32 +1510,37 @@ export default function PyraminxApp({
                 disabled={s.solving}
                 onClick={() => setPresentation(true)}
               >
-                进入展示模式
+                {tx('legacy.m139')}
                 <Eye size={16} />
               </button>
             </section>
             <section {...section('inspect')}>
               <div className="section-head">
-                <h3>结构与操作历史</h3>
-                <span className="tag">{solved ? '已复原' : '探索中'}</span>
+                <h3>{tx('legacy.m385')}</h3>
+                <span className="tag">
+                  {solved ? tx('legacy.m055') : tx('legacy.m386')}
+                </span>
               </div>
-              <p className="microcopy">点击任一部件查看类型，双击进入特写。</p>
+              <p className="microcopy">{tx('legacy.m387')}</p>
               {selectedTile && (
                 <div className="pyr-piece-info">
                   <strong>{PIECES[selectedTile.piece].id}</strong>
                   <p>
                     {PIECES[selectedTile.piece].kind === 'tip'
-                      ? 'Tip · 顶角块：仅旋转该顶角'
+                      ? tx('legacy.m388')
                       : PIECES[selectedTile.piece].kind === 'center'
-                        ? 'Center · 中心块：转动上两层，包含顶角'
-                        : 'Edge · 棱块：转动触碰面上对角顶点对应的底层'}
+                        ? tx('legacy.m389')
+                        : tx('legacy.m390')}
                   </p>
-                  <p>原始贴片：{FACE_NAMES[selectedTile.face]}</p>
+                  <p>
+                    {tx('legacy.m391')}
+                    {FACE_NAMES[selectedTile.face]}
+                  </p>
                   <button
                     className="wide-button"
                     onClick={() => cameraActions.focus()}
                   >
-                    特写
+                    {tx('legacy.m392')}
                     <Focus size={16} />
                   </button>
                 </div>
@@ -1526,19 +1548,23 @@ export default function PyraminxApp({
               <button
                 className="wide-button"
                 disabled={
-                  s.solving || (!s.cursor && s.player?.title !== '历史回放')
+                  s.solving ||
+                  (!s.cursor && s.player?.title !== tx('legacy.m393'))
                 }
                 onClick={() => {
-                  if (s.player?.title === '历史回放') {
+                  if (s.player?.title === tx('legacy.m393')) {
                     pause();
                     patch({ player: null });
                   } else replayHistory();
                 }}
               >
-                {s.player?.title === '历史回放'
-                  ? `终止回放 · ${s.player.index} / ${s.player.moves.length}`
-                  : '回放操作历史'}
-                {s.player?.title === '历史回放' ? (
+                {s.player?.title === tx('legacy.m393')
+                  ? tx('legacy.m394', {
+                      p0: s.player.index,
+                      p1: s.player.moves.length,
+                    })
+                  : tx('legacy.m151')}
+                {s.player?.title === tx('legacy.m393') ? (
                   <CircleStop size={16} />
                 ) : (
                   <Play size={16} />
@@ -1552,7 +1578,10 @@ export default function PyraminxApp({
                 ))}
               </div>
               <p className="microcopy">
-                {s.cursor} 步已应用 · {s.history.length - s.cursor} 步可重做
+                {s.cursor}
+                {tx('legacy.m395')}
+                {s.history.length - s.cursor}
+                {tx('legacy.m396')}
               </p>
             </section>
           </div>
@@ -1560,10 +1589,11 @@ export default function PyraminxApp({
       </div>
       <footer className="app-footer">
         <span>
-          <i className="live-dot" /> PYRAMINX · 四轴磁力结构
+          <i className="live-dot" />
+          {tx('legacy.m397')}
         </span>
-        <span>14 个独立块 · 36 片三角外壳</span>
-        <span>本地处理 / AXIS 04</span>
+        <span>{tx('legacy.m398')}</span>
+        <span>{tx('legacy.m399')}</span>
       </footer>
       {(s.notice || cubeNotice.notice) && (
         <output className="toast">
@@ -1584,7 +1614,7 @@ export default function PyraminxApp({
               .then(
                 (value) => {
                   importProject(value);
-                  notify('金字塔方案已导入。');
+                  notify(tx('legacy.m400'));
                 },
                 (error) => notify((error as Error).message),
               )
@@ -1612,10 +1642,9 @@ export default function PyraminxApp({
                     name = `${preset.name} ${index++}`;
                   presets.push({ ...preset, name });
                 }
-                if (presets.length > 100)
-                  throw new Error('合并后算法超过 100 个。');
+                if (presets.length > 100) throw new Error(tx('legacy.m401'));
                 patch({ presets });
-                notify('算法已合并导入。');
+                notify(tx('legacy.m402'));
               })
               .catch((error) => notify((error as Error).message));
         }}

@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import WorkspaceApp from './components/cube/WorkspaceApp';
 import './app/globals.css';
+import './app/puzzles.css';
+import { t } from './lib/i18n';
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: boolean }
@@ -13,9 +15,9 @@ class ErrorBoundary extends React.Component<
   render() {
     return this.state.error ? (
       <div className="fatal-error">
-        <h1>工作室遇到一个问题</h1>
-        <p>已保存的方案仍在此浏览器中。重新加载后继续。</p>
-        <button onClick={() => location.reload()}>重新加载</button>
+        <h1>{t('app.error')}</h1>
+        <p>{t('app.errorHelp')}</p>
+        <button onClick={() => location.reload()}>{t('app.reload')}</button>
       </div>
     ) : (
       this.props.children

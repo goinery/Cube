@@ -1,5 +1,13 @@
+import { i18n, tx } from '@/lib/i18n';
 import { useSyncExternalStore } from 'react';
-import { heldAngle, partialsAfterMove, sameLayer, turnsConflict, visibleTurns, type PartialTurn } from './interaction';
+import {
+  heldAngle,
+  partialsAfterMove,
+  sameLayer,
+  turnsConflict,
+  visibleTurns,
+  type PartialTurn,
+} from './interaction';
 import { magneticTarget } from '../cube/interaction';
 export type { PartialTurn } from './interaction';
 import {
@@ -24,7 +32,6 @@ import {
   type Move,
   type PuzzleState,
 } from './model';
-
 export interface Photo {
   src: string;
   scale: number;
@@ -44,10 +51,10 @@ export interface Preset {
   algorithm: string;
 }
 export const defaultPresets = (): Preset[] => [
-  { name: '三棱循环', algorithm: "R U R' U R U R' U" },
-  { name: '左右交替', algorithm: "L R' L' R U R U' R'" },
-  { name: '四顶角', algorithm: 'u l r b' },
-  { name: '底层转动', algorithm: "Uw Rw' Bw Lw'" },
+  { name: tx('legacy.m506'), algorithm: "R U R' U R U R' U" },
+  { name: tx('legacy.m507'), algorithm: "L R' L' R U R U' R'" },
+  { name: tx('legacy.m508'), algorithm: 'u l r b' },
+  { name: tx('legacy.m509'), algorithm: "Uw Rw' Bw Lw'" },
 ];
 export const defaultKeys = (): Record<string, string> => ({
   ...Object.fromEntries(
@@ -93,16 +100,11 @@ export interface State {
   ready: boolean;
 }
 export const defaultColors = () =>
-  Object.fromEntries(
-    TILES.map((t) => [
-      t.id,
-      FACE_COLORS[t.face],
-    ]),
-  );
+  Object.fromEntries(TILES.map((t) => [t.id, FACE_COLORS[t.face]]));
 export const defaultPyraminxSettings = (): Settings => ({
   ...defaultSettings(),
   gap: 0,
-  turnTolerance: 120,
+  turnTolerance: 60,
 });
 let state: State = {
   puzzle: solved(),
@@ -194,27 +196,38 @@ export function pause() {
   if (state.player) patch({ player: { ...state.player, playing: false } });
 }
 export function canAlign(partials = state.partials) {
-  return partials.every((p) => Math.abs(p.angle) <=
-    (state.settings.turnTolerance * Math.PI) / 180 + 1e-8);
+  return partials.every(
+    (p) =>
+      Math.abs(p.angle) <=
+      (state.settings.turnTolerance * Math.PI) / 180 + 1e-8,
+  );
 }
 function startAlignment(partials = state.partials) {
   if (!partials.length) return Promise.resolve();
-  const animations = visibleTurns(partials).map((partial) => alignmentAnimator(
-    partial,
-    Math.max(180, Math.min(420,
-      (220 + (Math.abs(partial.angle) / TURN) * 160) / state.settings.speed)),
-  ));
+  const animations = visibleTurns(partials).map((partial) =>
+    alignmentAnimator(
+      partial,
+      Math.max(
+        180,
+        Math.min(
+          420,
+          (220 + (Math.abs(partial.angle) / TURN) * 160) / state.settings.speed,
+        ),
+      ),
+    ),
+  );
   patch({ partials: state.partials.filter((p) => !partials.includes(p)) });
   return Promise.all(animations).then(() => {});
 }
 export async function align(force = false) {
   if (!state.partials.length) return true;
   if (!force && !canAlign()) {
-    notify(`转层偏差超出 ${state.settings.turnTolerance}°，请沿原层拖动对齐。`);
+    notify(tx('legacy.m510', { p0: state.settings.turnTolerance }));
     return false;
   }
-  const wasBusy = state.busy, previousMove = state.currentMove;
-  patch({ busy: true, currentMove: '转层对齐' });
+  const wasBusy = state.busy,
+    previousMove = state.currentMove;
+  patch({ busy: true, currentMove: tx('legacy.m511') });
   try {
     await startAlignment();
     return true;
@@ -232,7 +245,7 @@ export async function perform(
   const move = parseMove(token);
   const conflicts = state.partials.filter((p) => turnsConflict(p, move));
   if (!canAlign(conflicts)) {
-    notify('请先对齐当前转层。');
+    notify(tx('legacy.m512'));
     return false;
   }
   if (source === 'manual') {
@@ -249,8 +262,10 @@ export async function perform(
     }
     const puzzle = turn(state.puzzle, token);
     const partials = partialsAfterMove(state.partials, move);
-    if (source === 'undo') patch({ puzzle, partials, cursor: state.cursor - 1 });
-    else if (source === 'redo') patch({ puzzle, partials, cursor: state.cursor + 1 });
+    if (source === 'undo')
+      patch({ puzzle, partials, cursor: state.cursor - 1 });
+    else if (source === 'redo')
+      patch({ puzzle, partials, cursor: state.cursor + 1 });
     else {
       const history = [...state.history.slice(0, state.cursor), token];
       patch({ puzzle, partials, history, cursor: history.length });
@@ -268,7 +283,7 @@ export function beginDrag(move: Move) {
   if (state.busy || state.solving) return false;
   const conflicts = state.partials.filter((p) => turnsConflict(p, move));
   if (!canAlign(conflicts)) {
-    notify(`转层偏差超出 ${state.settings.turnTolerance}°，请沿原层拖动对齐。`);
+    notify(tx('legacy.m510', { p0: state.settings.turnTolerance }));
     return false;
   }
   pause();
@@ -279,7 +294,7 @@ export function beginDrag(move: Move) {
     currentMove: moveToken(move.axis, move.layer),
   });
   if (conflicts.length)
-    void startAlignment(conflicts).catch(() => notify('归位未完成，请重试。'));
+    void startAlignment(conflicts).catch(() => notify(tx('legacy.m487')));
   return true;
 }
 let dragCompletion = 0;
@@ -297,8 +312,10 @@ export function finishDrag(move: Move, angle: number) {
     history,
     cursor: token ? history.length : state.cursor,
     partials: [
-      ...(token ? partialsAfterMove(state.partials, parseMove(token)) : state.partials)
-        .filter((p) => !sameLayer(p, move)),
+      ...(token
+        ? partialsAfterMove(state.partials, parseMove(token))
+        : state.partials
+      ).filter((p) => !sameLayer(p, move)),
       ...(Math.abs(residual) > 1e-5
         ? [{ axis: move.axis, layer: move.layer, angle: residual }]
         : []),
@@ -347,7 +364,11 @@ export function settings(update: Partial<Settings>) {
 }
 async function settlePartials() {
   const token = generation;
-  while (state.partials.length && !state.busy && state.settings.magnetStrength > 0) {
+  while (
+    state.partials.length &&
+    !state.busy &&
+    state.settings.magnetStrength > 0
+  ) {
     const partial = state.partials[0];
     patch({ busy: true });
     await releaseDrag({ ...partial, direction: 1 }, partial.angle, 0);
@@ -431,18 +452,28 @@ export async function seek(target: number) {
   if (!canPerformSequence(moves)) return;
   for (const token of moves) {
     if (!(await perform(token, backwards ? 'undo' : 'player', true))) return;
-    patch({ player: { ...state.player!, index: state.player!.index + (backwards ? -1 : 1), playing: false } });
+    patch({
+      player: {
+        ...state.player!,
+        index: state.player!.index + (backwards ? -1 : 1),
+        playing: false,
+      },
+    });
   }
 }
 function canPerformSequence(moves: string[]) {
   let partials = state.partials;
   for (const token of moves) {
-    const move = parseMove(token), conflicts = partials.filter((p) => turnsConflict(p, move));
+    const move = parseMove(token),
+      conflicts = partials.filter((p) => turnsConflict(p, move));
     if (!canAlign(conflicts)) {
-      notify('请先对齐当前转层。');
+      notify(tx('legacy.m512'));
       return false;
     }
-    partials = partialsAfterMove(partials.filter((p) => !conflicts.includes(p)), move);
+    partials = partialsAfterMove(
+      partials.filter((p) => !conflicts.includes(p)),
+      move,
+    );
   }
   return true;
 }
@@ -458,34 +489,40 @@ export function replayHistory() {
   if (state.busy || state.solving) return;
   const moves = state.history.slice(0, state.cursor);
   resetPuzzle();
-  loadPlayer(moves, '历史回放');
+  loadPlayer(moves, tx('legacy.m393'));
   void play();
 }
 export function runAlgorithm(input: string) {
   try {
     const moves = parseAlgorithm(input);
-    if (!moves.length) throw new Error('请先输入算法。');
-    loadPlayer(moves, '算法播放');
+    if (!moves.length) throw new Error(tx('legacy.m491'));
+    loadPlayer(moves, tx('legacy.m513'));
     void play();
   } catch (error) {
     notify((error as Error).message);
   }
 }
 let worker: Worker | null = null;
+let solveGeneration = 0;
 export function cancelSolve() {
+  solveGeneration++;
   worker?.terminate();
   worker = null;
   patch({ solving: false, solveStatus: '' });
 }
 export async function startSolve() {
   if (state.busy || state.solving) return;
+  const request = ++solveGeneration;
   pause();
-  if (!(await align())) return;
+  patch({ solving: true, solveStatus: tx('legacy.m256') });
+  await align(true);
+  if (!state.solving || request !== solveGeneration) return;
+  patch({ solving: false, solveStatus: '' });
   if (isSolved(state.puzzle) && state.puzzle.frame === 0) {
-    notify('金字塔已经复原。');
+    notify(tx('legacy.m514'));
     return;
   }
-  patch({ solving: true, solveStatus: '正在初始化求解器…', player: null });
+  patch({ solving: true, solveStatus: tx('legacy.m515'), player: null });
   try {
     worker ??= new Worker(new URL('./solver.worker.ts', import.meta.url), {
       type: 'module',
@@ -499,7 +536,7 @@ export async function startSolve() {
         patch({ solving: false, solveStatus: '' });
         loadPlayer(
           event.data.result.moves,
-          '金字塔求解',
+          tx('legacy.m365'),
           event.data.result.bodyLength,
         );
         void play();
@@ -507,12 +544,12 @@ export async function startSolve() {
     };
     worker.onerror = () => {
       cancelSolve();
-      notify('求解器启动失败，请重试。');
+      notify(tx('legacy.m516'));
     };
-    worker.postMessage(state.puzzle);
+    worker.postMessage({ ...state.puzzle, locale: i18n.language });
   } catch {
     cancelSolve();
-    notify('求解器启动失败，请重试。');
+    notify(tx('legacy.m516'));
   }
 }
 let beforePresentation = false;
@@ -575,7 +612,7 @@ const finite = (n: unknown, min: number, max: number): n is number =>
 export function validateProject(value: unknown): Project {
   const p = value as Project;
   if (!p || p.version !== 1 || p.puzzle !== 'pyraminx')
-    throw new Error('请选择金字塔魔方方案。');
+    throw new Error(tx('legacy.m517'));
   if (
     !Array.isArray(p.history) ||
     p.history.length > 20000 ||
@@ -583,24 +620,41 @@ export function validateProject(value: unknown): Project {
     p.cursor < 0 ||
     p.cursor > p.history.length
   )
-    throw new Error('方案历史无效。');
+    throw new Error(tx('legacy.m518'));
   p.history.forEach((m) => {
-    if (typeof m !== 'string') throw new Error('转动无效。');
+    if (typeof m !== 'string') throw new Error(tx('legacy.m519'));
     parseMove(m);
   });
   // Read older saved projects that had room for only one unfinished layer.
-  const legacy = (p as Project & { partial?: PartialTurn | null }).partial;
+  const legacy = (
+    p as Project & {
+      partial?: PartialTurn | null;
+    }
+  ).partial;
   const partials = p.partials ?? (legacy ? [legacy] : []);
-  if (!Array.isArray(partials) || partials.length > 7 || partials.some((partial, index) =>
-    !partial || !Number.isInteger(partial.axis) || !finite(partial.axis, 0, 3) ||
-    !['tip', 'body', 'base'].includes(partial.layer) ||
-    !finite(partial.angle, -TURN / 2, TURN / 2) ||
-    partials.slice(0, index).some((other) => sameLayer(other, partial) || turnsConflict(other, partial))))
-    throw new Error('未对齐转层无效。');
+  if (
+    !Array.isArray(partials) ||
+    partials.length > 7 ||
+    partials.some(
+      (partial, index) =>
+        !partial ||
+        !Number.isInteger(partial.axis) ||
+        !finite(partial.axis, 0, 3) ||
+        !['tip', 'body', 'base'].includes(partial.layer) ||
+        !finite(partial.angle, -TURN / 2, TURN / 2) ||
+        partials
+          .slice(0, index)
+          .some(
+            (other) =>
+              sameLayer(other, partial) || turnsConflict(other, partial),
+          ),
+    )
+  )
+    throw new Error(tx('legacy.m520'));
   const colors = defaultColors();
   for (const id of Object.keys(colors)) {
     if (!/^#[0-9a-f]{6}$/i.test(p.colors?.[id]))
-      throw new Error('贴片颜色无效。');
+      throw new Error(tx('legacy.m521'));
     colors[id] = p.colors[id];
   }
   const photos: State['photos'] = {};
@@ -608,14 +662,14 @@ export function validateProject(value: unknown): Project {
     if (
       !/^[0-3]$/.test(face) ||
       typeof photo?.src !== 'string' ||
-      photo.src.length > 2_000_000 ||
+      photo.src.length > 2000000 ||
       !/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(photo.src) ||
       !finite(photo.scale, 0.25, 4) ||
       !finite(photo.x, -1, 1) ||
       !finite(photo.y, -1, 1) ||
       !finite(photo.rotation, -360, 360)
     )
-      throw new Error('整面图片无效。');
+      throw new Error(tx('legacy.m522'));
     photos[face] = { ...photo };
   }
   const settings = defaultPyraminxSettings();
@@ -637,9 +691,10 @@ export function validateProject(value: unknown): Project {
   for (const [key, [min, max]] of Object.entries(ranges)) {
     const v = p.settings?.[key as keyof Settings];
     if (v === undefined) continue;
-    if (!finite(v, min, max)) throw new Error(`参数 ${key} 无效。`);
+    if (!finite(v, min, max)) throw new Error(tx('legacy.m523', { p0: key }));
     Object.assign(settings, { [key]: v });
   }
+  settings.turnTolerance = Math.min(60, settings.turnTolerance);
   for (const key of ['autoRotate', 'lightFollowCamera', 'showMagnets'] as const)
     if (typeof p.settings?.[key] === 'boolean') settings[key] = p.settings[key];
   if (['auto', 'high', 'low'].includes(p.settings?.quality))
@@ -655,7 +710,7 @@ export function validateProject(value: unknown): Project {
     )
       keybindings[action] = p.keybindings[action];
   const keys = Object.values(keybindings).filter(Boolean);
-  if (new Set(keys).size !== keys.length) throw new Error('方案包含重复键位。');
+  if (new Set(keys).size !== keys.length) throw new Error(tx('legacy.m524'));
   return {
     version: 1,
     puzzle: 'pyraminx',
@@ -671,7 +726,7 @@ export function validateProject(value: unknown): Project {
 }
 export function validatePresets(value: unknown): Preset[] {
   if (!Array.isArray(value) || value.length > 100)
-    throw new Error('算法列表无效。');
+    throw new Error(tx('legacy.m525'));
   return value.map((p) => {
     if (
       typeof p?.name !== 'string' ||
@@ -680,7 +735,7 @@ export function validatePresets(value: unknown): Preset[] {
       typeof p.algorithm !== 'string' ||
       !parseAlgorithm(p.algorithm).length
     )
-      throw new Error('算法名称或公式无效。');
+      throw new Error(tx('legacy.m526'));
     return {
       name: p.name.trim(),
       algorithm: parseAlgorithm(p.algorithm).join(' '),
@@ -712,7 +767,7 @@ export function restoreLocal() {
     if (raw) importProject(JSON.parse(raw));
     patch({ autoSave });
   } catch {
-    notify('本机金字塔方案无法读取，可重新导入备份。');
+    notify(tx('legacy.m527'));
   }
 }
 export function saveLocal(auto = false) {
@@ -721,9 +776,9 @@ export function saveLocal(auto = false) {
       `${KEY}-${auto ? 'autosave' : 'saved'}`,
       JSON.stringify(captureProject()),
     );
-    if (!auto) notify('金字塔方案已保存到本机。');
+    if (!auto) notify(tx('legacy.m528'));
   } catch {
-    notify('本机空间不足，请导出方案备份。');
+    notify(tx('legacy.m529'));
   }
 }
 export function setAutoSave(on: boolean) {
@@ -732,7 +787,7 @@ export function setAutoSave(on: boolean) {
     patch({ autoSave: on });
     if (on) saveLocal(true);
   } catch {
-    notify('无法保存自动保存偏好。');
+    notify(tx('legacy.m530'));
   }
 }
 export function watchAutosave() {

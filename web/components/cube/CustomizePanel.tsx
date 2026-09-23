@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import {
   ImagePlus,
@@ -46,6 +47,7 @@ import { Range } from './Controls';
 import ImageTransformControls from './ImageTransformControls';
 import ImagePreviewDialog, { type ImageDraft } from './ImagePreviewDialog';
 export default memo(function CustomizePanel() {
+  useLanguage();
   const s = useCube(
       'selected',
       'appearance',
@@ -112,11 +114,11 @@ export default memo(function CustomizePanel() {
   }
   async function addImage(file: File) {
     if (!s.selected.length) {
-      notify('请先选择一个或多个贴片。');
+      notify(tx('legacy.m154'));
       return;
     }
     if (new Set(s.selected.map((id) => id[0])).size > 1) {
-      notify('一个拼图组需位于同一原始面，请在面编辑器中重新选择。');
+      notify(tx('legacy.m155'));
       return;
     }
     setLoading(true);
@@ -161,7 +163,7 @@ export default memo(function CustomizePanel() {
       editFace: group.members[0][0] as Face,
     });
     setDraft(null);
-    notify(`图片已应用到 ${group.members.length} 个贴片。`);
+    notify(tx('legacy.m156', { p0: group.members.length }));
   }
   async function dissolve() {
     if (!group) return;
@@ -187,9 +189,7 @@ export default memo(function CustomizePanel() {
       }
       delete a.groups[group.id];
       setAppearance(a);
-      notify(
-        `图片组已拆分为 ${group.members.length} 个可独立缩放、裁切的贴片。`,
-      );
+      notify(tx('legacy.m157', { p0: group.members.length }));
     } finally {
       setLoading(false);
     }
@@ -202,7 +202,7 @@ export default memo(function CustomizePanel() {
   }
   function addText() {
     if (!s.selected.length) {
-      notify('请先选择贴片。');
+      notify(tx('legacy.m158'));
       return;
     }
     const c = document.createElement('canvas');
@@ -238,17 +238,25 @@ export default memo(function CustomizePanel() {
         ))}
       </div>
       <div className="edit-grid-heading">
-        <span>{FACE[s.editFace].name}面 · 原始贴片布局</span>
+        <span>
+          {FACE[s.editFace].name}
+          {tx('legacy.m159')}
+        </span>
         <button onClick={() => patch({ selected: faceIds(s.editFace) })}>
-          选择整面
+          {tx('legacy.m160')}
         </button>
       </div>
       <div className="editor-face">
         <FaceGrid face={s.editFace} home large />
       </div>
       <div className="selection-actions">
-        <span>已选 {s.selected.length} / 54</span>
-        <button onClick={() => patch({ selected: [] })}>清空选择</button>
+        <span>
+          {tx('legacy.m161')}
+          {s.selected.length} / 54
+        </span>
+        <button onClick={() => patch({ selected: [] })}>
+          {tx('legacy.m162')}
+        </button>
         <button
           onClick={() =>
             patch({
@@ -258,13 +266,10 @@ export default memo(function CustomizePanel() {
             })
           }
         >
-          反选本面
+          {tx('legacy.m163')}
         </button>
       </div>
-      <p className="microcopy">
-        点击格子多选。上传后可预览并调整，确认后应用。整面选中时，9
-        格共同组成一张照片。打乱时图片跟随实体块。
-      </p>
+      <p className="microcopy">{tx('legacy.m164')}</p>
       <input
         ref={upload}
         type="file"
@@ -284,18 +289,18 @@ export default memo(function CustomizePanel() {
         <ImagePlus size={23} />
         <strong>
           {loading
-            ? '正在处理图片…'
+            ? tx('legacy.m165')
             : s.selected.length === 9
-              ? '上传整面照片'
-              : '创建图片组 / 上传图片'}
+              ? tx('legacy.m166')
+              : tx('legacy.m167')}
         </strong>
-        <span>先预览再应用 · PNG / JPG / WebP · 最多 25 MB</span>
+        <span>{tx('legacy.m168')}</span>
       </button>
       <div className="color-control">
-        <span>所选贴片颜色</span>
+        <span>{tx('legacy.m169')}</span>
         <label className="color-input">
           <input
-            aria-label="所选贴片颜色"
+            aria-label={tx('legacy.m169')}
             type="color"
             value={firstArt?.color || COLORS[s.editFace]}
             disabled={!s.selected.length}
@@ -307,19 +312,23 @@ export default memo(function CustomizePanel() {
       {group && (
         <section className="image-editor">
           <div className="section-head">
-            <h3>图片组 · {group.members.length} 格</h3>
+            <h3>
+              {tx('legacy.m170')}
+              {group.members.length}
+              {tx('legacy.m171')}
+            </h3>
             <button
               className="text-button"
               onClick={() => patch({ selected: [...group.members] })}
             >
-              选中此组
+              {tx('legacy.m172')}
             </button>
           </div>
           <div className="image-previews">
             <div>
-              <span>原图 / 裁切范围</span>
+              <span>{tx('legacy.m173')}</span>
               <div className="source-image">
-                <img src={group.image} alt="上传的原始图片" />
+                <img src={group.image} alt={tx('legacy.m174')} />
                 <i
                   style={{
                     left: `${group.cropX * 100}%`,
@@ -331,7 +340,7 @@ export default memo(function CustomizePanel() {
               </div>
             </div>
             <div>
-              <span>贴片分割预览</span>
+              <span>{tx('legacy.m175')}</span>
               <canvas ref={preview} />
             </div>
           </div>
@@ -339,11 +348,11 @@ export default memo(function CustomizePanel() {
           <div className="image-actions">
             <button onClick={() => setDraft({ replacing: true, group })}>
               <ImagePlus size={14} />
-              打开预览调整
+              {tx('legacy.m176')}
             </button>
             <label className="file-button">
               <Upload size={14} />
-              替换图片
+              {tx('legacy.m177')}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
@@ -357,7 +366,7 @@ export default memo(function CustomizePanel() {
             </label>
             <button disabled={loading} onClick={() => void dissolve()}>
               <Unlink size={14} />
-              解散组
+              {tx('legacy.m178')}
             </button>
           </div>
         </section>
@@ -380,13 +389,14 @@ export default memo(function CustomizePanel() {
             setAppearance(a);
           }}
         >
-          编辑独立贴片的缩放与裁切 <ImagePlus size={15} />
+          {tx('legacy.m179')}
+          <ImagePlus size={15} />
         </button>
       )}
       {first && (
         <>
           <Range
-            label="所选贴片独立朝向"
+            label={tx('legacy.m180')}
             value={firstArt?.rotation || 0}
             min={-180}
             max={180}
@@ -406,7 +416,7 @@ export default memo(function CustomizePanel() {
               }
             >
               <Trash2 size={14} />
-              移除所选图片
+              {tx('legacy.m181')}
             </button>
             <button
               onClick={() => {
@@ -420,21 +430,25 @@ export default memo(function CustomizePanel() {
               }}
             >
               <RotateCcw size={14} />
-              重置所选
+              {tx('legacy.m182')}
             </button>
           </div>
         </>
       )}
       <section className="panel-section">
-        <h3>文字与配色</h3>
+        <h3>{tx('legacy.m183')}</h3>
         <div className="text-design">
           <input
-            aria-label="贴片文字"
+            aria-label={tx('legacy.m184')}
             value={text}
             maxLength={50}
             onChange={(e) => setText(e.target.value)}
           />
-          <button title="应用文字" aria-label="应用文字" onClick={addText}>
+          <button
+            title={tx('legacy.m185')}
+            aria-label={tx('legacy.m185')}
+            onClick={addText}
+          >
             <Type size={18} />
           </button>
         </div>
@@ -464,9 +478,10 @@ export default memo(function CustomizePanel() {
       </section>
       <section className="panel-section">
         <div className="section-head">
-          <h3>保存我的作品</h3>
+          <h3>{tx('legacy.m186')}</h3>
           <span className={`tag${s.autoSave ? '' : ' off'}`}>
-            自动保存：{s.autoSave ? '开' : '关'}
+            {tx('legacy.m187')}
+            {s.autoSave ? tx('legacy.m188') : tx('legacy.m189')}
           </span>
         </div>
         <div className="project-actions">
@@ -474,13 +489,13 @@ export default memo(function CustomizePanel() {
             disabled={s.busy || s.solving}
             onClick={() =>
               void saveProject().then(
-                () => notify('完整方案已保存到本机。'),
+                () => notify(tx('legacy.m190')),
                 handleError,
               )
             }
           >
             <Save size={16} />
-            保存方案
+            {tx('legacy.m191')}
           </button>
           <button
             disabled={s.busy || s.solving}
@@ -489,25 +504,25 @@ export default memo(function CustomizePanel() {
                 .then((p) => {
                   if (p) {
                     loadProject(p);
-                    notify('已载入保存的方案。');
-                  } else notify('尚未保存方案。');
+                    notify(tx('legacy.m192'));
+                  } else notify(tx('legacy.m193'));
                 })
                 .catch(handleError)
             }
           >
             <FolderOpen size={16} />
-            载入方案
+            {tx('legacy.m194')}
           </button>
           <button onClick={exportProject}>
             <Download size={16} />
-            导出文件
+            {tx('legacy.m195')}
           </button>
           <button
             disabled={s.busy || s.solving}
             onClick={() => importRef.current?.click()}
           >
             <Upload size={16} />
-            导入文件
+            {tx('legacy.m196')}
           </button>
         </div>
         <input
@@ -519,23 +534,22 @@ export default memo(function CustomizePanel() {
             const f = e.target.files?.[0];
             if (f)
               void importProject(f).then(
-                () => notify('方案已导入。'),
+                () => notify(tx('legacy.m197')),
                 handleError,
               );
             e.target.value = '';
           }}
         />
-        <p className="microcopy">
-          图片仅保存在你的浏览器。导出文件包含全部图片、编辑参数与魔方状态，可在其他设备导入。未开启自动保存时，重新打开会回到最近一次保存的方案。
-        </p>
+        <p className="microcopy">{tx('legacy.m198')}</p>
         <button
           className="wide-button"
           onClick={() => {
             setAppearance(defaultAppearance());
-            notify('六面外观已恢复原厂设置。');
+            notify(tx('legacy.m199'));
           }}
         >
-          恢复全部默认外观 <RotateCcw size={15} />
+          {tx('legacy.m200')}
+          <RotateCcw size={15} />
         </button>
       </section>
       {draft && (

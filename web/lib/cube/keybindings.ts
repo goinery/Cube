@@ -1,5 +1,5 @@
+import { tx } from '@/lib/i18n';
 import { FACES, type Face } from './model';
-
 export type ShortcutAction =
   | Face
   | `${Face}'`
@@ -9,7 +9,6 @@ export type ShortcutAction =
   | 'playPause'
   | 'exitPresentation';
 export type Keybindings = Record<ShortcutAction, string>;
-
 export const shortcutActions: ShortcutAction[] = [
   ...FACES.flatMap(
     (face) => [face, `${face}'`, `${face}2`] as ShortcutAction[],
@@ -24,12 +23,11 @@ export const shortcutLabels: Record<ShortcutAction, string> =
     shortcutActions.map((action) => [action, action]),
   ) as Record<ShortcutAction, string>;
 Object.assign(shortcutLabels, {
-  undo: '撤销',
-  redo: '重做',
-  playPause: '播放 / 暂停',
-  exitPresentation: '退出展示',
+  undo: tx('legacy.m086'),
+  redo: tx('legacy.m087'),
+  playPause: tx('legacy.m335'),
+  exitPresentation: tx('legacy.m336'),
 });
-
 export function defaultKeybindings(): Keybindings {
   const bindings = {} as Keybindings;
   for (const face of FACES) {
@@ -45,21 +43,18 @@ export function defaultKeybindings(): Keybindings {
     exitPresentation: 'Escape',
   };
 }
-
 const keyCode =
   /^(Key[A-Z]|Digit[0-9]|Numpad[0-9]|F(?:[1-9]|1[0-2])|Space|Enter|Escape|Arrow(?:Up|Down|Left|Right)|Home|End|PageUp|PageDown|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|Numpad(?:Add|Subtract|Multiply|Divide|Decimal|Enter))$/;
 const shortcutPattern = /^(?:Mod\+)?(?:Alt\+)?(?:Shift\+)?(.+)$/;
-
 export function keyboardShortcut(event: KeyboardEvent): string | null {
   if (event.isComposing || !keyCode.test(event.code)) return null;
   return `${event.ctrlKey || event.metaKey ? 'Mod+' : ''}${event.altKey ? 'Alt+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.code}`;
 }
-
 export function formatShortcut(shortcut: string): string {
-  if (!shortcut) return '未设置';
+  if (!shortcut) return tx('legacy.m425');
   const names: Record<string, string> = {
     Mod: 'Ctrl/⌘',
-    Space: '空格',
+    Space: tx('legacy.m426'),
     Escape: 'Esc',
     ArrowUp: '↑',
     ArrowDown: '↓',
@@ -82,11 +77,10 @@ export function formatShortcut(shortcut: string): string {
     .map(
       (part) =>
         names[part] ||
-        part.replace(/^Key|^Digit/, '').replace(/^Numpad/, '小键盘 '),
+        part.replace(/^Key|^Digit/, '').replace(/^Numpad/, tx('legacy.m427')),
     )
     .join(' + ');
 }
-
 export function validateKeybindings(value: unknown): Keybindings {
   const defaults = defaultKeybindings();
   if (!value || typeof value !== 'object' || Array.isArray(value))

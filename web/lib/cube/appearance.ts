@@ -1,3 +1,4 @@
+import { tx } from '@/lib/i18n';
 import { COLORS, FACES, type Face } from './model';
 export interface ArtTransform {
   fit: 'fill' | 'fit' | 'crop';
@@ -20,7 +21,12 @@ export interface ImageGroup extends ArtTransform {
   id: string;
   members: string[];
   image: string;
-  bounds?: { row: number; col: number; rows: number; cols: number };
+  bounds?: {
+    row: number;
+    col: number;
+    rows: number;
+    cols: number;
+  };
 }
 export interface Appearance {
   stickers: Record<string, StickerArt>;
@@ -203,8 +209,8 @@ export async function paintSticker(
 }
 export async function importImage(file: File): Promise<string> {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
-    throw new Error('请选择 PNG、JPG、JPEG 或 WebP 图片。');
-  if (file.size > 25 * 1024 * 1024) throw new Error('图片文件不能超过 25 MB。');
+    throw new Error(tx('legacy.m420'));
+  if (file.size > 25 * 1024 * 1024) throw new Error(tx('legacy.m421'));
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImage(url),
@@ -237,7 +243,6 @@ export function removeFromGroups(
 }
 export const faceIds = (face: Face) =>
   Array.from({ length: 9 }, (_, i) => face + i);
-
 export function applyImageGroup(
   appearance: Appearance,
   group: ImageGroup,

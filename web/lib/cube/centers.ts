@@ -1,3 +1,4 @@
+import { tx } from '@/lib/i18n';
 import {
   solved,
   apply,
@@ -25,7 +26,13 @@ interface Generator {
   delta: number[];
 }
 let generators: Generator[] | null = null,
-  parents: Map<number, { previous: number; generator: number }> | null = null;
+  parents: Map<
+    number,
+    {
+      previous: number;
+      generator: number;
+    }
+  > | null = null;
 function initialize() {
   const rotations: Basis[] = [],
     queue = [identity()],
@@ -65,7 +72,7 @@ function initialize() {
             .filter((p) => p.kind !== 'center')
             .every((p) => p.basis.every((v, i) => equal(v, identity()[i])))
         )
-          throw new Error('中心定向生成器校验失败。');
+          throw new Error(tx('legacy.m422'));
         const delta = orientations(result),
           key = delta.join('');
         if (deltas.has(key)) continue;
@@ -85,12 +92,12 @@ function initialize() {
       }
     });
   }
-  if (parents.size !== 2048) throw new Error('中心定向表不完整。');
+  if (parents.size !== 2048) throw new Error(tx('legacy.m423'));
 }
 export function correctCenters(cube: CubeState): string[] {
   if (!parents) initialize();
   const wanted = encode(orientations(cube).map((v) => (4 - v) % 4));
-  if (!parents!.has(wanted)) throw new Error('中心朝向存在不可能的奇偶关系。');
+  if (!parents!.has(wanted)) throw new Error(tx('legacy.m424'));
   let key = wanted;
   const result: string[][] = [];
   while (key) {

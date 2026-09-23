@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { memo, useEffect, useRef, useMemo } from 'react';
 import {
   FACE,
@@ -15,7 +16,6 @@ import {
 } from '@/lib/cube/appearance';
 import { useCube, selectSticker, cameraActions } from '@/lib/cube/store';
 import { tileRadii } from '@/lib/cube/geometry';
-
 export function StickerTile({
   item,
   onSelect,
@@ -25,9 +25,13 @@ export function StickerTile({
   onSelect: () => void;
   selected?: boolean;
 }) {
+  useLanguage();
   const s = useCube('appearance'),
     canvas = useRef<HTMLCanvasElement>(null),
-    painted = useRef<{ id: string; appearance: Appearance } | null>(null);
+    painted = useRef<{
+      id: string;
+      appearance: Appearance;
+    } | null>(null);
   const radii = tileRadii(item.sticker.row, item.sticker.col);
   const quarter = ((Math.round(item.angle / 90) % 4) + 4) % 4;
   const borderRadius = radii
@@ -59,7 +63,12 @@ export function StickerTile({
     <button
       className={`sticker-tile ${selected ? 'selected' : ''}`}
       style={{ borderRadius }}
-      aria-label={`${item.face} 面第 ${item.row + 1} 行 ${item.col + 1} 列，贴片 ${item.sticker.id}`}
+      aria-label={tx('legacy.m201', {
+        p0: item.face,
+        p1: item.row + 1,
+        p2: item.col + 1,
+        p3: item.sticker.id,
+      })}
       aria-pressed={selected}
       onClick={onSelect}
     >
@@ -78,6 +87,7 @@ export const FaceGrid = memo(function FaceGrid({
   home?: boolean;
   large?: boolean;
 }) {
+  useLanguage();
   const s = useCube('cube', 'selected', 'mode'),
     map = useMemo(() => (home ? homeFaces : facelets(s.cube)), [s.cube, home]);
   return (
@@ -96,6 +106,7 @@ export const FaceGrid = memo(function FaceGrid({
   );
 });
 export default memo(function FaceMaps() {
+  useLanguage();
   const s = useCube('view', 'presentation', 'visibleFaces', 'faceAnchors');
   if (s.view === 'normal' || s.presentation) return null;
   const faces =
@@ -104,7 +115,7 @@ export default memo(function FaceMaps() {
       : FACES;
   if (s.view === 'hidden')
     return (
-      <div className="projection-labels" aria-label="随魔方朝向变化的平移投影">
+      <div className="projection-labels" aria-label={tx('legacy.m202')}>
         {faces.map((face) => {
           const a = s.faceAnchors[face];
           return a ? (
@@ -115,7 +126,10 @@ export default memo(function FaceMaps() {
               onClick={() => cameraActions.face(face)}
             >
               <b>{face}</b>
-              <span>{FACE[face].name}面</span>
+              <span>
+                {FACE[face].name}
+                {tx('legacy.m203')}
+              </span>
               <span>↗</span>
             </button>
           ) : null;
@@ -123,11 +137,11 @@ export default memo(function FaceMaps() {
       </div>
     );
   return (
-    <div className={`face-maps ${s.view}`} aria-label="实时六面状态映射">
+    <div className={`face-maps ${s.view}`} aria-label={tx('legacy.m204')}>
       <div className="map-heading">
         <span>{s.view === 'six' ? 'SIX FACE OVERVIEW' : 'CUBE NET'}</span>
         <i />
-        <span>实时同步</span>
+        <span>{tx('legacy.m205')}</span>
       </div>
       <div className="maps-grid">
         {faces.map((face) => (
@@ -138,10 +152,13 @@ export default memo(function FaceMaps() {
             <button
               className="face-label"
               onClick={() => cameraActions.face(face)}
-              title={`摄像机转向${FACE[face].name}面`}
+              title={tx('legacy.m206', { p0: FACE[face].name })}
             >
               <b>{face}</b>
-              <span>{FACE[face].name}面</span>
+              <span>
+                {FACE[face].name}
+                {tx('legacy.m203')}
+              </span>
               <span className="face-direction">
                 {face === 'U'
                   ? '↑'

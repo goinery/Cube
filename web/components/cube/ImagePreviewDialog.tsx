@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
@@ -16,12 +17,10 @@ import {
 } from '@/lib/cube/appearance';
 import { FACE, type Face } from '@/lib/cube/model';
 import ImageTransformControls from './ImageTransformControls';
-
 export interface ImageDraft {
   group: ImageGroup;
   replacing: boolean;
 }
-
 export default function ImagePreviewDialog({
   draft,
   appearance,
@@ -35,6 +34,7 @@ export default function ImagePreviewDialog({
   onCancel: () => void;
   onApply: (group: ImageGroup) => void;
 }) {
+  useLanguage();
   const [group, setGroup] = useState(draft.group);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
@@ -86,13 +86,12 @@ export default function ImagePreviewDialog({
         setReady(true);
       })
       .catch(() => {
-        if (active) setError('图片预览失败，请取消后重新选择图片。');
+        if (active) setError(tx('legacy.m207'));
       });
     return () => {
       active = false;
     };
   }, [face, group.members, nextAppearance]);
-
   return (
     <Dialog
       open
@@ -105,20 +104,25 @@ export default function ImagePreviewDialog({
         onKeyDown={(event) => event.stopPropagation()}
       >
         <DialogTitle>
-          {draft.replacing ? '替换图片预览' : '上传图片预览'}
+          {draft.replacing ? tx('legacy.m208') : tx('legacy.m209')}
         </DialogTitle>
-        <DialogDescription>
-          拖动图片调整位置，再设置缩放、旋转或裁切。确认应用后更新魔方。
-        </DialogDescription>
+        <DialogDescription>{tx('legacy.m210')}</DialogDescription>
         <div className="image-draft-layout">
           <div className="image-draft-preview">
             <div className="section-head">
-              <h3>{FACE[face].name}面效果</h3>
-              <span className="tag">已选 {group.members.length} 格</span>
+              <h3>
+                {FACE[face].name}
+                {tx('legacy.m211')}
+              </h3>
+              <span className="tag">
+                {tx('legacy.m161')}
+                {group.members.length}
+                {tx('legacy.m171')}
+              </span>
             </div>
             <canvas
               ref={preview}
-              aria-label={`${FACE[face].name}面图片效果预览，可拖动调整图片位置`}
+              aria-label={tx('legacy.m212', { p0: FACE[face].name })}
               style={{ touchAction: 'none' }}
               onPointerDown={(event) => {
                 if (disabled || event.button !== 0 || drag.current) return;
@@ -171,12 +175,10 @@ export default function ImagePreviewDialog({
                 drag.current = null;
               }}
             />
-            <p className="microcopy">
-              虚线标出此次应用的贴片，可直接拖动预览图调整位置。
-            </p>
+            <p className="microcopy">{tx('legacy.m213')}</p>
             <details className="image-draft-original">
-              <summary>查看原图</summary>
-              <img src={group.image} alt="待应用的原始图片" />
+              <summary>{tx('legacy.m214')}</summary>
+              <img src={group.image} alt={tx('legacy.m215')} />
             </details>
           </div>
           <div className="image-draft-controls" inert={disabled}>
@@ -195,14 +197,16 @@ export default function ImagePreviewDialog({
         )}
         <div className="image-draft-actions">
           <button className="secondary-button" onClick={onCancel}>
-            取消
+            {tx('legacy.m024')}
           </button>
           <button
             className="primary-button"
             disabled={disabled || !ready || !!error}
             onClick={() => onApply(group)}
           >
-            确认应用 · {group.members.length} 格
+            {tx('legacy.m216')}
+            {group.members.length}
+            {tx('legacy.m171')}
           </button>
         </div>
       </DialogContent>

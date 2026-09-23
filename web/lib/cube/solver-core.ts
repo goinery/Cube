@@ -1,3 +1,4 @@
+import { tx } from '@/lib/i18n';
 import Cube from 'cubejs';
 import cfop from 'rubiks-cube-solver/lib/index.common.js';
 import {
@@ -37,7 +38,7 @@ export function solveState(
   const moves: string[] = [...setup];
   let colorMoves = 0;
   if (mode === 'cfop') {
-    onProgress('正在识别 Cross / F2L / OLL / PLL…');
+    onProgress(tx('legacy.m466'));
     const fs = facelets(cube);
     const input = (['F', 'R', 'U', 'D', 'L', 'B'] as Face[])
       .map((f) => fs[f].map((x) => x.sticker.face.toLowerCase()).join(''))
@@ -47,22 +48,10 @@ export function solveState(
       string | string[]
     >;
     const descriptions: Record<string, [string, string]> = {
-      cross: [
-        '十字 · Cross',
-        '把四个白色棱块归位，并与侧面中心对齐。完成后翻转整体，让白色十字位于底面。',
-      ],
-      f2l: [
-        '前两层 · F2L',
-        '将角块与相邻棱块配成一对，逐一插入四个槽位，同时保留已完成的十字。',
-      ],
-      oll: [
-        '顶层定向 · OLL',
-        '保留前两层，调整最后一层角块与棱块方向，让顶面颜色一致。',
-      ],
-      pll: [
-        '顶层排列 · PLL',
-        '在方向正确的基础上交换顶层块的位置，完成六面还原。',
-      ],
+      cross: [tx('legacy.m467'), tx('legacy.m468')],
+      f2l: [tx('legacy.m469'), tx('legacy.m470')],
+      oll: [tx('legacy.m471'), tx('legacy.m472')],
+      pll: [tx('legacy.m473'), tx('legacy.m474')],
     };
     const x2: Record<string, string> = {
       U: 'D',
@@ -105,11 +94,11 @@ export function solveState(
     }
   } else if (!isSolved(cube)) {
     if (!initialized) {
-      onProgress('首次求解：正在准备两阶段搜索表…');
+      onProgress(tx('legacy.m475'));
       Cube.initSolver();
       initialized = true;
     }
-    onProgress('正在从当前状态搜索还原路径…');
+    onProgress(tx('legacy.m476'));
     const c = Cube.fromString(toFaceletString(cube));
     let best = parseAlgorithm(c.solve());
     if (mode === 'near') {
@@ -142,43 +131,40 @@ export function solveState(
           best = option;
           bestCost = optionCost;
         }
-        onProgress(`近优搜索 ${i + 1} / 12 · 当前 ${bestCost} 步`);
+        onProgress(tx('legacy.m477', { p0: i + 1, p1: bestCost }));
       }
     }
     moves.push(...best);
   }
   let result = apply(initial, moves);
-  if (!isSolved(result))
-    throw new Error('求解结果未通过物理状态验证，未应用任何操作。');
+  if (!isSolved(result)) throw new Error(tx('legacy.m478'));
   const alignment = uprightMoves(result);
   moves.push(...alignment);
   result = apply(result, alignment);
   colorMoves = moves.length;
   if (mode !== 'cfop' && colorMoves)
     stages.push({
-      name: '颜色',
-      label: '六面颜色还原',
-      description:
-        '从当前真实状态搜索还原路径。每一步都执行合法转层，并同步所有辅助视图。',
+      name: tx('legacy.m271'),
+      label: tx('legacy.m479'),
+      description: tx('legacy.m480'),
       start: 0,
       end: colorMoves,
     });
   if (pictures) {
-    onProgress('正在校正照片中心片方向…');
+    onProgress(tx('legacy.m481'));
     const centerMoves = correctCenters(result),
       start = moves.length;
     moves.push(...centerMoves);
     if (centerMoves.length)
       stages.push({
-        name: '图片',
-        label: '照片中心定向',
-        description:
-          '普通颜色还原不约束中心片方向。通过合法转层校正中心片，让每一面照片准确拼合。',
+        name: tx('legacy.m482'),
+        label: tx('legacy.m483'),
+        description: tx('legacy.m484'),
         start,
         end: moves.length,
       });
     if (!isPictureSolved(apply(initial, moves)))
-      throw new Error('照片方向校验未通过，未应用任何操作。');
+      throw new Error(tx('legacy.m485'));
   }
   return {
     moves,

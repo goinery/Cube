@@ -1,3 +1,4 @@
+import { tx } from '@/lib/i18n';
 import {
   AXES,
   COMPOSE,
@@ -12,7 +13,6 @@ import {
   turn,
   type PuzzleState,
 } from './model';
-
 const MOVES = AXES.flatMap((a) => [a, a + "'"]);
 const specs = MOVES.map(parseMove);
 const encode = (r: number[]) => r.reduce((n, x) => n * 12 + x, 0);
@@ -52,7 +52,7 @@ let tables:
   | undefined;
 export function prepareSolver(progress?: (status: string) => void) {
   if (tables) return tables;
-  progress?.('建立棱块与中心坐标…');
+  progress?.(tx('legacy.m500'));
   const edges = coordinate([8, 9, 10, 11, 12, 13]),
     centers = coordinate([4, 5, 6, 7]);
   const width = centers.index.size,
@@ -61,7 +61,7 @@ export function prepareSolver(progress?: (status: string) => void) {
     queue = new Uint32Array(count);
   distance[0] = 0;
   let tail = 1;
-  progress?.('建立金字塔最短转层距离表…');
+  progress?.(tx('legacy.m501'));
   for (let head = 0; head < tail; head++) {
     const state = queue[head],
       e = Math.floor(state / width),
@@ -90,7 +90,7 @@ export function solvePuzzle(
   const e = edges.index.get(encode(state.rotations.slice(8))),
     c = centers.index.get(encode(state.rotations.slice(4, 8)));
   if (e === undefined || c === undefined || distance[e * width + c] === 255)
-    throw new Error('当前状态不是合法的金字塔魔方状态。');
+    throw new Error(tx('legacy.m502'));
   let key = e * width + c;
   const moves: string[] = [];
   while (distance[key]) {
@@ -117,7 +117,7 @@ export function solvePuzzle(
     const token = [moveToken(axis, 'tip'), moveToken(axis, 'tip', -1)].find(
       (m) => turn(state, m).rotations[axis] === 0,
     );
-    if (!token) throw new Error('顶角方向无效。');
+    if (!token) throw new Error(tx('legacy.m503'));
     moves.push(token);
     state = turn(state, token);
   }
@@ -141,12 +141,23 @@ export function solvePuzzle(
       const frame = COMPOSE[moveRotation(move)][current.frame];
       if (seen.has(frame)) continue;
       seen.add(frame);
-      frames.push({ frame, moves: [...current.moves,
-        moveToken(move.axis, 'body', move.direction),
-        moveToken(move.axis, 'base', move.direction)] });
+      frames.push({
+        frame,
+        moves: [
+          ...current.moves,
+          moveToken(move.axis, 'body', move.direction),
+          moveToken(move.axis, 'base', move.direction),
+        ],
+      });
     }
   }
   const restored = apply(original, result);
-  if (!isSolved(restored) || restored.frame !== 0) throw new Error('求解结果校验失败。');
-  return { moves: result, bodyLength, tipLength, orientationLength: result.length - bodyLength - tipLength };
+  if (!isSolved(restored) || restored.frame !== 0)
+    throw new Error(tx('legacy.m504'));
+  return {
+    moves: result,
+    bodyLength,
+    tipLength,
+    orientationLength: result.length - bodyLength - tipLength,
+  };
 }

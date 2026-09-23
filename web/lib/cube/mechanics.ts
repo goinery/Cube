@@ -1,10 +1,10 @@
+import { tx } from '@/lib/i18n';
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { smoothBevels, tileOutline } from './geometry';
 import { FACE, type Piece } from './model';
 import { clipGeometry } from '../rendering/clip-geometry';
-
 type AddPart = (
   object: T.Object3D,
   position: T.Vector3,
@@ -19,7 +19,6 @@ interface Materials {
   magnet: T.Material;
   socket: T.Material;
 }
-
 function extrude(shape: T.Shape, depth: number, bevel = 0.012) {
   const geometry = new T.ExtrudeGeometry(shape, {
     depth,
@@ -37,13 +36,11 @@ function extrude(shape: T.Shape, depth: number, bevel = 0.012) {
     uv.setXY(i, p.getX(i) + 0.5, p.getY(i) + 0.5);
   return smoothBevels(geometry);
 }
-
 function bore(shape: T.Shape, x: number, y: number, radius: number) {
   const hole = new T.Path();
   hole.absarc(x, y, radius, 0, Math.PI * 2, true);
   shape.holes.push(hole);
 }
-
 function innerPanel(magnet: boolean) {
   const s = new T.Shape();
   s.moveTo(-0.4, 0.45);
@@ -58,7 +55,6 @@ function innerPanel(magnet: boolean) {
   if (magnet) bore(s, 0.2, 0.2, 0.115);
   return extrude(s, 0.05);
 }
-
 // Intersect the two cap silhouettes. At each cross-section both inward
 // edges follow exactly the same quadratic curve as the coloured edge caps.
 function edgeHousing(piece: Piece, materials: Materials) {
@@ -70,7 +66,11 @@ function edgeHousing(piece: Piece, materials: Materials) {
       .filter(({ sign }) => sign),
     missing = piece.home.indexOf(0),
     points: T.Vector3[] = [],
-    profile: { x: number; lower: number; length: number }[] = [];
+    profile: {
+      x: number;
+      lower: number;
+      length: number;
+    }[] = [];
   for (const x of [...new Set(outline.map((p) => p.x))].sort((a, b) => a - b)) {
     const crossings: number[] = [];
     for (let i = 0; i < outline.length; i++) {
@@ -202,10 +202,9 @@ function edgeHousing(piece: Piece, materials: Materials) {
   geometry.addGroup(0, wallCount, 0);
   geometry.addGroup(wallCount, surfaces[1].positions.length / 3, 1);
   const mesh = new T.Mesh(geometry, [materials.body, materials.plastic]);
-  mesh.name = '棱块 · 随贴片曲线的蜂窝内壳';
+  mesh.name = tx('legacy.m428');
   return mesh;
 }
-
 export function createCenterHousing(
   piece: Piece,
   body: T.Material,
@@ -216,7 +215,7 @@ export function createCenterHousing(
       point.clone().multiplyScalar(0.968),
     ),
     count = outline.length / 4;
-  housing.name = '中心块 · 四面蜂窝内壳';
+  housing.name = tx('legacy.m429');
   housing.userData.primary = true;
   for (let side = 0; side < 4; side++) {
     const outer = Array.from(
@@ -229,7 +228,7 @@ export function createCenterHousing(
         body,
       );
     panel.position.z = 0.105;
-    panel.name = `中心块 · 蜂窝侧片 ${side + 1}`;
+    panel.name = tx('legacy.m430', { p0: side + 1 });
     // Use arc length around the shell and physical depth so hexagons keep
     // their aspect ratio on vertical walls and on the rounded corners.
     const p = panel.geometry.getAttribute('position'),
@@ -247,7 +246,7 @@ export function createCenterHousing(
     plastic,
   );
   backing.position.z = 0.377;
-  backing.name = '中心块 · 圆角贴片底座';
+  backing.name = tx('legacy.m431');
   housing.add(backing);
   const face = FACE[piece.stickers[0].face];
   housing.quaternion.setFromRotationMatrix(
@@ -259,7 +258,6 @@ export function createCenterHousing(
   );
   return housing;
 }
-
 function triangle() {
   const s = new T.Shape();
   s.moveTo(0, 0.38);
@@ -270,7 +268,6 @@ function triangle() {
   s.bezierCurveTo(-0.36, -0.09, -0.08, 0.38, 0, 0.38);
   return s;
 }
-
 function scaledHole(shape: T.Shape, scale: number) {
   const points = shape
     .getPoints(36)
@@ -278,7 +275,6 @@ function scaledHole(shape: T.Shape, scale: number) {
     .map((p) => p.multiplyScalar(scale));
   return new T.Path(points);
 }
-
 function wing() {
   const s = new T.Shape();
   s.moveTo(-0.36, -0.13);
@@ -293,7 +289,6 @@ function wing() {
   bore(s, 0, 0, 0.048);
   return s;
 }
-
 function tube(outer: number, inner: number, depth: number) {
   return new T.LatheGeometry(
     [
@@ -306,9 +301,11 @@ function tube(outer: number, inner: number, depth: number) {
     32,
   ).rotateX(Math.PI / 2);
 }
-
 export function magnetMounts(piece: Piece) {
-  const mounts: { position: T.Vector3; normal: T.Vector3 }[] = [];
+  const mounts: {
+    position: T.Vector3;
+    normal: T.Vector3;
+  }[] = [];
   for (let axis = 0; axis < 3; axis++) {
     if (
       piece.kind === 'corner' ? piece.home[axis] === 0 : piece.home[axis] !== 0
@@ -326,7 +323,6 @@ export function magnetMounts(piece: Piece) {
   }
   return mounts;
 }
-
 export function createMechanics(materials: Materials) {
   const panel = innerPanel(true);
   const backing = new RoundedBoxGeometry(0.97, 0.97, 0.065, 3, 0.06);
@@ -356,13 +352,12 @@ export function createMechanics(materials: Materials) {
   const lip = tube(0.15, 0.105, 0.04);
   const coreStalk = tube(0.068, 0.039, 0.31);
   const Z = new T.Vector3(0, 0, 1);
-
   return (piece: Piece, add: AddPart) => {
     const radial = new T.Vector3(...piece.home).normalize(),
       inward = radial.clone().negate();
     const chassis = new T.Group();
     chassis.name =
-      piece.kind === 'corner' ? '角块 · 三面蜂窝壳体' : '边块 · 鞍形蜂窝壳体';
+      piece.kind === 'corner' ? tx('legacy.m432') : tx('legacy.m433');
     chassis.userData.primary = true;
     const occupied = piece.home
       .map((sign, axis) => ({ sign, axis }))
@@ -415,13 +410,12 @@ export function createMechanics(materials: Materials) {
       });
     add(chassis, new T.Vector3(), radial, 0.06);
     const stem = new T.Mesh(neck, materials.plastic);
-    stem.name = '空心连接颈';
+    stem.name = tx('legacy.m434');
     stem.quaternion.setFromUnitVectors(Z, inward);
     add(stem, radial.clone().multiplyScalar(-0.59), radial, -0.13);
-
     const foot = new T.Group();
     if (piece.kind === 'corner') {
-      foot.name = '角块 · 三角碟形防脱卡脚';
+      foot.name = tx('legacy.m435');
       const web = new T.Mesh(triangleWeb, materials.guide);
       web.position.z = -0.035;
       foot.add(web, new T.Mesh(triangleRim, materials.guide));
@@ -434,7 +428,7 @@ export function createMechanics(materials: Materials) {
         new T.Matrix4().makeBasis(u, v, inward),
       );
     } else {
-      foot.name = '边块 · 双翼导向脚与防脱槽';
+      foot.name = tx('legacy.m436');
       const base = new T.Mesh(saddle, materials.guide);
       base.scale.set(1.07, 1.16, 1);
       base.position.z = -0.13;
@@ -457,14 +451,13 @@ export function createMechanics(materials: Materials) {
       radial,
       -0.31,
     );
-
     for (const mount of magnetMounts(piece)) {
       const cup = new T.Mesh(socket, materials.socket);
-      cup.name = '嵌入式磁铁仓';
+      cup.name = tx('legacy.m437');
       cup.quaternion.setFromUnitVectors(Z, mount.normal);
       add(cup, mount.position, mount.normal, 0.3);
       const disk = new T.Mesh(magnet, materials.magnet);
-      disk.name = '角边配对磁铁';
+      disk.name = tx('legacy.m438');
       disk.quaternion.copy(cup.quaternion);
       add(
         disk,

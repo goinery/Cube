@@ -6,6 +6,7 @@
 @source '../index.html';
 @source '../components/cube';
 @source '../components/pyraminx';
+@source '../components/workspace';
 @source '../components/ui/select.tsx';
 @source '../components/ui/slider.tsx';
 @source '../components/ui/switch.tsx';

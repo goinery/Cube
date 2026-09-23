@@ -1,4 +1,5 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -63,7 +64,6 @@ import {
   createContactShadow,
   StudioEnvironment,
 } from '@/lib/cube/studio';
-
 interface ComponentPart {
   object: T.Object3D;
   base: T.Vector3;
@@ -88,8 +88,8 @@ function basisQuaternion(p: Piece) {
     new T.Matrix4().makeBasis(v3(p.basis[0]), v3(p.basis[1]), v3(p.basis[2])),
   );
 }
-
 export default memo(function Viewport() {
+  useLanguage();
   const host = useRef<HTMLDivElement>(null),
     [error, setError] = useState('');
   useEffect(() => {
@@ -111,11 +111,7 @@ export default memo(function Viewport() {
         powerPreference: 'high-performance',
       });
     } catch {
-      queueMicrotask(() =>
-        setError(
-          '无法启动 3D 视图。请启用浏览器硬件加速，或使用支持 WebGL 2 的浏览器。',
-        ),
-      );
+      queueMicrotask(() => setError(tx('legacy.m289')));
       return;
     }
     const mobile = window.matchMedia('(max-width: 760px)').matches;
@@ -127,10 +123,7 @@ export default memo(function Viewport() {
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.78;
-    renderer.domElement.setAttribute(
-      'aria-label',
-      '交互式 3D 魔方：拖动表面转层，拖动空白旋转视角',
-    );
+    renderer.domElement.setAttribute('aria-label', tx('legacy.m290'));
     el.appendChild(renderer.domElement);
     const scene = new T.Scene(),
       camera = new T.PerspectiveCamera(30, 1, 0.005, 200);
@@ -560,7 +553,10 @@ export default memo(function Viewport() {
       layers: number[];
       angle: number;
       targetAngle: number;
-      transition?: { start: number; duration: number };
+      transition?: {
+        start: number;
+        duration: number;
+      };
       initialAngle: number;
       sx: number;
       sy: number;
@@ -582,7 +578,10 @@ export default memo(function Viewport() {
       );
     const ghostFaces = new Map<
       Face,
-      { mesh: T.Group; tiles: Map<string, T.Mesh> }
+      {
+        mesh: T.Group;
+        tiles: Map<string, T.Mesh>;
+      }
     >();
     for (const face of FACES) {
       const mesh = new T.Group(),
@@ -900,7 +899,7 @@ export default memo(function Viewport() {
       const id = getState().selected[0],
         mesh = id ? stickers.get(id) : undefined;
       if (!mesh) {
-        notify('先点击一个贴片，再进入部件特写；也可以直接双击部件。');
+        notify(tx('legacy.m291'));
         return;
       }
       moveCameraToFit(camera.position.clone().sub(controls.target), [mesh]);
@@ -940,7 +939,13 @@ export default memo(function Viewport() {
       moved: boolean;
       blankTap: boolean;
     } | null = null;
-    const activePointers = new Map<number, { x: number; y: number }>();
+    const activePointers = new Map<
+      number,
+      {
+        x: number;
+        y: number;
+      }
+    >();
     let pinch: {
       distance: number;
       x: number;
@@ -989,7 +994,11 @@ export default memo(function Viewport() {
         to = magnetic
           ? magneticTarget(targetAngle, velocity / 1000)
           : targetAngle;
-      patch({ busy: true, dragging: true, currentMove: face + ' · 磁力归位' });
+      patch({
+        busy: true,
+        dragging: true,
+        currentMove: face + tx('legacy.m292'),
+      });
       animation = {
         token: face,
         axis,
@@ -1222,7 +1231,7 @@ export default memo(function Viewport() {
           player: null,
           busy: true,
           dragging: true,
-          currentMove: best.face + ' · 拖动',
+          currentMove: best.face + tx('legacy.m293'),
         });
       }
       const now = performance.now(),
@@ -1271,7 +1280,16 @@ export default memo(function Viewport() {
             (p) => p.id === down!.hit!.object.userData.piece,
           )!;
           notify(
-            `${p.kind === 'corner' ? '角块' : p.kind === 'edge' ? '棱块' : '中心块'} · ${id} · 当前坐标 ${p.pos.join(' / ')}`,
+            tx('legacy.m294', {
+              p0:
+                p.kind === 'corner'
+                  ? tx('legacy.m146')
+                  : p.kind === 'edge'
+                    ? tx('legacy.m147')
+                    : tx('legacy.m148'),
+              p1: id,
+              p2: p.pos.join(' / '),
+            }),
           );
         }
       } else if (
@@ -1746,7 +1764,7 @@ export default memo(function Viewport() {
       })
       .catch(() => {
         warming = false;
-        if (!disposed) setError('3D 资源准备失败，请重新加载。');
+        if (!disposed) setError(tx('legacy.m295'));
       });
     const visibility = () => {
       if (document.hidden) {
@@ -1757,7 +1775,7 @@ export default memo(function Viewport() {
     document.addEventListener('visibilitychange', visibility);
     const loss = (e: Event) => {
       e.preventDefault();
-      setError('3D 显示连接已中断。请刷新页面恢复，已保存的方案会自动载入。');
+      setError(tx('legacy.m296'));
     };
     renderer.domElement.addEventListener('webglcontextlost', loss);
     return () => {
@@ -1814,9 +1832,9 @@ export default memo(function Viewport() {
     <div ref={host} className="viewport">
       {error && (
         <div className="webgl-error">
-          <strong>3D 视图暂不可用</strong>
+          <strong>{tx('legacy.m297')}</strong>
           <p>{error}</p>
-          <button onClick={() => location.reload()}>重新加载</button>
+          <button onClick={() => location.reload()}>{tx('legacy.m298')}</button>
         </div>
       )}
     </div>

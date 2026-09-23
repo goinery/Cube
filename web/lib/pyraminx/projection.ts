@@ -1,8 +1,8 @@
+import { tx } from '@/lib/i18n';
 import * as T from 'three';
 import { FACE_NAMES, FACE_VERTICES } from './model';
 import { normals, vertices } from './geometry';
 import type { State } from './store';
-
 export const FACE_BASES = FACE_VERTICES.map((ids, face) => {
   const normal = normals[face];
   const center = normal.clone().multiplyScalar(0.8);
@@ -11,20 +11,17 @@ export const FACE_BASES = FACE_VERTICES.map((ids, face) => {
   const basis = new T.Matrix4().makeBasis(x, y, normal);
   return { center, x, y, basis, inverse: basis.clone().invert() };
 });
-
 export function projectionTransform(face: number, reverse = false) {
   return new T.Matrix4()
     .makeRotationY(reverse ? Math.PI : 0)
     .multiply(new T.Matrix4().makeTranslation(0, 0, -0.8))
     .multiply(FACE_BASES[face].inverse);
 }
-
 export function facesProjection(world: T.Matrix4, face: number) {
   return (
     new T.Vector3(0, 0, 1).transformDirection(world).dot(normals[face]) > 0.001
   );
 }
-
 type SourceTiles = Map<
   string,
   T.Mesh<T.BufferGeometry, T.MeshPhysicalMaterial>
@@ -38,7 +35,7 @@ export function createHiddenProjections(
   const materials: T.MeshBasicMaterial[] = [];
   const labels = document.createElement('div');
   labels.className = 'projection-labels';
-  labels.setAttribute('aria-label', '随金字塔朝向变化的隐藏面投影');
+  labels.setAttribute('aria-label', tx('legacy.m498'));
   const faces = normals.map((_, face) => {
     const group = new T.Group(),
       tiles = new Map<string, T.Mesh>();
@@ -47,7 +44,10 @@ export function createHiddenProjections(
     const label = document.createElement('button');
     label.className = 'projection-label';
     label.textContent = `${FACE_NAMES[face]} ↗`;
-    label.setAttribute('aria-label', `查看${FACE_NAMES[face]}`);
+    label.setAttribute(
+      'aria-label',
+      tx('legacy.m499', { p0: FACE_NAMES[face] }),
+    );
     label.addEventListener('click', () => onFace(face));
     labels.append(label);
     for (const [id, source] of sources) {

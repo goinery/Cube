@@ -1,3 +1,4 @@
+import { tx, useLanguage } from '@/lib/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import {
@@ -12,7 +13,11 @@ import {
 import { createModel, normals, vertices } from '@/lib/pyraminx/geometry';
 import { INITIAL_DIRECTION, INITIAL_UP } from '@/lib/pyraminx/camera';
 import { paintPhoto } from '@/lib/pyraminx/appearance';
-import { heldAngle, turnsConflict, visibleTurns } from '@/lib/pyraminx/interaction';
+import {
+  heldAngle,
+  turnsConflict,
+  visibleTurns,
+} from '@/lib/pyraminx/interaction';
 import { FACE_BASES, createHiddenProjections } from '@/lib/pyraminx/projection';
 import {
   applyAlignment,
@@ -57,7 +62,6 @@ import {
   isHierarchyVisible,
 } from '@/lib/cube/render-optimizer';
 import { warmRenderer } from '@/lib/rendering/warmup';
-
 interface Drag extends DragMotion {
   pointer: number;
   start: T.Vector2;
@@ -77,6 +81,7 @@ interface Drag extends DragMotion {
   mapping?: boolean;
 }
 export default memo(function PyraminxViewport() {
+  useLanguage();
   const host = useRef<HTMLDivElement>(null),
     [error, setError] = useState('');
   useEffect(() => {
@@ -89,7 +94,7 @@ export default memo(function PyraminxViewport() {
         powerPreference: 'high-performance',
       });
     } catch {
-      queueMicrotask(() => setError('请启用浏览器硬件加速后重新加载。'));
+      queueMicrotask(() => setError(tx('legacy.m403')));
       return;
     }
     let disposed = false,
@@ -122,10 +127,7 @@ export default memo(function PyraminxViewport() {
       orientation: T.Quaternion;
     } | null = null;
     const canvas = renderer.domElement;
-    canvas.setAttribute(
-      'aria-label',
-      '交互式金字塔魔方：拖动顶角、棱块或中心转层，拖动空白旋转视角',
-    );
+    canvas.setAttribute('aria-label', tx('legacy.m404'));
     canvas.tabIndex = 0;
     renderer.setClearColor(0, 0);
     renderer.outputColorSpace = T.SRGBColorSpace;
@@ -138,7 +140,7 @@ export default memo(function PyraminxViewport() {
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     const maps = document.createElement('canvas');
     maps.className = 'pyr-maps';
-    maps.setAttribute('aria-label', '金字塔四面实时映射');
+    maps.setAttribute('aria-label', tx('legacy.m405'));
     el.append(canvas, maps);
     const scene = new T.Scene(),
       camera = new T.PerspectiveCamera(31, 1, 0.01, 100),
@@ -310,7 +312,7 @@ export default memo(function PyraminxViewport() {
         mesh = selected ? model.tiles.get(selected) : undefined;
       if (mesh) {
         moveCameraToFit(viewDirection(), mesh);
-      } else notify('先点击一个贴片，再进入部件特写；也可以直接双击部件。');
+      } else notify(tx('legacy.m291'));
     };
     function updateAppearance(s: State) {
       for (const tile of TILES) {
@@ -375,7 +377,7 @@ export default memo(function PyraminxViewport() {
           .catch(() => {
             if (!disposed) {
               pendingPhotos.delete(String(face));
-              notify('图片无法解码，请重新选择。');
+              notify(tx('legacy.m300'));
             }
           });
       }
@@ -428,9 +430,14 @@ export default memo(function PyraminxViewport() {
         );
         for (let i = 0; i < model.pieces.length; i++)
           if (affects(i, s.puzzle.rotations[i], visible)) {
-            applyPartialTurn(model.pieces[i].root, s.puzzle.rotations[i], visible);
+            applyPartialTurn(
+              model.pieces[i].root,
+              s.puzzle.rotations[i],
+              visible,
+            );
           }
-        if (visible.layer === 'base') model.core.quaternion.premultiply(rotation);
+        if (visible.layer === 'base')
+          model.core.quaternion.premultiply(rotation);
       }
       model.root.updateMatrixWorld(true);
       previousModel = destination ? null : { ...s, settings: { ...layout } };
@@ -950,13 +957,16 @@ export default memo(function PyraminxViewport() {
         if (move.layer === 'tip')
           for (const partial of s.partials)
             if (partial.layer === 'base' && partial.axis !== move.axis)
-              n.applyAxisAngle(vertices[partial.axis].clone().normalize(), partial.angle);
+              n.applyAxisAngle(
+                vertices[partial.axis].clone().normalize(),
+                partial.angle,
+              );
         const rotated = d.point.clone().applyAxisAngle(n, 0.01);
         const tangent = screen(rotated)
           .sub(screen(d.point))
           .multiplyScalar(100);
         if (tangent.length() < 4) {
-          notify('请从更靠近块边缘的位置拖动。');
+          notify(tx('legacy.m406'));
           return;
         }
         const needsAlignment = s.partials.some((p) => turnsConflict(p, move));
@@ -1088,7 +1098,7 @@ export default memo(function PyraminxViewport() {
     }
     function contextLost(e: Event) {
       e.preventDefault();
-      setError('WebGL 上下文已丢失，请重新加载。');
+      setError(tx('legacy.m407'));
       if (animation) {
         animation.resolve(animation.to);
         animation = null;
@@ -1129,7 +1139,7 @@ export default memo(function PyraminxViewport() {
       })
       .catch(() => {
         warming = false;
-        if (!disposed) setError('3D 资源准备失败，请重新加载。');
+        if (!disposed) setError(tx('legacy.m295'));
       });
     return () => {
       disposed = true;
@@ -1180,9 +1190,9 @@ export default memo(function PyraminxViewport() {
     <div className="viewport pyr-viewport" ref={host}>
       {error && (
         <div className="webgl-error">
-          <strong>3D 视图暂不可用</strong>
+          <strong>{tx('legacy.m297')}</strong>
           <p>{error}</p>
-          <button onClick={() => location.reload()}>重新加载</button>
+          <button onClick={() => location.reload()}>{tx('legacy.m298')}</button>
         </div>
       )}
     </div>

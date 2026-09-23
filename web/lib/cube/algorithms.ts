@@ -1,5 +1,5 @@
+import { tx } from '@/lib/i18n';
 import { parseAlgorithm } from './model';
-
 export interface AlgorithmPreset {
   name: string;
   algorithm: string;
@@ -7,50 +7,48 @@ export interface AlgorithmPreset {
 export const MAX_ALGORITHM_PRESETS = 100;
 export const MAX_ALGORITHM_LENGTH = 20000;
 export const MAX_PRESET_NAME_LENGTH = 40;
-
 export const defaultAlgorithmPresets = (): AlgorithmPreset[] => [
   {
-    name: '大中小魔方',
+    name: tx('legacy.m408'),
     algorithm: "F D2 L2 B D B' F2 U' F U F2 U2 F' L D F' U",
   },
-  { name: '大小魔方', algorithm: "U2 L2 F2 U' B2 D R F' R F' R F' D' B2 U'" },
+  {
+    name: tx('legacy.m409'),
+    algorithm: "U2 L2 F2 U' B2 D R F' R F' R F' D' B2 U'",
+  },
 ];
-
 export function validateAlgorithmPreset(value: unknown): AlgorithmPreset {
-  if (!value || typeof value !== 'object')
-    throw new Error('算法预设格式无效。');
+  if (!value || typeof value !== 'object') throw new Error(tx('legacy.m410'));
   const preset = value as Partial<AlgorithmPreset>;
   if (
     typeof preset.name !== 'string' ||
     !preset.name.trim() ||
     preset.name.trim().length > MAX_PRESET_NAME_LENGTH
   )
-    throw new Error(`请输入 1–${MAX_PRESET_NAME_LENGTH} 字的算法名称。`);
+    throw new Error(tx('legacy.m411', { p0: MAX_PRESET_NAME_LENGTH }));
   if (typeof preset.algorithm !== 'string' || !preset.algorithm.trim())
-    throw new Error('请输入算法。');
+    throw new Error(tx('legacy.m412'));
   if (preset.algorithm.length > MAX_ALGORITHM_LENGTH)
     throw new Error(
-      `算法最多支持 ${MAX_ALGORITHM_LENGTH.toLocaleString()} 个字符。`,
+      tx('legacy.m413', { p0: MAX_ALGORITHM_LENGTH.toLocaleString() }),
     );
   return {
     name: preset.name.trim(),
     algorithm: parseAlgorithm(preset.algorithm).join(' '),
   };
 }
-
 export function validateAlgorithmPresets(value: unknown): AlgorithmPreset[] {
   if (
     !Array.isArray(value) ||
     !value.length ||
     value.length > MAX_ALGORITHM_PRESETS
   )
-    throw new Error(`算法文件需要包含 1–${MAX_ALGORITHM_PRESETS} 条预设。`);
+    throw new Error(tx('legacy.m414', { p0: MAX_ALGORITHM_PRESETS }));
   const presets = value.map(validateAlgorithmPreset);
   if (new Set(presets.map((preset) => preset.name)).size !== presets.length)
-    throw new Error('算法预设的名称不能重复。');
+    throw new Error(tx('legacy.m415'));
   return presets;
 }
-
 export function mergeAlgorithmPresets(
   current: AlgorithmPreset[],
   incoming: AlgorithmPreset[],
@@ -71,19 +69,18 @@ export function mergeAlgorithmPresets(
     algorithms.add(preset.algorithm);
   }
   if (merged.length > MAX_ALGORITHM_PRESETS)
-    throw new Error(`最多保存 ${MAX_ALGORITHM_PRESETS} 条算法，本次未导入。`);
+    throw new Error(tx('legacy.m416', { p0: MAX_ALGORITHM_PRESETS }));
   return merged;
 }
-
 export async function readAlgorithmFile(
   file: File,
 ): Promise<AlgorithmPreset[]> {
-  if (file.size > 3 * 1024 * 1024) throw new Error('算法文件不能超过 3 MB。');
+  if (file.size > 3 * 1024 * 1024) throw new Error(tx('legacy.m417'));
   let value: unknown;
   try {
     value = JSON.parse(await file.text());
   } catch {
-    throw new Error('无法读取算法文件，请选择导出的 JSON 文件。');
+    throw new Error(tx('legacy.m418'));
   }
   if (
     !value ||
@@ -94,10 +91,9 @@ export async function readAlgorithmFile(
     value.version !== 1 ||
     !('presets' in value)
   )
-    throw new Error('文件不是受支持的算法预设文件。');
+    throw new Error(tx('legacy.m419'));
   return validateAlgorithmPresets(value.presets);
 }
-
 export function exportAlgorithmFile(presets: AlgorithmPreset[]) {
   const content = {
     format: 'axis-cube-algorithms',

@@ -1,8 +1,9 @@
 'use client';
+import { tx, useLanguage } from '@/lib/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { notify } from '@/lib/cube/store';
+
 import {
   Select,
   SelectContent,
@@ -31,6 +32,8 @@ export function Range({
   digits?: number;
   disabled?: boolean;
 }) {
+  useLanguage();
+  const [error, setError] = useState('');
   const id = useId(),
     [draft, setDraft] = useState<string | null>(null),
     hostRef = useRef<HTMLDivElement>(null),
@@ -54,15 +57,16 @@ export function Range({
     const text = raw.trim().replace(/[^0-9.eE+-]+$/, '');
     const parsed = text ? Number(text) : NaN;
     if (!Number.isFinite(parsed)) {
-      notify(`「${label}」需要填写数字。`);
+      setError(tx('legacy.m026', { p0: label }));
       setDraft(null);
       return;
     }
     const next = Math.min(max, Math.max(min, parsed));
-    if (next !== parsed)
-      notify(
-        `「${label}」的范围是 ${min}${unit} – ${max}${unit}，已按界限取值。`,
-      );
+    setError(
+      next !== parsed
+        ? tx('legacy.m027', { p0: label, p1: min, p2: unit, p3: max, p4: unit })
+        : '',
+    );
     setDraft(null);
     onChange(next);
   }
@@ -106,6 +110,11 @@ export function Range({
           {unit && <i>{unit}</i>}
         </span>
       </div>
+      {error && (
+        <p role="status" className="range-input-error">
+          {error}
+        </p>
+      )}
       <Slider
         key={epoch}
         disabled={disabled}
@@ -130,6 +139,7 @@ export function Toggle({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  useLanguage();
   const id = useId();
   return (
     <div className="toggle-control">
@@ -154,6 +164,7 @@ export function Choice({
   options: [string, string][];
   onChange: (v: string) => void;
 }) {
+  useLanguage();
   const id = useId();
   return (
     <div className="choice-control">

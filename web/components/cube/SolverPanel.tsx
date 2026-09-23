@@ -1,4 +1,6 @@
 'use client';
+import { i18n, tx, useLanguage } from '@/lib/i18n';
+import { alignCube } from '@/lib/cube/store';
 import { memo, useEffect, useRef, useState } from 'react';
 import {
   Zap,
@@ -33,6 +35,7 @@ function reducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 export default memo(function SolverPanel() {
+  useLanguage();
   const s = useCube(
       'cube',
       'appearance',
@@ -46,6 +49,7 @@ export default memo(function SolverPanel() {
     [pictures, setPictures] = useState<boolean | null>(null),
     [blocked, setBlocked] = useState<Blocked | null>(null),
     [result, setResult] = useState<Solution | null>(null);
+  const solveGeneration = useRef(0);
   const worker = useRef<Worker | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null),
     playerRef = useRef<HTMLDivElement>(null);
@@ -65,20 +69,21 @@ export default memo(function SolverPanel() {
       ? blocked.report
       : null;
   const restorePictures = pictures ?? true;
-  const misaligned = Boolean(s.partialTurns);
   function cancel() {
+    solveGeneration.current++;
     worker.current?.terminate();
     worker.current = null;
     if (timer.current) clearTimeout(timer.current);
     patch({ solving: false, solveStatus: '' });
   }
-  function solve() {
+  async function solve() {
+    const request = ++solveGeneration.current;
+    if (getState().solving || getState().busy) return;
+    pause();
+    patch({ solving: true, solveStatus: tx('legacy.m256') });
+    await alignCube();
+    if (!getState().solving || request !== solveGeneration.current) return;
     const current = getState();
-    if (current.busy || current.solving) return;
-    if (current.partialTurns) {
-      notify('请先将错位转层对齐，再开始求解。');
-      return;
-    }
     const report = checkBeforeSolve(
       current.cube,
       current.history,
@@ -91,6 +96,7 @@ export default memo(function SolverPanel() {
       !report.needed ||
       (report.colorSolved && !usePictures)
     ) {
+      patch({ solving: false, solveStatus: '' });
       setBlocked({
         report,
         cube: current.cube,
@@ -102,7 +108,7 @@ export default memo(function SolverPanel() {
     setBlocked(null);
     if (pictures === null) setPictures(usePictures);
     pause();
-    patch({ solving: true, solveStatus: '启动求解器…' });
+    patch({ solving: true, solveStatus: tx('legacy.m257') });
     setResult(null);
     let w: Worker;
     try {
@@ -112,13 +118,13 @@ export default memo(function SolverPanel() {
       );
     } catch {
       cancel();
-      notify('求解器启动失败，请刷新后重试。');
+      notify(tx('legacy.m258'));
       return;
     }
     worker.current = w;
     timer.current = setTimeout(() => {
       cancel();
-      notify('这次搜索用时较长，已取消。可以再次尝试快速求解。');
+      notify(tx('legacy.m259'));
     }, 60000);
     w.onmessage = (e) => {
       if (worker.current !== w) return;
@@ -133,10 +139,10 @@ export default memo(function SolverPanel() {
         loadPlayer(
           r.moves,
           mode === 'cfop'
-            ? 'CFOP 分阶段还原'
+            ? tx('legacy.m260')
             : mode === 'near'
-              ? 'Near-optimal 近优求解'
-              : 'Fast 快速求解',
+              ? tx('legacy.m261')
+              : tx('legacy.m262'),
           r.stages,
         );
         void play();
@@ -152,14 +158,19 @@ export default memo(function SolverPanel() {
     w.onerror = () => {
       if (worker.current !== w) return;
       cancel();
-      notify('求解器启动失败，请刷新后重试。');
+      notify(tx('legacy.m258'));
     };
-    w.postMessage({ cube: current.cube, mode, pictures: usePictures });
+    w.postMessage({
+      cube: current.cube,
+      mode,
+      pictures: usePictures,
+      locale: i18n.language,
+    });
   }
   const options: [SolveMode, typeof Zap, string, string][] = [
-    ['fast', Zap, 'Fast / 快速', '两阶段搜索，优先速度与稳定性。'],
-    ['near', Route, 'Near-optimal / 近优', '尝试更多搜索起点，保留最短候选。'],
-    ['cfop', GraduationCap, 'CFOP / 分阶段教学', 'Cross → F2L → OLL → PLL。'],
+    ['fast', Zap, tx('legacy.m263'), tx('legacy.m264')],
+    ['near', Route, tx('legacy.m265'), tx('legacy.m266')],
+    ['cfop', GraduationCap, tx('legacy.m267'), 'Cross → F2L → OLL → PLL。'],
   ];
   return (
     <>
@@ -188,34 +199,36 @@ export default memo(function SolverPanel() {
         >
           <strong>
             {!block.valid
-              ? '配置检查未通过'
+              ? tx('legacy.m268')
               : block.pictureSolved
-                ? '无需计算'
-                : '需开启图片方向还原'}
+                ? tx('legacy.m269')
+                : tx('legacy.m270')}
           </strong>
           <p>{block.message}</p>
           <small>
-            颜色{block.colorSolved ? '已复原' : '待复原'} · 贴片方向
-            {block.pictureSolved ? '已复原' : '待复原'} · {block.images}{' '}
-            个图片贴片 / {block.groups} 个拼图组
+            {tx('legacy.m271')}
+            {block.colorSolved ? tx('legacy.m055') : tx('legacy.m272')}
+            {tx('legacy.m273')}
+            {block.pictureSolved ? tx('legacy.m055') : tx('legacy.m272')} ·{' '}
+            {block.images} {tx('legacy.m274')}
+            {block.groups}
+            {tx('legacy.m275')}
           </small>
         </div>
       )}
       <Toggle
-        label="同时还原图片方向"
+        label={tx('legacy.m276')}
         value={restorePictures}
         onChange={setPictures}
         disabled={s.solving}
       />
-      <p className="microcopy">
-        照片中心定向可能增加转层步数。近优模式不保证绝对最短解。
-      </p>
+      <p className="microcopy">{tx('legacy.m277')}</p>
       <button
         className="primary-button solve-button"
-        disabled={s.busy || s.solving || misaligned}
+        disabled={s.busy || s.solving}
         onClick={solve}
       >
-        <span>开始求解 · 自动播放</span>
+        <span>{tx('legacy.m278')}</span>
         {s.solving ? (
           <LoaderCircle className="spin" size={18} />
         ) : (
@@ -226,9 +239,13 @@ export default memo(function SolverPanel() {
         <output className="solver-progress">
           <LoaderCircle className="spin" size={16} />
           <span>{s.solveStatus}</span>
-          <button title="终止计算" aria-label="终止计算" onClick={cancel}>
+          <button
+            title={tx('legacy.m279')}
+            aria-label={tx('legacy.m279')}
+            onClick={cancel}
+          >
             <X size={17} />
-            终止
+            {tx('legacy.m280')}
           </button>
         </output>
       )}
@@ -237,12 +254,17 @@ export default memo(function SolverPanel() {
           <CheckCircle2 size={17} />
           <div>
             <strong>
-              {result.moves.length} 步 · {(result.elapsed / 1000).toFixed(2)} 秒
+              {result.moves.length}
+              {tx('legacy.m281')}
+              {(result.elapsed / 1000).toFixed(2)}
+              {tx('legacy.m282')}
             </strong>
             <p>
-              颜色还原 {result.colorMoves} 步
+              {tx('legacy.m283')}
+              {result.colorMoves}
+              {tx('legacy.m057')}
               {result.centerMoves > 0
-                ? ` + 图片定向 ${result.centerMoves} 步`
+                ? tx('legacy.m284', { p0: result.centerMoves })
                 : ''}
             </p>
           </div>
@@ -254,10 +276,10 @@ export default memo(function SolverPanel() {
       <div className="cfop-guide">
         <span className="eyebrow">THE FOUR STAGES</span>
         {[
-          ['01', 'Cross', '对齐四个十字棱块'],
-          ['02', 'F2L', '完成四组角棱配对'],
-          ['03', 'OLL', '统一顶层颜色方向'],
-          ['04', 'PLL', '排列顶层，还原六面'],
+          ['01', 'Cross', tx('legacy.m285')],
+          ['02', 'F2L', tx('legacy.m286')],
+          ['03', 'OLL', tx('legacy.m287')],
+          ['04', 'PLL', tx('legacy.m288')],
         ].map(([n, title, desc]) => (
           <div key={n}>
             <span>{n}</span>

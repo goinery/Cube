@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, Box, Check, Pyramid } from 'lucide-react';
-export type PuzzleType = 'cube' | 'pyraminx';
+import { useTranslation } from '@/lib/i18n';
+export type PuzzleType =
+  | 'cube'
+  | 'pyraminx'
+  | 'cube-2'
+  | 'cube-4'
+  | 'cube-5'
+  | 'megaminx';
 export default function PuzzleSwitcher({
   value,
   onChange,
@@ -10,6 +17,7 @@ export default function PuzzleSwitcher({
   onChange: (value: PuzzleType) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false),
     host = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null);
@@ -35,20 +43,24 @@ export default function PuzzleSwitcher({
       <button
         ref={trigger}
         className="puzzle-switch-trigger"
-        aria-label="切换魔方"
+        aria-label={t('app.switch')}
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen(!open)}
       >
         <ArrowLeftRight size={17} />
-        <span>{value === 'cube' ? '三阶魔方' : '金字塔魔方'}</span>
+        <span>{t(`puzzle.${value}`)}</span>
       </button>
       {open && (
-        <div className="puzzle-switch-menu" aria-label="魔方类型">
+        <div className="puzzle-switch-menu" aria-label={t('app.type')}>
           {(
             [
-              ['cube', '三阶魔方', Box, '3 × 3 × 3'],
-              ['pyraminx', '金字塔魔方', Pyramid, 'PYRAMINX'],
+              ['cube-2', 'cube-2', Box, '2 × 2 × 2'],
+              ['cube', 'cube', Box, '3 × 3 × 3'],
+              ['cube-4', 'cube-4', Box, '4 × 4 × 4'],
+              ['cube-5', 'cube-5', Box, '5 × 5 × 5'],
+              ['megaminx', 'megaminx', Box, 'MEGAMINX'],
+              ['pyraminx', 'pyraminx', Pyramid, 'PYRAMINX'],
             ] as const
           ).map(([id, title, Icon, subtitle]) => (
             <button
@@ -61,7 +73,7 @@ export default function PuzzleSwitcher({
             >
               <Icon size={22} />
               <span>
-                <strong>{title}</strong>
+                <strong>{t(`puzzle.${title}`)}</strong>
                 <small>{subtitle}</small>
               </span>
               {value === id && <Check size={16} />}

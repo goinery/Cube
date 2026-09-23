@@ -1,3 +1,4 @@
+import { tx } from '@/lib/i18n';
 import {
   apply,
   solved,
@@ -44,14 +45,14 @@ export function checkBeforeSolve(
     valid = false;
   }
   const message = !valid
-    ? '当前状态未通过合法性校验，请重新载入已保存方案。'
+    ? tx('legacy.m461')
     : pictureSolved
-      ? '魔方与贴片方向均已复原，无需计算。'
+      ? tx('legacy.m462')
       : colorSolved
-        ? '六面颜色已还原，中心片仍有方向差异。若要还原照片或标记方向，建议只补充定向步骤。'
+        ? tx('legacy.m463')
         : images
-          ? `检测到 ${images} 个图片贴片。建议同时还原图片方向，确保照片完整拼合。`
-          : '当前魔方尚未复原。需要较短解法可选 Fast；需要观察人类还原过程可选 CFOP。';
+          ? tx('legacy.m464', { p0: images })
+          : tx('legacy.m465');
   return {
     valid,
     needed: valid && !pictureSolved,

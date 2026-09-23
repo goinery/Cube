@@ -1,3 +1,4 @@
+import { tx } from '@/lib/i18n';
 import {
   getState,
   patch,
@@ -45,13 +46,12 @@ export function captureProject(): Project {
 const raster = (v: unknown): v is string =>
   typeof v === 'string' &&
   /^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(v) &&
-  v.length < 12_000_000;
+  v.length < 12000000;
 function finite(v: unknown, min: number, max: number) {
   return typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 }
 export function validateProject(value: unknown): Project {
-  if (!value || typeof value !== 'object')
-    throw new Error('文件不是有效的 AXIS 方案。');
+  if (!value || typeof value !== 'object') throw new Error(tx('legacy.m445'));
   const p = value as Project;
   if (
     p.version !== 1 ||
@@ -64,13 +64,12 @@ export function validateProject(value: unknown): Project {
     p.cursor < 0 ||
     p.cursor > p.history.length
   )
-    throw new Error('操作历史无效或版本不支持。');
+    throw new Error(tx('legacy.m446'));
   const state = apply(solved(), p.history.slice(0, p.cursor));
-  if (toFaceletString(state) !== p.facelets)
-    throw new Error('魔方状态与合法操作历史不一致；已拒绝导入。');
+  if (toFaceletString(state) !== p.facelets) throw new Error(tx('legacy.m447'));
   const a = defaultAppearance();
   if (!p.appearance?.stickers || !p.appearance.groups)
-    throw new Error('方案缺少贴片外观。');
+    throw new Error(tx('legacy.m448'));
   for (const id of Object.keys(a.stickers)) {
     const art = p.appearance.stickers[id];
     if (
@@ -79,7 +78,7 @@ export function validateProject(value: unknown): Project {
       !finite(art.rotation, -3600, 3600) ||
       (art.image && !raster(art.image))
     )
-      throw new Error(`贴片 ${id} 的外观数据无效。`);
+      throw new Error(tx('legacy.m449', { p0: id }));
     a.stickers[id] = {
       color: art.color,
       rotation: art.rotation,
@@ -88,7 +87,7 @@ export function validateProject(value: unknown): Project {
     };
   }
   const groups = Object.entries(p.appearance.groups);
-  if (groups.length > 54) throw new Error('图片组数量超出 54 个。');
+  if (groups.length > 54) throw new Error(tx('legacy.m450'));
   for (const [id, g] of groups) {
     if (
       !/^[a-z0-9-]{1,80}$/i.test(id) ||
@@ -101,7 +100,7 @@ export function validateProject(value: unknown): Project {
       g.members.some((x) => !a.stickers[x] || a.stickers[x].group !== id) ||
       !raster(g.image)
     )
-      throw new Error('图片组关系或图片格式无效。');
+      throw new Error(tx('legacy.m451'));
     if (
       !['fit', 'fill', 'crop'].includes(g.fit) ||
       !finite(g.scale, 0.1, 8) ||
@@ -115,7 +114,7 @@ export function validateProject(value: unknown): Project {
       g.cropX + g.cropW > 1.001 ||
       g.cropY + g.cropH > 1.001
     )
-      throw new Error('图片变换参数无效。');
+      throw new Error(tx('legacy.m452'));
     if (
       g.bounds &&
       (![g.bounds.row, g.bounds.col, g.bounds.rows, g.bounds.cols].every(
@@ -128,12 +127,11 @@ export function validateProject(value: unknown): Project {
         g.bounds.row + g.bounds.rows > 3 ||
         g.bounds.col + g.bounds.cols > 3)
     )
-      throw new Error('图片区域范围无效。');
+      throw new Error(tx('legacy.m453'));
     a.groups[id] = { ...g, members: [...g.members] };
   }
   for (const art of Object.values(a.stickers))
-    if (art.group && !a.groups[art.group])
-      throw new Error('贴片关联的图片组不存在。');
+    if (art.group && !a.groups[art.group]) throw new Error(tx('legacy.m454'));
   const limits: Record<string, [number, number]> = {
     explode: [0, 3],
     gap: [0, 0.3],
@@ -182,7 +180,7 @@ export function validateProject(value: unknown): Project {
       held.angles.length !== 3 ||
       !held.angles.every((a) => finite(a, -QUARTER / 2, QUARTER / 2))
     )
-      throw new Error('未对齐转层的角度数据无效。');
+      throw new Error(tx('legacy.m455'));
     if (held.angles.some(Boolean))
       partialTurns = { axis: held.axis, angles: [...held.angles] };
   }
@@ -240,8 +238,7 @@ export async function readProject(key = 'saved'): Promise<Project | null> {
   }
 }
 export function loadProject(p: Project) {
-  if (getState().busy || getState().solving)
-    throw new Error('请等当前转层或求解完成后载入。');
+  if (getState().busy || getState().solving) throw new Error(tx('legacy.m456'));
   restoreHistory(p.history, p.cursor);
   setAppearance(p.appearance);
   patch({
@@ -264,7 +261,7 @@ export function exportProject() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export async function importProject(file: File) {
-  if (file.size > 60 * 1024 * 1024) throw new Error('方案文件不能超过 60 MB。');
+  if (file.size > 60 * 1024 * 1024) throw new Error(tx('legacy.m457'));
   const p = validateProject(JSON.parse(await file.text()));
   loadProject(p);
 }
@@ -284,7 +281,7 @@ export function setAutosavePreference(on: boolean) {
   }
 }
 function autosaveFailed() {
-  notify('自动保存失败：存储空间不足。请导出方案备份。');
+  notify(tx('legacy.m458'));
 }
 export function saveAutosave() {
   return saveProject('autosave').catch(autosaveFailed);
@@ -302,10 +299,10 @@ export async function restoreProject(key: 'autosave' | 'saved') {
     ) {
       loadProject(p);
       // 快照里没有转动时不提示，避免在复原态下报「已恢复」。
-      if (key === 'saved' && p.cursor > 0) notify('已恢复上次保存的进度。');
+      if (key === 'saved' && p.cursor > 0) notify(tx('legacy.m459'));
     }
   } catch {
-    notify('浏览器存储不可用，可通过导出方案保留作品。');
+    notify(tx('legacy.m460'));
   }
 }
 export function watchAutosave() {
