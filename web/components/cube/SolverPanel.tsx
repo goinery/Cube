@@ -45,7 +45,7 @@ export default memo(function SolverPanel() {
       'solveStatus',
       'player',
     ),
-    [mode, setMode] = useState<SolveMode>('fast'),
+    [mode] = useState<SolveMode>('fast'),
     [pictures, setPictures] = useState<boolean | null>(null),
     [blocked, setBlocked] = useState<Blocked | null>(null),
     [result, setResult] = useState<Solution | null>(null);
@@ -167,31 +167,9 @@ export default memo(function SolverPanel() {
       locale: i18n.language,
     });
   }
-  const options: [SolveMode, typeof Zap, string, string][] = [
-    ['fast', Zap, tx('legacy.m263'), tx('legacy.m264')],
-    ['near', Route, tx('legacy.m265'), tx('legacy.m266')],
-    ['cfop', GraduationCap, tx('legacy.m267'), 'Cross → F2L → OLL → PLL。'],
-  ];
   return (
     <>
-      <div className="solver-options">
-        {options.map(([id, Icon, title, desc]) => (
-          <button
-            key={id}
-            disabled={s.solving}
-            className={mode === id ? 'active' : ''}
-            aria-pressed={mode === id}
-            onClick={() => setMode(id)}
-          >
-            <Icon size={20} />
-            <span>
-              <strong>{title}</strong>
-              <small>{desc}</small>
-            </span>
-            <i />
-          </button>
-        ))}
-      </div>
+      <></>
       {block && (
         <div
           className={`preflight ${block.valid ? '' : 'invalid'}`}
@@ -222,7 +200,7 @@ export default memo(function SolverPanel() {
         onChange={setPictures}
         disabled={s.solving}
       />
-      <p className="microcopy">{tx('legacy.m277')}</p>
+      <></>
       <button
         className="primary-button solve-button"
         disabled={s.busy || s.solving}
@@ -273,21 +251,7 @@ export default memo(function SolverPanel() {
       <div className="solver-player" ref={playerRef}>
         <Player />
       </div>
-      <div className="cfop-guide">
-        <span className="eyebrow">THE FOUR STAGES</span>
-        {[
-          ['01', 'Cross', tx('legacy.m285')],
-          ['02', 'F2L', tx('legacy.m286')],
-          ['03', 'OLL', tx('legacy.m287')],
-          ['04', 'PLL', tx('legacy.m288')],
-        ].map(([n, title, desc]) => (
-          <div key={n}>
-            <span>{n}</span>
-            <strong>{title}</strong>
-            <p>{desc}</p>
-          </div>
-        ))}
-      </div>
+      <></>
     </>
   );
 });

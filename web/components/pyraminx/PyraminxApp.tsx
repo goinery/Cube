@@ -209,7 +209,7 @@ function PhotoDialog({
           <path d="M150 0 L0 300 L300 300 Z M100 100 L200 100 M50 200 L250 200 M100 100 L200 300 M200 100 L100 300 M50 200 L100 300 M250 200 L200 300 M50 200 L100 100 M250 200 L200 100" />
         </svg>
       </div>
-      <p className="microcopy">{tx('legacy.m305')}</p>
+      <></>
       <Range
         label={tx('legacy.m306')}
         value={draft.scale}
@@ -264,7 +264,7 @@ function TilePicker() {
             key={tile.id}
             className="pyr-tile-button"
             disabled={s.solving}
-            aria-label={`${PIECES[tile.piece].kind} ${tile.id}`}
+            aria-label={`${tx('puzzle.' + PIECES[tile.piece].kind)} ${tile.id}`}
             aria-pressed={s.selected.includes(tile.id)}
             style={{
               clipPath: `polygon(${tile.uv.map(([x, y]) => `${x * 100}% ${(1 - y) * 100}%`).join(',')})`,
@@ -399,8 +399,8 @@ export default function PyraminxApp({
     requestAnimationFrame(() => {
       const node = sections.current[mode];
       if (node && scroll.current)
-        scroll.current.scrollTop = node.offsetTop - scroll.current.offsetTop;
-      pendingMode.current = null;
+        scroll.current.scrollTo({ top: node.offsetTop - scroll.current.offsetTop, behavior: 'smooth' });
+      setTimeout(() => { pendingMode.current = null; }, 900);
     });
   }
   function trackScroll() {
@@ -683,9 +683,9 @@ export default function PyraminxApp({
             </div>
           </div>
           <div className="object-spec">
-            <span>14 PIECES</span>
+            <span>{tx('app.pieces', { count: 14 })}</span>
             <span>4 AXES</span>
-            <span>36 TILES</span>
+            <span>{tx('app.tiles', { count: 36 })}</span>
           </div>
           {!s.ready && (
             <div className="loading-overlay">
@@ -732,11 +732,7 @@ export default function PyraminxApp({
           </nav>
           <div className="panel-scroll" ref={scroll} onScroll={trackScroll}>
             <section {...section('play')}>
-              <div className="pyr-intro">
-                <span className="tag">PYRAMINX / 120°</span>
-                <h2>{tx('legacy.m325')}</h2>
-                <p>{tx('legacy.m326')}</p>
-              </div>
+              <></>
               <section className="panel-section magnetic-controls">
                 <div className="section-head">
                   <h3>{tx('legacy.m074')}</h3>
@@ -775,7 +771,7 @@ export default function PyraminxApp({
                   disabled={s.solving}
                   onChange={(turnTolerance) => settings({ turnTolerance })}
                 />
-                <p className="microcopy">{tx('legacy.m327')}</p>
+                <></>
               </section>
               <div className="quick-actions">
                 <button
@@ -880,10 +876,10 @@ export default function PyraminxApp({
                     </button>
                   ))}
                 </div>
-                <p className="microcopy">{tx('legacy.m333')}</p>
+                <></>
                 <details className="pyr-keybindings">
                   <summary>{tx('legacy.m236')}</summary>
-                  <p className="microcopy">{tx('legacy.m334')}</p>
+                  <></>
                   {Object.entries(s.keybindings).map(([action, value]) => (
                     <label key={action}>
                       <span>
@@ -940,7 +936,7 @@ export default function PyraminxApp({
               <section className="panel-section">
                 <div className="section-head">
                   <h3>{tx('legacy.m009')}</h3>
-                  <span className="tag">PYRAMINX</span>
+                  <span className="tag">{tx('puzzle.pyraminx')}</span>
                 </div>
                 <div className="algorithm-presets">
                   {s.presets.map((p, i) => (
@@ -1010,14 +1006,7 @@ export default function PyraminxApp({
               </section>
             </section>
             <section {...section('explode')}>
-              <div className="engineering-card">
-                <Layers3 size={27} />
-                <div>
-                  <strong>{tx('legacy.m343')}</strong>
-                  <p>{tx('legacy.m344')}</p>
-                </div>
-                <span>04</span>
-              </div>
+              <></>
               <Range
                 label={tx('legacy.m097')}
                 value={s.settings.explode}
@@ -1133,16 +1122,14 @@ export default function PyraminxApp({
                   {tx('legacy.m351')}
                 </span>
               </div>
-              <Choice
-                label={tx('legacy.m352')}
-                value={String(s.editFace)}
-                options={FACE_NAMES.map((n, i) => [String(i), n])}
-                onChange={(value) =>
-                  patch({ editFace: Number(value), selected: [] })
-                }
-              />
-              <TilePicker />
-              <div className="pyr-button-row">
+              <div className="face-selector">
+                {FACE_NAMES.map((name,i)=><button key={i} className={s.editFace===i?'active':''}
+                  aria-pressed={s.editFace===i} onClick={()=>{patch({editFace:i,selected:TILES.filter(t=>t.face===i).map(t=>t.id)});cameraActions.face(i);}}>
+                  <i style={{background:FACE_COLORS[i]}} />{name}
+                </button>)}
+              </div>
+              <div className="editor-face"><TilePicker /></div>
+              <div className="selection-actions">
                 <button
                   disabled={s.solving}
                   onClick={() =>
@@ -1162,7 +1149,7 @@ export default function PyraminxApp({
                   {tx('legacy.m353')}
                 </button>
               </div>
-              <div className="pyr-color-edit">
+              <div className="color-control">
                 <label htmlFor="pyr-color">{tx('legacy.m354')}</label>
                 <input
                   id="pyr-color"
@@ -1208,7 +1195,7 @@ export default function PyraminxApp({
               </div>
               <section className="panel-section">
                 <h3>{tx('legacy.m356')}</h3>
-                <p className="microcopy">{tx('legacy.m357')}</p>
+                <></>
                 <button
                   className="wide-button"
                   disabled={s.solving}
@@ -1275,7 +1262,7 @@ export default function PyraminxApp({
                   {tx('legacy.m363')}
                   <RotateCcw size={16} />
                 </button>
-                <p className="microcopy">{tx('legacy.m364')}</p>
+                <></>
               </section>
             </section>
             <section {...section('solver')}>
@@ -1283,7 +1270,7 @@ export default function PyraminxApp({
                 <h3>{tx('legacy.m365')}</h3>
                 <span className="tag">{tx('legacy.m366')}</span>
               </div>
-              <p className="helper-text">{tx('legacy.m367')}</p>
+              <></>
               <button
                 className="wide-button"
                 disabled={s.busy}
@@ -1521,7 +1508,7 @@ export default function PyraminxApp({
                   {solved ? tx('legacy.m055') : tx('legacy.m386')}
                 </span>
               </div>
-              <p className="microcopy">{tx('legacy.m387')}</p>
+              <></>
               {selectedTile && (
                 <div className="pyr-piece-info">
                   <strong>{PIECES[selectedTile.piece].id}</strong>
@@ -1577,12 +1564,7 @@ export default function PyraminxApp({
                   </span>
                 ))}
               </div>
-              <p className="microcopy">
-                {s.cursor}
-                {tx('legacy.m395')}
-                {s.history.length - s.cursor}
-                {tx('legacy.m396')}
-              </p>
+              <></>
             </section>
           </div>
         </aside>

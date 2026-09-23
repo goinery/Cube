@@ -269,7 +269,7 @@ export default memo(function CustomizePanel() {
           {tx('legacy.m163')}
         </button>
       </div>
-      <p className="microcopy">{tx('legacy.m164')}</p>
+      <></>
       <input
         ref={upload}
         type="file"
@@ -540,7 +540,7 @@ export default memo(function CustomizePanel() {
             e.target.value = '';
           }}
         />
-        <p className="microcopy">{tx('legacy.m198')}</p>
+        <></>
         <button
           className="wide-button"
           onClick={() => {

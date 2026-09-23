@@ -95,8 +95,8 @@ function capGeometry(tile: Tile) {
     [1, 0],
     [0.996, 0.012],
     [0.985, 0.021],
-    [0.75, 0.027],
-    [0.38, 0.03],
+    [0.965, 0.021],
+    [0.38, 0.021],
   ];
   for (const [scale, z] of rings)
     for (const p of outline) {
@@ -110,7 +110,7 @@ function capGeometry(tile: Tile) {
       indices.push(a, b, a + n, b, b + n, a + n);
     }
   const center = positions.length / 3;
-  vertex(0, 0, 0.031);
+  vertex(0, 0, 0.021);
   for (let i = 0; i < n; i++)
     indices.push(
       (rings.length - 1) * n + i,
@@ -125,6 +125,8 @@ function capGeometry(tile: Tile) {
   g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
   g.setIndex(indices);
   g.computeVertexNormals();
+  const capNormals = g.getAttribute('normal');
+  for (let i = 6 * n; i <= center; i++) capNormals.setXYZ(i, 0, 0, 1);
   g.computeBoundingBox();
   g.computeBoundingSphere();
   g.userData.occluder = outline.map((_, i) => [

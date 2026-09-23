@@ -383,7 +383,7 @@ export default function CustomizePanel({ session }: { session: Session }) {
           {t('art.invert')}
         </button>
       </div>
-      <p className="microcopy">{t('art.hint')}</p>
+      <></>
       <input
         type="file"
         hidden

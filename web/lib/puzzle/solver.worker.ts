@@ -1,13 +1,12 @@
 import { definition } from './model';
-import { solveGroup } from './group-solver';
-self.onmessage = (event) => {
+import { solvePuzzle } from './solver';
+self.onmessage = async (event) => {
   const started = performance.now();
   try {
-    const { id, state, mode, pictures } = event.data;
-    const result = solveGroup(
+    const { id, state, pictures } = event.data;
+    const result = await solvePuzzle(
       definition(id),
       state,
-      mode,
       pictures,
       (message) => self.postMessage({ type: 'progress', message }),
     );

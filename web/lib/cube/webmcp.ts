@@ -1,4 +1,4 @@
-import { getState, loadPlayer, play } from './store';
+import { getState, loadPlayer, play, settlingTurns } from './store';
 import { canTurnSequence } from './interaction';
 import {
   isPictureSolved,
@@ -27,6 +27,7 @@ function readCube() {
     colorSolved: !s.partialTurns && isSolved(s.cube),
     pictureSolved: !s.partialTurns && isPictureSolved(s.cube),
     partialTurns: s.partialTurns,
+    magneticTurns: settlingTurns(),
     busy: s.busy,
     solving: s.solving,
     historyIndex: s.cursor,

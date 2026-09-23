@@ -17,7 +17,11 @@
     "ready": "Ready",
     "solved": "Solved",
     "pictureSolved": "Picture solved",
-    "working": "In progress"
+    "working": "In progress",
+    "pieces": "{{count}} pieces",
+    "tiles": "{{count}} tiles",
+    "engine": "Motion engine",
+    "local": "Local workspace"
   },
   "puzzle": {
     "cube": "3 × 3 cube",
@@ -34,7 +38,8 @@
     "t-center": "T centers",
     "face": "Face {{face}}",
     "tiles": "{{count}} facelets",
-    "piece": "Piece {{id}}"
+    "piece": "Piece {{id}}",
+    "tip": "Tip"
   },
   "mode": {
     "play": "Play",
@@ -229,7 +234,13 @@
     "help": "Computed from the current piece state. Picture mode preserves the identity and orientation of every piece. Shorter solution compares alternative group factorizations; it is not a guarantee of optimality.",
     "verify": "Checking the returned moves…",
     "align": "Align held layers before solving.",
-    "frame": "Restore puzzle orientation"
+    "frame": "Restore puzzle orientation",
+    "corners": "Solving corners",
+    "reduced": "Solving the reduced 3×3",
+    "parity": "Correcting parity",
+    "orbit": "Restoring pieces",
+    "centerPictures": "Restoring center image orientation",
+    "reducing": "Reducing the puzzle"
   },
   "player": {
     "title": "Sequence player",

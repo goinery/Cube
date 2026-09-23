@@ -578,9 +578,9 @@ export default function CubeApp({
             </div>
           </div>
           <div className="object-spec">
-            <span>26 PIECES</span>
+            <span>{tx('app.pieces', { count: 26 })}</span>
             <span>6 AXES</span>
-            <span>54 TILES</span>
+            <span>{tx('app.tiles', { count: 54 })}</span>
           </div>
           {!s.ready && (
             <div className="loading-overlay">
@@ -669,8 +669,8 @@ export default function CubeApp({
                   unit="°"
                   onChange={(v) => settings({ turnTolerance: v })}
                 />
-                <p className="microcopy">{tx('legacy.m080')}</p>
-                <p className="microcopy">{tx('legacy.m081')}</p>
+                <></>
+                <></>
                 {s.partialTurns && (
                   <p className="help-text" aria-live="polite">
                     {withinTurnTolerance(
@@ -799,14 +799,7 @@ export default function CubeApp({
             </section>
             <section {...blockProps('explode')}>
               <>
-                <div className="engineering-card">
-                  <Layers3 size={27} />
-                  <div>
-                    <strong>{tx('legacy.m095')}</strong>
-                    <p>{tx('legacy.m096')}</p>
-                  </div>
-                  <span>03</span>
-                </div>
+                <></>
                 <Range
                   label={tx('legacy.m097')}
                   value={s.settings.explode}
@@ -989,7 +982,7 @@ export default function CubeApp({
                     value={s.settings.lightFollowCamera}
                     onChange={(v) => settings({ lightFollowCamera: v })}
                   />
-                  <p className="helper-text">{tx('legacy.m127')}</p>
+                  <></>
                   <Range
                     label={tx('legacy.m128')}
                     value={s.settings.lightAzimuth}
@@ -1051,17 +1044,7 @@ export default function CubeApp({
                   {tx('legacy.m139')}
                   <Expand size={17} />
                 </button>
-                <p className="microcopy">
-                  {tx('legacy.m140')}
-                  {s.settings.keybindings.exitPresentation
-                    ? tx('legacy.m141', {
-                        p0: formatShortcut(
-                          s.settings.keybindings.exitPresentation,
-                        ),
-                      })
-                    : tx('legacy.m142')}
-                  {tx('legacy.m143')}
-                </p>
+                <></>
               </>
             </section>
             <section {...blockProps('inspect')}>
@@ -1071,7 +1054,7 @@ export default function CubeApp({
                   {tx('legacy.m144')}
                   <strong>26 / 26</strong>
                 </div>
-                <p className="help-text">{tx('legacy.m145')}</p>
+                <></>
                 <div className="inspection-list">
                   {s.selected.length ? (
                     s.selected.map((id) => {
@@ -1093,7 +1076,7 @@ export default function CubeApp({
                       );
                     })
                   ) : (
-                    <p>{tx('legacy.m149')}</p>
+                    <></>
                   )}
                 </div>
                 {replay ? (
@@ -1125,11 +1108,11 @@ export default function CubeApp({
                   {tx('legacy.m152')}
                   <RotateCcw size={16} />
                 </button>
-                <p className="microcopy">{tx('legacy.m153')}</p>
+                <></>
               </>
             </section>
             <div className="panel-footer">
-              <span>AXIS ENGINE</span>
+              <span>{tx('app.engine')}</span>
               <span>
                 01.0 <i />
               </span>
@@ -1138,15 +1121,15 @@ export default function CubeApp({
         </aside>
       </div>
       <footer className="app-footer">
-        <span>DESIGNED TO BE EXPLORED.</span>
+        <span>{tx('app.name')}</span>
         <span>
           <i />
           {s.mode === 'explode'
-            ? `EXPLODE ${s.settings.explode.toFixed(2)}`
-            : 'ALL SYSTEMS CONNECTED'}
+            ? `${tx('mode.explode')} ${s.settings.explode.toFixed(2)}`
+            : tx('app.ready')}
         </span>
         <span>
-          LOCAL FIRST <span>·</span> 3D WORKSPACE
+          {tx('app.local')}
         </span>
       </footer>
       {s.notice && <output className="toast">{s.notice}</output>}

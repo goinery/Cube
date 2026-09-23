@@ -241,14 +241,20 @@ export function selectSticker(id: string, multiple = true) {
 }
 export type Animator = (move: string, duration: number) => Promise<void>;
 let animate: Animator = async () => {};
+let prepareTurn: (token?: string) => void = () => {};
+let readSettling = () => [] as {axis:number;layer:number;angle:number;velocity:number;target:number}[];
+export function setSettlingReader(read: typeof readSettling) { readSettling = read; }
+export const settlingTurns = () => readSettling();
 let animateAlignment: (partial: PartialTurns) => Promise<void> = async () => {};
-export function setAnimator(fn: Animator) {
+export function setAnimator(fn: Animator, prepare: typeof prepareTurn = () => {}) {
   animate = fn;
+  prepareTurn = prepare;
 }
 export function setAlignmentAnimator(fn: typeof animateAlignment) {
   animateAlignment = fn;
 }
 export async function alignCube() {
+  prepareTurn();
   const partial = state.partialTurns;
   if (!partial) return;
   const pending = animateAlignment(partial);
@@ -293,9 +299,9 @@ export function allowMoves(moves: string[]): boolean {
   notify(tx('legacy.m488', { p0: state.settings.turnTolerance }));
   return false;
 }
-export function finishLayerTurn(axis: number, layer: number, angle: number) {
+export function finishLayerTurn(axis: number, layer: number, angle: number, background = false) {
   if (
-    state.solving ||
+    (!background && state.solving) ||
     ![0, 1, 2].includes(axis) ||
     ![-1, 0, 1].includes(layer) ||
     !Number.isFinite(angle) ||
@@ -317,10 +323,7 @@ export function finishLayerTurn(axis: number, layer: number, angle: number) {
     history,
     cursor: token ? history.length : state.cursor,
     partialTurns: angles.some(Boolean) ? { axis, angles } : null,
-    busy: false,
-    dragging: false,
-    currentMove: '',
-    player: null,
+    ...(!background ? { busy: false, dragging: false, currentMove: '', player: null } : {}),
   });
 }
 let playGeneration = 0;
@@ -334,6 +337,7 @@ export async function perform(
   source: 'manual' | 'player' | 'undo' | 'redo' = 'manual',
   instant = false,
 ) {
+  prepareTurn(token);
   if (state.solving || state.dragging) return false;
   if (state.busy) {
     if (source === 'manual' && manualQueue.length < 50) {
@@ -397,6 +401,7 @@ export async function redo() {
   await perform(state.history[state.cursor], 'redo');
 }
 export function resetCube() {
+  prepareTurn();
   if (state.busy || state.solving) return;
   pause();
   patch({
@@ -462,6 +467,7 @@ export async function play() {
     patch({ player: { ...state.player, playing: false } });
 }
 export async function seek(index: number) {
+  prepareTurn();
   if (state.solving) return;
   pause();
   const p = state.player;
@@ -501,6 +507,7 @@ export async function seek(index: number) {
   }
 }
 export function applyInstant(moves: string[], title?: string) {
+  prepareTurn();
   if (state.busy || state.solving) return;
   if (!allowMoves(moves)) return;
   pause();
@@ -521,6 +528,7 @@ export function applyInstant(moves: string[], title?: string) {
   });
 }
 export function restoreHistory(history: string[], cursor: number) {
+  prepareTurn();
   if (state.busy || state.solving) return;
   pause();
   patch({

@@ -16,6 +16,7 @@ import { paintPhoto } from '@/lib/pyraminx/appearance';
 import {
   heldAngle,
   turnsConflict,
+  sameLayer,
   visibleTurns,
 } from '@/lib/pyraminx/interaction';
 import { FACE_BASES, createHiddenProjections } from '@/lib/pyraminx/projection';
@@ -41,6 +42,7 @@ import {
   releaseDrag,
   selectTile,
   setAnimator,
+  setSettlingReader,
   setAlignmentAnimator,
   settings,
   subscribe,
@@ -110,6 +112,8 @@ export default memo(function PyraminxViewport() {
           resolve: (angle: number) => void;
         })
       | null = null;
+    const settlements: (Animation & { start: number; angle: number; velocity: number; resolve: (angle: number) => void })[] = [];
+    setSettlingReader(() => settlements.map(a=>({axis:a.move.axis,layer:a.move.layer,angle:a.angle,velocity:a.velocity,target:a.to})));
     let alignment:
       | (AlignmentPose & {
           start: number;
@@ -392,7 +396,7 @@ export default memo(function PyraminxViewport() {
           : null;
       const progress = alignment?.progress ?? -1;
       if (
-        !destination &&
+        !destination && !settlements.length &&
         previousModel?.puzzle === s.puzzle &&
         previousModel.partials === s.partials &&
         SHAPE_SETTINGS.every(
@@ -423,7 +427,8 @@ export default memo(function PyraminxViewport() {
           alignment.progress,
         );
       }
-      for (const visible of visibleTurns(s.partials, turn)) {
+      const pendingTurns = settlements.map(a => ({ ...a.move, angle: a.angle }));
+      for (const visible of visibleTurns([...s.partials.filter(p => !pendingTurns.some(a => sameLayer(p,a))), ...pendingTurns], turn)) {
         rotation.setFromAxisAngle(
           vertices[visible.axis].clone().normalize(),
           visible.angle,
@@ -611,8 +616,7 @@ export default memo(function PyraminxViewport() {
         );
       if (drag?.move) updateDragTransition(drag, time);
       let completed: typeof animation = null;
-      if (animation) {
-        const a = animation;
+      for (const a of [...settlements, ...(animation ? [animation] : [])]) {
         a.start ||= time;
         const duration = a.duration ?? 330 / s.settings.speed;
         let done = false;
@@ -648,7 +652,14 @@ export default memo(function PyraminxViewport() {
           a.angle = T.MathUtils.lerp(a.from, a.to, eased);
           done = t === 1;
         }
-        if (done) completed = a;
+        if (done) {
+          if (a === animation) completed = a;
+          else {
+            settlements.splice(settlements.indexOf(a), 1);
+            finishDrag(a.move, a.angle, true);
+            a.resolve(a.angle);
+          }
+        }
       }
       if (s.solving) cameraDestination = null;
       if (cameraDestination) {
@@ -744,7 +755,7 @@ export default memo(function PyraminxViewport() {
         completed.resolve(completed.angle);
       }
       if (
-        animation ||
+        animation || settlements.length ||
         alignment ||
         drag?.transition ||
         cameraDestination ||
@@ -767,26 +778,34 @@ export default memo(function PyraminxViewport() {
     setAnimator(
       (a) =>
         new Promise((resolve) => {
-          animation = {
+          const pending = {
             ...a,
             start: 0,
             angle: a.from,
             velocity: a.velocity ?? 0,
             resolve,
           };
+          if (a.layerTurn) settlements.push(pending);
+          else animation = pending;
           invalidate();
         }),
-      () => {
-        const settling = animation;
-        if (!settling?.layerTurn) return;
-        animation = null;
-        finishDrag(settling.move, settling.angle);
-        settling.resolve(settling.angle);
+      (move) => {
+        for (const a of [...settlements]) {
+          if (move && !sameLayer(a.move, move) && !turnsConflict({ ...a.move, angle: a.angle }, move)) continue;
+          settlements.splice(settlements.indexOf(a),1);
+          finishDrag(a.move, a.angle, true); a.resolve(a.angle);
+        }
         updateModel();
       },
     );
     function sync() {
       const s = getState();
+      if (previousState && previousState.puzzle !== s.puzzle) {
+        for (const a of settlements) if (a.move.layer === 'tip') {
+          const i = [0,1,2,3].find(i => ROTATIONS[previousState!.puzzle.rotations[i]][i] === a.move.axis)!;
+          a.move = { ...a.move, axis: ROTATIONS[s.puzzle.rotations[i]][i] };
+        }
+      }
       if (
         !previousState ||
         previousState.colors !== s.colors ||
@@ -945,7 +964,7 @@ export default memo(function PyraminxViewport() {
       let s = getState();
       if (s.mode !== 'play' && s.mode !== 'solver') return;
       if (!d.move) {
-        interruptSettling();
+
         s = getState();
         if (s.busy) return;
         const face =
@@ -1142,6 +1161,7 @@ export default memo(function PyraminxViewport() {
         if (!disposed) setError(tx('legacy.m295'));
       });
     return () => {
+      interruptSettling();
       disposed = true;
       cancelAnimationFrame(frame);
       unsubscribe();

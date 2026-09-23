@@ -117,13 +117,7 @@ export function AlgorithmPanel({ session }: { session: Session }) {
         <Play size={16} />
         {t('algorithm.play')}
       </button>
-      <p className="microcopy">
-        {t(
-          session.def.id === 'megaminx'
-            ? 'algorithm.minxNotation'
-            : 'algorithm.notation',
-        )}
-      </p>
+      <></>
       <input
         type="file"
         hidden
@@ -195,7 +189,7 @@ export function KeybindingsPanel({ session }: { session: Session }) {
   return (
     <details className="puzzle-keybindings">
       <summary>{t('keys.title')}</summary>
-      <p className="microcopy">{t('keys.clear')}</p>
+      <></>
       {actions.map((action) => (
         <label key={action}>
           <span>
@@ -371,30 +365,21 @@ export function Player({ session }: { session: Session }) {
 export function SolverPanel({ session }: { session: Session }) {
   const s = useSession(session),
     { t } = useTranslation(),
-    [mode, setMode] = useState<'fast' | 'short' | 'teaching'>('fast'),
-    [pictures, setPictures] = useState(true);
+    [pictures, setPictures] = useState(Object.keys(s.appearance.photos).length > 0);
   return (
     <>
-      <Choice
-        label={t('solver.title')}
-        value={mode}
-        options={(['fast', 'short', 'teaching'] as const).map((mode) => [
-          mode,
-          t(`solver.${mode}`),
-        ])}
-        onChange={(v) => setMode(v as typeof mode)}
-      />
+<div className="section-head"><h3>{t('solver.title')}</h3></div>
       <Toggle
         label={t('solver.pictures')}
         value={pictures}
         onChange={setPictures}
         disabled={s.solving}
       />
-      <p className="microcopy">{t('solver.help')}</p>
+      <></>
       <button
         className="primary-button"
         onClick={() =>
-          s.solving ? session.cancelSolve() : session.solve(mode, pictures)
+          s.solving ? session.cancelSolve() : session.solve(pictures)
         }
       >
         {t(s.solving ? 'solver.cancel' : 'solver.start')}

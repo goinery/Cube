@@ -35,7 +35,7 @@ export default memo(function Player() {
     <section className={`player${open ? '' : ' compact'}`} inert={s.solving}>
       <div className="section-head">
         <div>
-          <span className="eyebrow">SEQUENCE PLAYER</span>
+          <></>
           <h3>{p.title}</h3>
         </div>
         <span className="counter">

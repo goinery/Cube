@@ -463,7 +463,7 @@ export class Session {
     this.worker = null;
     this.patch({ solving: false, solveStatus: null });
   }
-  async solve(mode: 'fast' | 'short' | 'teaching', pictures: boolean) {
+  async solve(pictures: boolean) {
     if (this.state.solving) return;
     const request = ++this.solveGeneration;
     this.pause();
@@ -521,7 +521,7 @@ export class Session {
         this.notify('solver.failed');
       }
     };
-    worker.postMessage({ id: this.def.id, state: initial, mode, pictures });
+    worker.postMessage({ id: this.def.id, state: initial, pictures });
   }
 }
 const sessions = new Map<PuzzleId, Session>();

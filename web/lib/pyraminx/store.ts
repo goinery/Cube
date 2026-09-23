@@ -176,13 +176,16 @@ let alignmentAnimator: (
 export function setAlignmentAnimator(fn: typeof alignmentAnimator) {
   alignmentAnimator = fn;
 }
-let interruptMagnet = () => {};
-export function setAnimator(fn: typeof animator, interrupt = () => {}) {
+let interruptMagnet: (move?: Move) => void = () => {};
+let readSettling = () => [] as {axis:number;layer:string;angle:number;velocity:number;target:number}[];
+export function setSettlingReader(read: typeof readSettling) { readSettling = read; }
+export const settlingTurns = () => readSettling();
+export function setAnimator(fn: typeof animator, interrupt: typeof interruptMagnet = () => {}) {
   animator = fn;
   interruptMagnet = interrupt;
 }
-export function interruptSettling() {
-  if (state.settling && !state.solving) interruptMagnet();
+export function interruptSettling(move?: Move) {
+  interruptMagnet(move);
 }
 export const cameraActions = {
   reset: () => {},
@@ -220,6 +223,7 @@ function startAlignment(partials = state.partials) {
   return Promise.all(animations).then(() => {});
 }
 export async function align(force = false) {
+  interruptSettling();
   if (!state.partials.length) return true;
   if (!force && !canAlign()) {
     notify(tx('legacy.m510', { p0: state.settings.turnTolerance }));
@@ -240,7 +244,7 @@ export async function perform(
   source: 'manual' | 'player' | 'undo' | 'redo' = 'manual',
   instant = false,
 ) {
-  if (source === 'manual') interruptSettling();
+  interruptSettling(parseMove(token));
   if (state.busy || state.solving || state.dragging) return false;
   const move = parseMove(token);
   const conflicts = state.partials.filter((p) => turnsConflict(p, move));
@@ -279,7 +283,7 @@ export async function perform(
   }
 }
 export function beginDrag(move: Move) {
-  interruptSettling();
+  interruptSettling(move);
   if (state.busy || state.solving) return false;
   const conflicts = state.partials.filter((p) => turnsConflict(p, move));
   if (!canAlign(conflicts)) {
@@ -298,8 +302,8 @@ export function beginDrag(move: Move) {
   return true;
 }
 let dragCompletion = 0;
-export function finishDrag(move: Move, angle: number) {
-  dragCompletion++;
+export function finishDrag(move: Move, angle: number, background = false) {
+  if (!background) dragCompletion++;
   const turns = Math.round(-angle / TURN),
     n = ((turns % 3) + 3) % 3;
   const token = n ? moveToken(move.axis, move.layer, n === 1 ? 1 : -1) : '';
@@ -320,11 +324,7 @@ export function finishDrag(move: Move, angle: number) {
         ? [{ axis: move.axis, layer: move.layer, angle: residual }]
         : []),
     ],
-    busy: false,
-    dragging: false,
-    settling: false,
-    currentMove: '',
-    player: null,
+    ...(!background ? { busy: false, dragging: false, settling: false, currentMove: '', player: null } : {}),
   });
 }
 export async function releaseDrag(
@@ -336,12 +336,12 @@ export async function releaseDrag(
   const completion = dragCompletion;
   const magnetic = state.settings.magnetStrength > 0;
   const settling = magnetic || Math.abs(targetAngle - angle) > 1e-5;
-  patch({ dragging: false, settling });
+  patch({ dragging: false, busy: false, settling: false, currentMove: '' });
   if (settling) {
     const target = magnetic
       ? magneticTarget(targetAngle, velocity / 1000, TURN)
       : targetAngle;
-    angle = await animator({
+    await animator({
       move,
       from: angle,
       to: target,
@@ -352,6 +352,7 @@ export async function releaseDrag(
         ? undefined
         : Math.max(100, 120 / state.settings.speed),
     });
+    return;
   }
   if (completion === dragCompletion) finishDrag(move, angle);
 }
@@ -390,6 +391,7 @@ export async function redo() {
   }
 }
 export function resetPuzzle() {
+  interruptSettling();
   if (state.busy || state.solving) return;
   pause();
   patch({
@@ -441,6 +443,7 @@ export async function play() {
     patch({ player: { ...state.player, playing: false } });
 }
 export async function seek(target: number) {
+  interruptSettling();
   if (!state.player || state.busy || state.solving) return;
   pause();
   const p = state.player!;
@@ -478,6 +481,7 @@ function canPerformSequence(moves: string[]) {
   return true;
 }
 export async function applyInstant(moves: string[]) {
+  interruptSettling();
   if (state.busy || state.solving) return;
   pause();
   if (!canPerformSequence(moves)) return;
@@ -743,6 +747,7 @@ export function validatePresets(value: unknown): Preset[] {
   });
 }
 export function importProject(value: unknown) {
+  interruptSettling();
   if (state.busy || state.solving) return;
   const p = validateProject(value);
   pause();

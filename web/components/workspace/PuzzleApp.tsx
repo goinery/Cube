@@ -68,6 +68,23 @@ export default function PuzzleApp({
     [animate, setAnimate] = useState(true),
     [panelSize, setPanelSize] = useState(48),
     [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingJump = useRef(0);
+  function jump(mode: typeof s.mode) {
+    session.patch({ mode }); setOpen(true); pendingJump.current = performance.now() + 900;
+    requestAnimationFrame(() => {
+      const scroller = scrollRef.current, node = scroller?.querySelector<HTMLElement>(`[data-section="${mode}"]`);
+      if (scroller && node) scroller.scrollTo({top: node.offsetTop-scroller.offsetTop, behavior:'smooth'});
+    });
+  }
+  function trackScroll() {
+    const scroller = scrollRef.current;
+    if (!scroller || performance.now() < pendingJump.current) return;
+    let active = modes[0][0] as typeof s.mode;
+    const top = scroller.getBoundingClientRect().top + Math.min(100,scroller.clientHeight*.25);
+    for(const node of scroller.querySelectorAll<HTMLElement>('[data-section]')) if(node.getBoundingClientRect().top<=top) active=node.dataset.section as typeof s.mode;
+    if(session.state.mode!==active) session.patch({mode:active});
+  }
   const panelDrag = useRef<{
       position: number;
       size: number;
@@ -319,8 +336,7 @@ export default function PuzzleApp({
                 className={s.mode === mode ? 'active' : ''}
                 aria-current={s.mode === mode ? 'true' : undefined}
                 onClick={() => {
-                  session.patch({ mode });
-                  setOpen(true);
+                  jump(mode);
                 }}
               >
                 <Icon size={18} />
@@ -328,8 +344,8 @@ export default function PuzzleApp({
               </button>
             ))}
           </nav>
-          <div className="panel-scroll">
-            <div hidden={s.mode !== 'play'}>
+          <div className="panel-scroll" ref={scrollRef} onScroll={trackScroll}>
+            <div data-section="play" className="panel-block">
               <section className="panel-section magnetic-controls">
                 <div className="section-head">
                   <h3>{t('motion.title')}</h3>
@@ -352,8 +368,8 @@ export default function PuzzleApp({
                   0,
                   '°',
                 )}
-                <p className="microcopy">{t('motion.help')}</p>
-                <p className="microcopy">{t('motion.free')}</p>
+                <></>
+                <></>
                 {session.motion.held && (
                   <button
                     className="wide-button"
@@ -525,11 +541,8 @@ export default function PuzzleApp({
               </section>
               <AlgorithmPanel session={session} />
             </div>
-            <div hidden={s.mode !== 'explode'}>
-              <div className="engineering-card">
-                <Layers3 size={27} />
-                <strong>{t('explode.title')}</strong>
-              </div>
+            <div data-section="explode" className="panel-block">
+              <></>
               {range('explode.amount', 'explode', 0, 3)}
               <div className="explode-presets">
                 {['assembled', 'pieces', 'structure', 'complete'].map(
@@ -609,13 +622,13 @@ export default function PuzzleApp({
                 </p>
               </div>
             </div>
-            <div hidden={s.mode !== 'customize'} inert={s.solving}>
+            <div data-section="customize" className="panel-block" inert={s.solving}>
               <CustomizePanel session={session} />
             </div>
-            <div hidden={s.mode !== 'solver'}>
+            <div data-section="solver" className="panel-block">
               <SolverPanel session={session} />
             </div>
-            <div hidden={s.mode !== 'camera'}>
+            <div data-section="camera" className="panel-block">
               <div className="camera-grid">
                 {session.def.faces.map((face) => (
                   <button
@@ -709,7 +722,7 @@ export default function PuzzleApp({
                 }
               />
             </div>
-            <div hidden={s.mode !== 'inspect'}>
+            <div data-section="inspect" className="panel-block">
               <div className="inspection-state">
                 <span className="live-dot" />
                 {t('inspect.valid')}
@@ -717,7 +730,7 @@ export default function PuzzleApp({
                   {session.def.pieces.length} / {session.def.pieces.length}
                 </strong>
               </div>
-              <p className="help-text">{t('inspect.help')}</p>
+              <></>
               <h3>{t('player.historyTitle')}</h3>
               <p className="microcopy">
                 {t('player.step', { index: s.cursor, count: s.history.length })}
@@ -778,7 +791,7 @@ export default function PuzzleApp({
               <div className="puzzle-player-link">
                 <button
                   className="wide-button"
-                  onClick={() => session.patch({ mode: 'solver' })}
+                  onClick={() => jump('solver')}
                 >
                   {t('player.title')} · {s.player.index} /{' '}
                   {s.player.moves.length}

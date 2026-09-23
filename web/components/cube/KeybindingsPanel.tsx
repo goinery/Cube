@@ -77,7 +77,7 @@ export default function KeybindingsPanel() {
         <Keyboard size={14} />
         {tx('legacy.m236')}
       </summary>
-      <p className="microcopy">{tx('legacy.m237')}</p>
+      <></>
       <div className="keybindings-grid">
         <span>{tx('legacy.m203')}</span>
         <span>90°</span>

@@ -17,6 +17,7 @@ import {
   patch,
   subscribe,
   setAnimator,
+  setSettlingReader,
   setAlignmentAnimator,
   beginAlignedDrag,
   finishLayerTurn,
@@ -547,6 +548,17 @@ export default memo(function Viewport() {
         duration: number;
         resolve: () => void;
       } | null = null;
+    type LayerAnimation = { token: string; axis: number; layers: number[]; from: number; to: number; magnetic?: boolean; layerTurn?: boolean; angle?: number; velocity?: number; start: number; duration: number; resolve: () => void };
+    const settlements: LayerAnimation[] = [];
+    setSettlingReader(() => settlements.map(a=>({axis:a.axis,layer:a.layers[0],angle:a.angle!,velocity:a.velocity!,target:a.to})));
+    function prepareTurn(token?: string) {
+      const spec = token ? moveSpec(token) : null;
+      for (const a of [...settlements]) {
+        if (spec && (spec.layers.length === 3 || (spec.axis === a.axis && !spec.layers.includes(a.layers[0])))) continue;
+        settlements.splice(settlements.indexOf(a), 1);
+        finishLayerTurn(a.axis, a.layers[0], a.angle!, true);
+      }
+    }
     interface Drag {
       face: string;
       axis: number;
@@ -712,6 +724,20 @@ export default memo(function Viewport() {
     let previousState = getState();
     const unsub = subscribe(() => {
       const s = getState();
+      if (s.cube !== previousState.cube && settlements.length) {
+        for (const a of settlements) {
+          const before = previousState.cube.find(p => p.pos[a.axis] === a.layers[0])!;
+          const after = s.cube.find(p => p.id === before.id)!;
+          const delta = basisQuaternion(after).multiply(basisQuaternion(before).invert());
+          const v = new T.Vector3().setComponent(a.axis, 1).applyQuaternion(delta);
+          const axis = v.toArray().findIndex(x => Math.abs(x) > .99);
+          if (axis >= 0) {
+            const sign = Math.sign(v.getComponent(axis));
+            a.axis = axis; a.layers = [a.layers[0] * sign];
+            a.angle! *= sign; a.to *= sign; a.velocity! *= sign;
+          }
+        }
+      }
       if (s.artVersion !== lastArt) void updateArt();
       if (s.selected !== previousState.selected)
         optimizer?.invalidateVisibility();
@@ -747,6 +773,7 @@ export default memo(function Viewport() {
           };
           invalidate();
         }),
+      prepareTurn,
     );
     let boundsDirty = true,
       optimizerBoundsDirty = true;
@@ -766,7 +793,7 @@ export default memo(function Viewport() {
         s.settings.internal !== before.internal ||
         s.settings.stickerOffset !== before.stickerOffset ||
         s.settings.showMagnets !== before.showMagnets;
-      const turning = Boolean(animation || drag || alignment);
+      const turning = Boolean(animation || settlements.length || drag || alignment);
       const shapeChanged =
         partsChanged ||
         s.cube !== layoutState?.cube ||
@@ -994,12 +1021,8 @@ export default memo(function Viewport() {
         to = magnetic
           ? magneticTarget(targetAngle, velocity / 1000)
           : targetAngle;
-      patch({
-        busy: true,
-        dragging: true,
-        currentMove: face + tx('legacy.m292'),
-      });
-      animation = {
+      patch({ busy: false, dragging: false, currentMove: '' });
+      settlements.push({
         token: face,
         axis,
         layers: [layer],
@@ -1011,8 +1034,8 @@ export default memo(function Viewport() {
         layerTurn: true,
         start: performance.now(),
         duration: 120 / getState().settings.speed,
-        resolve: () => finishLayerTurn(axis, layer, to),
-      };
+        resolve: () => {},
+      });
       invalidate();
     }
     function finishDrag(cancelled = false) {
@@ -1134,12 +1157,6 @@ export default memo(function Viewport() {
         return;
       if (!drag) {
         if (Math.hypot(dx, dy) < 5 || (s.busy && !animation?.layerTurn)) return;
-        if (animation?.layerTurn) {
-          const a = animation;
-          animation = null;
-          finishLayerTurn(a.axis, a.layers[0], a.angle!);
-          s = getState();
-        }
         const hit = down.hit!,
           piece = s.cube.find((p) => p.id === hit.object.userData.piece)!;
         const normal = new T.Vector3(0, 0, 1)
@@ -1197,6 +1214,8 @@ export default memo(function Viewport() {
               };
           }
         if (!best) return;
+        prepareTurn(best.face);
+        s = getState();
         if (!allowMoves([best.face])) {
           down = null;
           return;
@@ -1365,9 +1384,20 @@ export default memo(function Viewport() {
       if (disposed || warming) return;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
+      for (const a of [...settlements]) {
+        const settings = getState().settings;
+        const t = T.MathUtils.smoothstep(now, a.start, a.start+a.duration);
+        const next = a.magnetic ? stepMagnet(a.angle!, a.velocity!, a.to, dt, settings.magnetStrength, settings.magnetDamping) : {angle:T.MathUtils.lerp(a.from,a.to,t),velocity:0};
+        a.angle = next.angle; a.velocity = next.velocity;
+        if ((a.magnetic && settings.magnetStrength === 0) || (Math.abs(a.angle-a.to) < .0001 && Math.abs(a.velocity) < .003)) {
+          settlements.splice(settlements.indexOf(a), 1);
+          finishLayerTurn(a.axis, a.layers[0], settings.magnetStrength === 0 ? a.angle : a.to, true);
+        }
+      }
       const s = getState();
       if (
         !animation &&
+        !settlements.length &&
         !alignment &&
         !drag &&
         !down &&
@@ -1405,6 +1435,14 @@ export default memo(function Viewport() {
         });
       coreInner = inner;
       coreMagnets = s.settings.showMagnets;
+      for (const a of settlements) {
+        const angle = a.angle! - heldAngle(s.partialTurns, a.axis, a.layers[0]);
+        turnRotation.setFromAxisAngle(turnAxis.set(0,0,0).setComponent(a.axis,1), angle);
+        for (const p of s.cube) if (a.layers.includes(p.pos[a.axis])) {
+          const root = models.get(p.id)!.root;
+          root.position.applyQuaternion(turnRotation); root.quaternion.premultiply(turnRotation); root.updateMatrix();
+        }
+      }
       if (alignment) {
         const a = alignment;
         const t = Math.min(1, (now - a.start) / a.duration);
@@ -1523,6 +1561,7 @@ export default memo(function Viewport() {
       if (
         s.settings.autoRotate &&
         !animation &&
+        !settlements.length &&
         !alignment &&
         !drag &&
         !down &&
@@ -1732,7 +1771,7 @@ export default memo(function Viewport() {
       }
       if (
         !frame &&
-        (animation ||
+        (animation || settlements.length ||
           alignment ||
           drag?.transition ||
           targetCamera ||
@@ -1779,6 +1818,7 @@ export default memo(function Viewport() {
     };
     renderer.domElement.addEventListener('webglcontextlost', loss);
     return () => {
+      prepareTurn();
       disposed = true;
       alignment?.resolve();
       setAlignmentAnimator(async () => {});
@@ -1788,6 +1828,7 @@ export default memo(function Viewport() {
         finishLayerTurn(animation.axis, animation.layers[0], animation.angle!);
       else animation?.resolve();
       setAnimator(async () => {});
+      setSettlingReader(() => []);
       unsub();
       patch({ ready: false });
       observer.disconnect();
