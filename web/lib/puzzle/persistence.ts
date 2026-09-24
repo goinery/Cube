@@ -226,7 +226,13 @@ export function validate(session: Session, value: unknown): Project {
     if (!finite(value, ...range)) return fail();
     Object.assign(settings, { [key]: value });
   }
-  for (const key of ['showMagnets', 'autoRotate', 'lightFollowCamera'] as const)
+  if (
+    p.settings.minimal !== undefined &&
+    typeof p.settings.minimal !== 'boolean'
+  )
+    return fail();
+  settings.minimal = p.settings.minimal === true;
+  for (const key of ['autoRotate', 'lightFollowCamera', 'showMagnets'] as const)
     if (typeof p.settings[key] === 'boolean') settings[key] = p.settings[key];
     else return fail();
   if (

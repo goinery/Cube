@@ -1,7 +1,8 @@
 'use client';
-import { tx, useLanguage } from '@/lib/i18n';
+import { tx, useLanguage, i18n } from '@/lib/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import * as T from 'three';
+import { MinimalRenderer } from '@/lib/rendering/minimal';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
   FACE,
@@ -124,7 +125,9 @@ export default memo(function Viewport() {
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.78;
-    renderer.domElement.setAttribute('aria-label', tx('legacy.m290'));
+    const localizeCanvas = () => renderer.domElement.setAttribute('aria-label', tx('legacy.m290'));
+    localizeCanvas();
+    i18n.on('languageChanged', localizeCanvas);
     el.appendChild(renderer.domElement);
     const scene = new T.Scene(),
       camera = new T.PerspectiveCamera(30, 1, 0.005, 200);
@@ -548,13 +551,39 @@ export default memo(function Viewport() {
         duration: number;
         resolve: () => void;
       } | null = null;
-    type LayerAnimation = { token: string; axis: number; layers: number[]; from: number; to: number; magnetic?: boolean; layerTurn?: boolean; angle?: number; velocity?: number; start: number; duration: number; resolve: () => void };
+    type LayerAnimation = {
+      token: string;
+      axis: number;
+      layers: number[];
+      from: number;
+      to: number;
+      magnetic?: boolean;
+      layerTurn?: boolean;
+      angle?: number;
+      velocity?: number;
+      start: number;
+      duration: number;
+      resolve: () => void;
+    };
     const settlements: LayerAnimation[] = [];
-    setSettlingReader(() => settlements.map(a=>({axis:a.axis,layer:a.layers[0],angle:a.angle!,velocity:a.velocity!,target:a.to})));
+    setSettlingReader(() =>
+      settlements.map((a) => ({
+        axis: a.axis,
+        layer: a.layers[0],
+        angle: a.angle!,
+        velocity: a.velocity!,
+        target: a.to,
+      })),
+    );
     function prepareTurn(token?: string) {
       const spec = token ? moveSpec(token) : null;
       for (const a of [...settlements]) {
-        if (spec && (spec.layers.length === 3 || (spec.axis === a.axis && !spec.layers.includes(a.layers[0])))) continue;
+        if (
+          spec &&
+          (spec.layers.length === 3 ||
+            (spec.axis === a.axis && !spec.layers.includes(a.layers[0])))
+        )
+          continue;
         settlements.splice(settlements.indexOf(a), 1);
         finishLayerTurn(a.axis, a.layers[0], a.angle!, true);
       }
@@ -726,15 +755,24 @@ export default memo(function Viewport() {
       const s = getState();
       if (s.cube !== previousState.cube && settlements.length) {
         for (const a of settlements) {
-          const before = previousState.cube.find(p => p.pos[a.axis] === a.layers[0])!;
-          const after = s.cube.find(p => p.id === before.id)!;
-          const delta = basisQuaternion(after).multiply(basisQuaternion(before).invert());
-          const v = new T.Vector3().setComponent(a.axis, 1).applyQuaternion(delta);
-          const axis = v.toArray().findIndex(x => Math.abs(x) > .99);
+          const before = previousState.cube.find(
+            (p) => p.pos[a.axis] === a.layers[0],
+          )!;
+          const after = s.cube.find((p) => p.id === before.id)!;
+          const delta = basisQuaternion(after).multiply(
+            basisQuaternion(before).invert(),
+          );
+          const v = new T.Vector3()
+            .setComponent(a.axis, 1)
+            .applyQuaternion(delta);
+          const axis = v.toArray().findIndex((x) => Math.abs(x) > 0.99);
           if (axis >= 0) {
             const sign = Math.sign(v.getComponent(axis));
-            a.axis = axis; a.layers = [a.layers[0] * sign];
-            a.angle! *= sign; a.to *= sign; a.velocity! *= sign;
+            a.axis = axis;
+            a.layers = [a.layers[0] * sign];
+            a.angle! *= sign;
+            a.to *= sign;
+            a.velocity! *= sign;
           }
         }
       }
@@ -793,7 +831,9 @@ export default memo(function Viewport() {
         s.settings.internal !== before.internal ||
         s.settings.stickerOffset !== before.stickerOffset ||
         s.settings.showMagnets !== before.showMagnets;
-      const turning = Boolean(animation || settlements.length || drag || alignment);
+      const turning = Boolean(
+        animation || settlements.length || drag || alignment,
+      );
       const shapeChanged =
         partsChanged ||
         s.cube !== layoutState?.cube ||
@@ -995,9 +1035,12 @@ export default memo(function Viewport() {
         (-(e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const visible = hitMeshes.filter(
-        (m) => isHierarchyVisible(m) && (!optimizer || optimizer.isVisible(m)),
-      );
+      const visible = hitMeshes
+        .filter((m) => !getState().settings.minimal || !m.userData.component)
+        .filter(
+          (m) =>
+            isHierarchyVisible(m) && (!optimizer || optimizer.isVisible(m)),
+        );
       return (
         raycaster.intersectObjects(
           visible.filter((m) => m.userData.mapping),
@@ -1379,6 +1422,7 @@ export default memo(function Viewport() {
       inverseOrientation = new T.Quaternion();
     let coreInner = NaN,
       coreMagnets: boolean | undefined;
+    const minimal = new MinimalRenderer([scene], stickers.values());
     function render(now: number) {
       frame = 0;
       if (disposed || warming) return;
@@ -1386,12 +1430,30 @@ export default memo(function Viewport() {
       last = now;
       for (const a of [...settlements]) {
         const settings = getState().settings;
-        const t = T.MathUtils.smoothstep(now, a.start, a.start+a.duration);
-        const next = a.magnetic ? stepMagnet(a.angle!, a.velocity!, a.to, dt, settings.magnetStrength, settings.magnetDamping) : {angle:T.MathUtils.lerp(a.from,a.to,t),velocity:0};
-        a.angle = next.angle; a.velocity = next.velocity;
-        if ((a.magnetic && settings.magnetStrength === 0) || (Math.abs(a.angle-a.to) < .0001 && Math.abs(a.velocity) < .003)) {
+        const t = T.MathUtils.smoothstep(now, a.start, a.start + a.duration);
+        const next = a.magnetic
+          ? stepMagnet(
+              a.angle!,
+              a.velocity!,
+              a.to,
+              dt,
+              settings.magnetStrength,
+              settings.magnetDamping,
+            )
+          : { angle: T.MathUtils.lerp(a.from, a.to, t), velocity: 0 };
+        a.angle = next.angle;
+        a.velocity = next.velocity;
+        if (
+          (a.magnetic && settings.magnetStrength === 0) ||
+          (Math.abs(a.angle - a.to) < 0.0001 && Math.abs(a.velocity) < 0.003)
+        ) {
           settlements.splice(settlements.indexOf(a), 1);
-          finishLayerTurn(a.axis, a.layers[0], settings.magnetStrength === 0 ? a.angle : a.to, true);
+          finishLayerTurn(
+            a.axis,
+            a.layers[0],
+            settings.magnetStrength === 0 ? a.angle : a.to,
+            true,
+          );
         }
       }
       const s = getState();
@@ -1437,11 +1499,17 @@ export default memo(function Viewport() {
       coreMagnets = s.settings.showMagnets;
       for (const a of settlements) {
         const angle = a.angle! - heldAngle(s.partialTurns, a.axis, a.layers[0]);
-        turnRotation.setFromAxisAngle(turnAxis.set(0,0,0).setComponent(a.axis,1), angle);
-        for (const p of s.cube) if (a.layers.includes(p.pos[a.axis])) {
-          const root = models.get(p.id)!.root;
-          root.position.applyQuaternion(turnRotation); root.quaternion.premultiply(turnRotation); root.updateMatrix();
-        }
+        turnRotation.setFromAxisAngle(
+          turnAxis.set(0, 0, 0).setComponent(a.axis, 1),
+          angle,
+        );
+        for (const p of s.cube)
+          if (a.layers.includes(p.pos[a.axis])) {
+            const root = models.get(p.id)!.root;
+            root.position.applyQuaternion(turnRotation);
+            root.quaternion.premultiply(turnRotation);
+            root.updateMatrix();
+          }
       }
       if (alignment) {
         const a = alignment;
@@ -1763,6 +1831,8 @@ export default memo(function Viewport() {
         }
         optimizer.prepareCamera(camera);
       }
+      const minimalMoving = minimal.update(s.settings.minimal, dt);
+      renderer.shadowMap.needsUpdate ||= minimalMoving;
       renderer.render(scene, camera);
       if (s.view === 'hidden' && !s.presentation) {
         renderer.autoClear = false;
@@ -1771,10 +1841,12 @@ export default memo(function Viewport() {
       }
       if (
         !frame &&
-        (animation || settlements.length ||
+        (animation ||
+          settlements.length ||
           alignment ||
           drag?.transition ||
           targetCamera ||
+          minimalMoving ||
           currentExplode !== s.settings.explode ||
           ground.position.y !== floorHeight ||
           (s.settings.autoRotate && !drag && !down && !pinch && !s.solving))
@@ -1818,6 +1890,7 @@ export default memo(function Viewport() {
     };
     renderer.domElement.addEventListener('webglcontextlost', loss);
     return () => {
+      i18n.off('languageChanged', localizeCanvas);
       prepareTurn();
       disposed = true;
       alignment?.resolve();

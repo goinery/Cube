@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
+import { MinimalRenderer } from '@/lib/rendering/minimal';
 import { buildPuzzle } from '@/lib/puzzle/geometry';
 import { paintFace } from '@/lib/puzzle/appearance';
 import { fitDistance } from '@/lib/cube/interaction';
@@ -116,6 +117,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     });
     const textures = new Map<string, T.CanvasTexture>();
     const hiddenMaps = new HiddenFaces(def, model.caps);
+    const minimal = new MinimalRenderer([scene], model.caps.values());
     let cameraDestination: {
       position: T.Vector3;
       target: T.Vector3;
@@ -376,12 +378,12 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         camera,
         target,
         session.state.view === 'hidden' && !session.state.presentation,
-        Math.max(surface.x, surface.y, surface.z) / 2,
         dt,
       );
       const old = session.state.faceAnchors || {};
       if (JSON.stringify(old) !== JSON.stringify(maps.anchors))
         session.patch({ faceAnchors: maps.anchors });
+      const minimalMoving = minimal.update(settings.minimal, dt);
       renderer.render(scene, camera);
       hiddenMaps.render(renderer, camera);
       const direction = camera.position.clone().sub(target).normalize(),
@@ -395,6 +397,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         cameraDestination ||
         settings.autoRotate ||
         transitioning ||
+        minimalMoving ||
         maps.moving ||
         Math.abs(ground.position.y - floor) > 0.0001 ||
         Math.abs(key.intensity - settings.lightIntensity) > 0.001 ||
@@ -532,6 +535,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       );
       raycaster.setFromCamera(pointer, camera);
       const visible = hitObjects.filter((object) => {
+        if (session.state.settings.minimal && !object.userData.tile)
+          return false;
         for (let p: T.Object3D | null = object; p; p = p.parent)
           if (!p.visible) return false;
         return true;

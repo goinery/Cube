@@ -48,6 +48,7 @@ export interface Settings {
   lightElevation: number;
   lightIntensity: number;
   quality: 'auto' | 'high' | 'low';
+  minimal: boolean;
   showMagnets: boolean;
   magnetStrength: number;
   magnetDamping: number;
@@ -70,6 +71,7 @@ export const defaultSettings = (): Settings => ({
   lightElevation: 50,
   lightIntensity: 2.8,
   quality: 'auto',
+  minimal: false,
   showMagnets: true,
   magnetStrength: 1,
   magnetDamping: 0.7,
@@ -242,11 +244,23 @@ export function selectSticker(id: string, multiple = true) {
 export type Animator = (move: string, duration: number) => Promise<void>;
 let animate: Animator = async () => {};
 let prepareTurn: (token?: string) => void = () => {};
-let readSettling = () => [] as {axis:number;layer:number;angle:number;velocity:number;target:number}[];
-export function setSettlingReader(read: typeof readSettling) { readSettling = read; }
+let readSettling = () =>
+  [] as {
+    axis: number;
+    layer: number;
+    angle: number;
+    velocity: number;
+    target: number;
+  }[];
+export function setSettlingReader(read: typeof readSettling) {
+  readSettling = read;
+}
 export const settlingTurns = () => readSettling();
 let animateAlignment: (partial: PartialTurns) => Promise<void> = async () => {};
-export function setAnimator(fn: Animator, prepare: typeof prepareTurn = () => {}) {
+export function setAnimator(
+  fn: Animator,
+  prepare: typeof prepareTurn = () => {},
+) {
   animate = fn;
   prepareTurn = prepare;
 }
@@ -299,7 +313,12 @@ export function allowMoves(moves: string[]): boolean {
   notify(tx('legacy.m488', { p0: state.settings.turnTolerance }));
   return false;
 }
-export function finishLayerTurn(axis: number, layer: number, angle: number, background = false) {
+export function finishLayerTurn(
+  axis: number,
+  layer: number,
+  angle: number,
+  background = false,
+) {
   if (
     (!background && state.solving) ||
     ![0, 1, 2].includes(axis) ||
@@ -323,7 +342,9 @@ export function finishLayerTurn(axis: number, layer: number, angle: number, back
     history,
     cursor: token ? history.length : state.cursor,
     partialTurns: angles.some(Boolean) ? { axis, angles } : null,
-    ...(!background ? { busy: false, dragging: false, currentMove: '', player: null } : {}),
+    ...(!background
+      ? { busy: false, dragging: false, currentMove: '', player: null }
+      : {}),
   });
 }
 let playGeneration = 0;

@@ -1,6 +1,7 @@
-import { tx, useLanguage } from '@/lib/i18n';
+import { tx, useLanguage, i18n } from '@/lib/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import * as T from 'three';
+import { MinimalRenderer } from '@/lib/rendering/minimal';
 import {
   FACE_NAMES,
   FACE_VERTICES,
@@ -112,8 +113,21 @@ export default memo(function PyraminxViewport() {
           resolve: (angle: number) => void;
         })
       | null = null;
-    const settlements: (Animation & { start: number; angle: number; velocity: number; resolve: (angle: number) => void })[] = [];
-    setSettlingReader(() => settlements.map(a=>({axis:a.move.axis,layer:a.move.layer,angle:a.angle,velocity:a.velocity,target:a.to})));
+    const settlements: (Animation & {
+      start: number;
+      angle: number;
+      velocity: number;
+      resolve: (angle: number) => void;
+    })[] = [];
+    setSettlingReader(() =>
+      settlements.map((a) => ({
+        axis: a.move.axis,
+        layer: a.move.layer,
+        angle: a.angle,
+        velocity: a.velocity,
+        target: a.to,
+      })),
+    );
     let alignment:
       | (AlignmentPose & {
           start: number;
@@ -144,7 +158,12 @@ export default memo(function PyraminxViewport() {
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     const maps = document.createElement('canvas');
     maps.className = 'pyr-maps';
-    maps.setAttribute('aria-label', tx('legacy.m405'));
+    const localizeCanvas = () => {
+      canvas.setAttribute('aria-label', tx('legacy.m404'));
+      maps.setAttribute('aria-label', tx('legacy.m405'));
+    };
+    localizeCanvas();
+    i18n.on('languageChanged', localizeCanvas);
     el.append(canvas, maps);
     const scene = new T.Scene(),
       camera = new T.PerspectiveCamera(31, 1, 0.01, 100),
@@ -396,7 +415,8 @@ export default memo(function PyraminxViewport() {
           : null;
       const progress = alignment?.progress ?? -1;
       if (
-        !destination && !settlements.length &&
+        !destination &&
+        !settlements.length &&
         previousModel?.puzzle === s.puzzle &&
         previousModel.partials === s.partials &&
         SHAPE_SETTINGS.every(
@@ -427,8 +447,19 @@ export default memo(function PyraminxViewport() {
           alignment.progress,
         );
       }
-      const pendingTurns = settlements.map(a => ({ ...a.move, angle: a.angle }));
-      for (const visible of visibleTurns([...s.partials.filter(p => !pendingTurns.some(a => sameLayer(p,a))), ...pendingTurns], turn)) {
+      const pendingTurns = settlements.map((a) => ({
+        ...a.move,
+        angle: a.angle,
+      }));
+      for (const visible of visibleTurns(
+        [
+          ...s.partials.filter(
+            (p) => !pendingTurns.some((a) => sameLayer(p, a)),
+          ),
+          ...pendingTurns,
+        ],
+        turn,
+      )) {
         rotation.setFromAxisAngle(
           vertices[visible.axis].clone().normalize(),
           visible.angle,
@@ -590,6 +621,7 @@ export default memo(function PyraminxViewport() {
       });
       ctx.restore();
     }
+    const minimal = new MinimalRenderer([scene], model.tiles.values());
     function render(time: number) {
       frame = 0;
       if (disposed || warming) return;
@@ -730,6 +762,7 @@ export default memo(function PyraminxViewport() {
         viewWeights.hidden,
         dt,
       );
+      const minimalMoving = minimal.update(s.settings.minimal, dt);
       if (canvas.style.visibility !== 'hidden') {
         optimizer.prepareCamera(camera);
         renderer.render(scene, camera);
@@ -755,13 +788,15 @@ export default memo(function PyraminxViewport() {
         completed.resolve(completed.angle);
       }
       if (
-        animation || settlements.length ||
+        animation ||
+        settlements.length ||
         alignment ||
         drag?.transition ||
         cameraDestination ||
         shapeMoving ||
         viewMoving ||
         projectionsMoving ||
+        minimalMoving ||
         s.settings.autoRotate
       )
         invalidate();
@@ -791,9 +826,15 @@ export default memo(function PyraminxViewport() {
         }),
       (move) => {
         for (const a of [...settlements]) {
-          if (move && !sameLayer(a.move, move) && !turnsConflict({ ...a.move, angle: a.angle }, move)) continue;
-          settlements.splice(settlements.indexOf(a),1);
-          finishDrag(a.move, a.angle, true); a.resolve(a.angle);
+          if (
+            move &&
+            !sameLayer(a.move, move) &&
+            !turnsConflict({ ...a.move, angle: a.angle }, move)
+          )
+            continue;
+          settlements.splice(settlements.indexOf(a), 1);
+          finishDrag(a.move, a.angle, true);
+          a.resolve(a.angle);
         }
         updateModel();
       },
@@ -801,10 +842,15 @@ export default memo(function PyraminxViewport() {
     function sync() {
       const s = getState();
       if (previousState && previousState.puzzle !== s.puzzle) {
-        for (const a of settlements) if (a.move.layer === 'tip') {
-          const i = [0,1,2,3].find(i => ROTATIONS[previousState!.puzzle.rotations[i]][i] === a.move.axis)!;
-          a.move = { ...a.move, axis: ROTATIONS[s.puzzle.rotations[i]][i] };
-        }
+        for (const a of settlements)
+          if (a.move.layer === 'tip') {
+            const i = [0, 1, 2, 3].find(
+              (i) =>
+                ROTATIONS[previousState!.puzzle.rotations[i]][i] ===
+                a.move.axis,
+            )!;
+            a.move = { ...a.move, axis: ROTATIONS[s.puzzle.rotations[i]][i] };
+          }
       }
       if (
         !previousState ||
@@ -872,6 +918,7 @@ export default memo(function PyraminxViewport() {
         .intersectObjects(model.hits, false)
         .find(
           (h) =>
+            (!getState().settings.minimal || h.object.userData.cap) &&
             isHierarchyVisible(h.object) &&
             optimizer.isVisible(h.object as T.Mesh),
         );
@@ -964,7 +1011,6 @@ export default memo(function PyraminxViewport() {
       let s = getState();
       if (s.mode !== 'play' && s.mode !== 'solver') return;
       if (!d.move) {
-
         s = getState();
         if (s.busy) return;
         const face =
@@ -1161,6 +1207,7 @@ export default memo(function PyraminxViewport() {
         if (!disposed) setError(tx('legacy.m295'));
       });
     return () => {
+      i18n.off('languageChanged', localizeCanvas);
       interruptSettling();
       disposed = true;
       cancelAnimationFrame(frame);

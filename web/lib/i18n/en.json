@@ -21,7 +21,8 @@
     "pieces": "{{count}} pieces",
     "tiles": "{{count}} tiles",
     "engine": "Motion engine",
-    "local": "Local workspace"
+    "local": "Local workspace",
+    "axes": "{{count}} axes"
   },
   "puzzle": {
     "cube": "3 × 3 cube",
@@ -101,7 +102,7 @@
     "aligning": "Aligning layers…"
   },
   "algorithm": {
-    "title": "Algorithm laboratory",
+    "title": "Algorithms",
     "placeholder": "Enter a sequence of moves…",
     "play": "Play algorithm",
     "presets": "Algorithm presets",
@@ -211,7 +212,8 @@
     "low": "Low",
     "adaptive": "Auto",
     "hint": "Drag a face to turn. Drag the background or right-drag to orbit; Shift-drag to roll. Scroll to zoom. Two fingers orbit, zoom and roll.",
-    "select": "Select a sticker before focusing on a piece."
+    "select": "Select a sticker before focusing on a piece.",
+    "minimal": "Minimal"
   },
   "solver": {
     "title": "Solve current state",
@@ -221,7 +223,7 @@
     "short": "Shorter solution",
     "teaching": "Step by step",
     "pictures": "Restore picture positions & orientation",
-    "initializing": "Building puzzle group tables…",
+    "initializing": "Preparing solver…",
     "tables": "Preparing stabilizer {{level}} · {{count}} generators",
     "searching": "Reducing the current state…",
     "stage": "Restore {{kind}}",
@@ -262,7 +264,7 @@
     "solution": "Solution"
   },
   "project": {
-    "title": "Save your work",
+    "title": "Projects",
     "save": "Save project",
     "load": "Load saved project",
     "export": "Export project JSON",
@@ -289,7 +291,7 @@
     "m006": "Imported {{p0}} algorithms{{p1}}.",
     "m007": "; duplicates skipped",
     "m008": "All algorithms in this file already exist.",
-    "m009": "Algorithm lab",
+    "m009": "Algorithms",
     "m010": "Import algorithms as JSON",
     "m011": "Importing…",
     "m012": "Import",
@@ -466,7 +468,7 @@
     "m183": "Text and colors",
     "m184": "Sticker text",
     "m185": "Apply text",
-    "m186": "Save my design",
+    "m186": "Projects",
     "m187": "Autosave:",
     "m188": "On",
     "m189": "Off",

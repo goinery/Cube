@@ -1,4 +1,4 @@
-import { tx } from '@/lib/i18n';
+import { tx, builtinLabel } from '@/lib/i18n';
 import { parseAlgorithm } from './model';
 export interface AlgorithmPreset {
   name: string;
@@ -17,6 +17,10 @@ export const defaultAlgorithmPresets = (): AlgorithmPreset[] => [
     algorithm: "U2 L2 F2 U' B2 D R F' R F' R F' D' B2 U'",
   },
 ];
+export function algorithmPresetLabel(preset: AlgorithmPreset) {
+  const index = defaultAlgorithmPresets().findIndex(item => item.algorithm === preset.algorithm);
+  return index < 0 ? preset.name : builtinLabel(preset.name, ['legacy.m408', 'legacy.m409'][index]);
+}
 export function validateAlgorithmPreset(value: unknown): AlgorithmPreset {
   if (!value || typeof value !== 'object') throw new Error(tx('legacy.m410'));
   const preset = value as Partial<AlgorithmPreset>;

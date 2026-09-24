@@ -442,9 +442,6 @@ export default function CubeApp({
           <span className="brand-divider" />
           <span className="brand-subtitle">{tx('legacy.m039')}</span>
         </div>
-        <div className="header-center">
-          MAGNETIC PRECISION CUBE <span>·</span> DIGITAL EDITION
-        </div>
         <div className="header-actions">
           <LanguageSwitcher />
           <span className="local-badge">
@@ -542,6 +539,11 @@ export default function CubeApp({
               ]}
               onChange={(v) => patch({ view: v as View })}
             />
+            <Toggle
+              label={tx('camera.minimal')}
+              value={s.settings.minimal}
+              onChange={(minimal) => settings({ minimal })}
+            />
           </div>
           <FaceMaps />
           <div className="stage-bottom">
@@ -579,7 +581,7 @@ export default function CubeApp({
           </div>
           <div className="object-spec">
             <span>{tx('app.pieces', { count: 26 })}</span>
-            <span>6 AXES</span>
+            <span>{tx('app.axes', { count: 6 })}</span>
             <span>{tx('app.tiles', { count: 54 })}</span>
           </div>
           {!s.ready && (
@@ -1128,9 +1130,7 @@ export default function CubeApp({
             ? `${tx('mode.explode')} ${s.settings.explode.toFixed(2)}`
             : tx('app.ready')}
         </span>
-        <span>
-          {tx('app.local')}
-        </span>
+        <span>{tx('app.local')}</span>
       </footer>
       {s.notice && <output className="toast">{s.notice}</output>}
     </main>

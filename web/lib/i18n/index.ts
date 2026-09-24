@@ -38,6 +38,10 @@ if (typeof document !== 'undefined')
 export const t = (key: string, params?: Record<string, unknown>): string =>
   i18n.t(key, params) as string;
 export const tx = t;
+/** Translate built-in saved labels while preserving user-authored names. */
+export function builtinLabel(value: string, key: string) {
+  return ['zh-CN', 'en'].some(locale => i18n.getResource(locale, 'translation', key) === value) ? t(key) : value;
+}
 export function useLanguage() {
   useTranslation();
 }

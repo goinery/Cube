@@ -15,11 +15,22 @@ export class HiddenFaces {
     string,
     { root: T.Group; tiles: Map<string, T.Mesh>; opacity: number }
   >();
+  private readonly radius: number;
   private materials = new Map<string, T.MeshBasicMaterial>();
   constructor(
     private def: Definition,
     private caps: Map<string, T.Mesh>,
   ) {
+    // Canonical geometry, independent of any layer pose or transient bounding box.
+    this.radius = Math.max(
+      ...def.faces.flatMap((face) =>
+        face.outline.flatMap(([x, y]) =>
+          face.center.map((c, i) =>
+            Math.abs(c + face.right[i] * x + face.up[i] * y),
+          ),
+        ),
+      ),
+    );
     for (const face of def.faces) {
       const root = new T.Group(),
         tiles = new Map<string, T.Mesh>();
@@ -45,9 +56,9 @@ export class HiddenFaces {
     camera: T.PerspectiveCamera,
     target: T.Vector3,
     enabled: boolean,
-    radius: number,
     dt: number,
   ) {
+    const radius = this.radius;
     const direction = camera.position.clone().sub(target).normalize(),
       center = new T.Vector3().project(camera),
       anchors: Record<string, FaceAnchor> = {};
@@ -150,7 +161,8 @@ export class HiddenFaces {
           n = new T.Vector3(...origin.normal).transformDirection(
             source.matrixWorld,
           );
-        const adjacentNormal = this.def.id === 'megaminx' ? 1 / Math.sqrt(5) : 0;
+        const adjacentNormal =
+          this.def.id === 'megaminx' ? 1 / Math.sqrt(5) : 0;
         tile.visible = n.dot(normal) > adjacentNormal + 0.001;
         if (tile.visible)
           tile.matrix.multiplyMatrices(transform, source.matrixWorld);

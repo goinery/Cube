@@ -166,6 +166,7 @@ export function validateProject(value: unknown): Project {
     settings.gap = 0.006;
     settings.stickerOffset = 0.002;
   }
+  settings.minimal = p.settings?.minimal === true;
   settings.showMagnets = p.settings?.showMagnets !== false;
   settings.autoRotate = false;
   settings.lightFollowCamera = p.settings?.lightFollowCamera !== false;

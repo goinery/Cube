@@ -1,3 +1,4 @@
+import { tx } from '../i18n';
 import { getState, loadPlayer, play, settlingTurns } from './store';
 import { canTurnSequence } from './interaction';
 import {
@@ -101,7 +102,7 @@ export const cubeTools: PageTool[] = [
         throw new Error(
           'Align the held layers before turning a perpendicular layer.',
         );
-      loadPlayer(moves, 'Algorithm');
+      loadPlayer(moves, tx('algorithm.title'));
       await play();
       return {
         completed:

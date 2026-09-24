@@ -13,7 +13,9 @@
     "verify:pyraminx": "node ../scripts/launch.mjs verify:pyraminx",
     "verify:rendering": "node ../scripts/launch.mjs verify:rendering",
     "lint": "oxlint",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "verify:solvers": "node ../scripts/launch.mjs verify:solvers",
+    "verify:views": "node ../scripts/launch.mjs verify:views"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

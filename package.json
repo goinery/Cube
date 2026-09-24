@@ -10,7 +10,9 @@
     "verify": "node scripts/launch.mjs verify",
     "verify:pyraminx": "node scripts/launch.mjs verify:pyraminx",
     "setup": "npm install --prefix web",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "verify:solvers": "node scripts/launch.mjs verify:solvers",
+    "verify:views": "node scripts/launch.mjs verify:views"
   },
   "devDependencies": {
     "wrangler": "4.130.0"

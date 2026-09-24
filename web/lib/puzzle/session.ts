@@ -29,6 +29,7 @@ export interface Settings {
   gap: number;
   size: number;
   stickerOffset: number;
+  minimal: boolean;
   showMagnets: boolean;
   roughness: number;
   autoRotate: boolean;
@@ -91,6 +92,7 @@ export function defaultSettings(def: Definition): Settings {
     gap: 0.008,
     size: 1,
     stickerOffset: 0,
+    minimal: false,
     showMagnets: true,
     roughness: 0.24,
     autoRotate: false,

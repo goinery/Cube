@@ -1,3 +1,4 @@
+import { algorithmPresetLabel } from '@/lib/cube/algorithms';
 'use client';
 import { tx, useLanguage } from '@/lib/i18n';
 import { useRef, useState } from 'react';
@@ -124,12 +125,12 @@ export default function AlgorithmLab() {
       >
         {presets.map((preset) => (
           <button
-            key={preset.name}
+            key={algorithmPresetLabel(preset)}
             className={normalized === preset.algorithm ? 'active' : ''}
             aria-pressed={normalized === preset.algorithm}
             onClick={() => setAlgorithm(preset.algorithm)}
           >
-            {preset.name}
+            {algorithmPresetLabel(preset)}
           </button>
         ))}
         <button

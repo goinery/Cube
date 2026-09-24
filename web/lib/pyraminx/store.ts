@@ -1,4 +1,4 @@
-import { i18n, tx } from '@/lib/i18n';
+import { i18n, tx, builtinLabel } from '@/lib/i18n';
 import { useSyncExternalStore } from 'react';
 import {
   heldAngle,
@@ -56,6 +56,10 @@ export const defaultPresets = (): Preset[] => [
   { name: tx('legacy.m508'), algorithm: 'u l r b' },
   { name: tx('legacy.m509'), algorithm: "Uw Rw' Bw Lw'" },
 ];
+export function presetLabel(preset: Preset) {
+  const index = defaultPresets().findIndex(item => item.algorithm === preset.algorithm);
+  return index < 0 ? preset.name : builtinLabel(preset.name, ['legacy.m506', 'legacy.m507', 'legacy.m508', 'legacy.m509'][index]);
+}
 export const defaultKeys = (): Record<string, string> => ({
   ...Object.fromEntries(
     AXES.flatMap((axis) =>
@@ -177,10 +181,22 @@ export function setAlignmentAnimator(fn: typeof alignmentAnimator) {
   alignmentAnimator = fn;
 }
 let interruptMagnet: (move?: Move) => void = () => {};
-let readSettling = () => [] as {axis:number;layer:string;angle:number;velocity:number;target:number}[];
-export function setSettlingReader(read: typeof readSettling) { readSettling = read; }
+let readSettling = () =>
+  [] as {
+    axis: number;
+    layer: string;
+    angle: number;
+    velocity: number;
+    target: number;
+  }[];
+export function setSettlingReader(read: typeof readSettling) {
+  readSettling = read;
+}
 export const settlingTurns = () => readSettling();
-export function setAnimator(fn: typeof animator, interrupt: typeof interruptMagnet = () => {}) {
+export function setAnimator(
+  fn: typeof animator,
+  interrupt: typeof interruptMagnet = () => {},
+) {
   animator = fn;
   interruptMagnet = interrupt;
 }
@@ -324,7 +340,15 @@ export function finishDrag(move: Move, angle: number, background = false) {
         ? [{ axis: move.axis, layer: move.layer, angle: residual }]
         : []),
     ],
-    ...(!background ? { busy: false, dragging: false, settling: false, currentMove: '', player: null } : {}),
+    ...(!background
+      ? {
+          busy: false,
+          dragging: false,
+          settling: false,
+          currentMove: '',
+          player: null,
+        }
+      : {}),
   });
 }
 export async function releaseDrag(
@@ -699,7 +723,12 @@ export function validateProject(value: unknown): Project {
     Object.assign(settings, { [key]: v });
   }
   settings.turnTolerance = Math.min(60, settings.turnTolerance);
-  for (const key of ['autoRotate', 'lightFollowCamera', 'showMagnets'] as const)
+  for (const key of [
+    'minimal',
+    'autoRotate',
+    'lightFollowCamera',
+    'showMagnets',
+  ] as const)
     if (typeof p.settings?.[key] === 'boolean') settings[key] = p.settings[key];
   if (['auto', 'high', 'low'].includes(p.settings?.quality))
     settings.quality = p.settings.quality;

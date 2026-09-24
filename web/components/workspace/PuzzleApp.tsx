@@ -71,19 +71,30 @@ export default function PuzzleApp({
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingJump = useRef(0);
   function jump(mode: typeof s.mode) {
-    session.patch({ mode }); setOpen(true); pendingJump.current = performance.now() + 900;
+    session.patch({ mode });
+    setOpen(true);
+    pendingJump.current = performance.now() + 900;
     requestAnimationFrame(() => {
-      const scroller = scrollRef.current, node = scroller?.querySelector<HTMLElement>(`[data-section="${mode}"]`);
-      if (scroller && node) scroller.scrollTo({top: node.offsetTop-scroller.offsetTop, behavior:'smooth'});
+      const scroller = scrollRef.current,
+        node = scroller?.querySelector<HTMLElement>(`[data-section="${mode}"]`);
+      if (scroller && node)
+        scroller.scrollTo({
+          top: node.offsetTop - scroller.offsetTop,
+          behavior: 'smooth',
+        });
     });
   }
   function trackScroll() {
     const scroller = scrollRef.current;
     if (!scroller || performance.now() < pendingJump.current) return;
     let active = modes[0][0] as typeof s.mode;
-    const top = scroller.getBoundingClientRect().top + Math.min(100,scroller.clientHeight*.25);
-    for(const node of scroller.querySelectorAll<HTMLElement>('[data-section]')) if(node.getBoundingClientRect().top<=top) active=node.dataset.section as typeof s.mode;
-    if(session.state.mode!==active) session.patch({mode:active});
+    const top =
+      scroller.getBoundingClientRect().top +
+      Math.min(100, scroller.clientHeight * 0.25);
+    for (const node of scroller.querySelectorAll<HTMLElement>('[data-section]'))
+      if (node.getBoundingClientRect().top <= top)
+        active = node.dataset.section as typeof s.mode;
+    if (session.state.mode !== active) session.patch({ mode: active });
   }
   const panelDrag = useRef<{
       position: number;
@@ -266,6 +277,11 @@ export default function PuzzleApp({
                 session.patch({ view: view as typeof s.view })
               }
             />
+            <Toggle
+              label={t('camera.minimal')}
+              value={s.settings.minimal}
+              onChange={(minimal) => session.settings({ minimal })}
+            />
           </div>
           <FaceMaps session={session} />
           <div className="stage-bottom">
@@ -280,7 +296,10 @@ export default function PuzzleApp({
               >
                 <RotateCcw size={17} />
               </button>
-              <button aria-label={t('camera.fit')} onClick={() => session.camera.fit()}>
+              <button
+                aria-label={t('camera.fit')}
+                onClick={() => session.camera.fit()}
+              >
                 <Focus size={18} />
                 <span>{t('camera.fit')}</span>
               </button>
@@ -622,7 +641,11 @@ export default function PuzzleApp({
                 </p>
               </div>
             </div>
-            <div data-section="customize" className="panel-block" inert={s.solving}>
+            <div
+              data-section="customize"
+              className="panel-block"
+              inert={s.solving}
+            >
               <CustomizePanel session={session} />
             </div>
             <div data-section="solver" className="panel-block">
@@ -789,10 +812,7 @@ export default function PuzzleApp({
             </div>
             {s.player && s.mode !== 'solver' && (
               <div className="puzzle-player-link">
-                <button
-                  className="wide-button"
-                  onClick={() => jump('solver')}
-                >
+                <button className="wide-button" onClick={() => jump('solver')}>
                   {t('player.title')} · {s.player.index} /{' '}
                   {s.player.moves.length}
                 </button>

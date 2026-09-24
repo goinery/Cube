@@ -62,6 +62,7 @@ import {
   defaultColors,
   defaultKeys,
   defaultPresets,
+  presetLabel,
   getState,
   importProject,
   loadPlayer,
@@ -399,8 +400,13 @@ export default function PyraminxApp({
     requestAnimationFrame(() => {
       const node = sections.current[mode];
       if (node && scroll.current)
-        scroll.current.scrollTo({ top: node.offsetTop - scroll.current.offsetTop, behavior: 'smooth' });
-      setTimeout(() => { pendingMode.current = null; }, 900);
+        scroll.current.scrollTo({
+          top: node.offsetTop - scroll.current.offsetTop,
+          behavior: 'smooth',
+        });
+      setTimeout(() => {
+        pendingMode.current = null;
+      }, 900);
     });
   }
   function trackScroll() {
@@ -567,9 +573,6 @@ export default function PyraminxApp({
           <span className="brand-divider" />
           <span className="brand-subtitle">{tx('legacy.m039')}</span>
         </div>
-        <div className="header-center">
-          MAGNETIC PYRAMINX <span>·</span> DIGITAL EDITION
-        </div>
         <div className="header-actions">
           <LanguageSwitcher />
           <div className="autosave-switch">
@@ -645,6 +648,11 @@ export default function PyraminxApp({
               ]}
               onChange={(view) => patch({ view: view as View })}
             />
+            <Toggle
+              label={tx('camera.minimal')}
+              value={s.settings.minimal}
+              onChange={(minimal) => settings({ minimal })}
+            />
           </div>
           {s.solving && (
             <output className="solve-lock">{tx('legacy.m317')}</output>
@@ -684,7 +692,7 @@ export default function PyraminxApp({
           </div>
           <div className="object-spec">
             <span>{tx('app.pieces', { count: 14 })}</span>
-            <span>4 AXES</span>
+            <span>{tx('app.axes', { count: 4 })}</span>
             <span>{tx('app.tiles', { count: 36 })}</span>
           </div>
           {!s.ready && (
@@ -941,11 +949,11 @@ export default function PyraminxApp({
                 <div className="algorithm-presets">
                   {s.presets.map((p, i) => (
                     <button
-                      key={`${p.name}-${i}`}
+                      key={`${presetLabel(p)}-${i}`}
                       className={algorithm === p.algorithm ? 'active' : ''}
                       onClick={() => setAlgorithm(p.algorithm)}
                     >
-                      {p.name}
+                      {presetLabel(p)}
                     </button>
                   ))}
                 </div>
@@ -1123,12 +1131,29 @@ export default function PyraminxApp({
                 </span>
               </div>
               <div className="face-selector">
-                {FACE_NAMES.map((name,i)=><button key={i} className={s.editFace===i?'active':''}
-                  aria-pressed={s.editFace===i} onClick={()=>{patch({editFace:i,selected:TILES.filter(t=>t.face===i).map(t=>t.id)});cameraActions.face(i);}}>
-                  <i style={{background:FACE_COLORS[i]}} />{name}
-                </button>)}
+                {FACE_NAMES.map((name, i) => (
+                  <button
+                    key={i}
+                    className={s.editFace === i ? 'active' : ''}
+                    aria-pressed={s.editFace === i}
+                    onClick={() => {
+                      patch({
+                        editFace: i,
+                        selected: TILES.filter((t) => t.face === i).map(
+                          (t) => t.id,
+                        ),
+                      });
+                      cameraActions.face(i);
+                    }}
+                  >
+                    <i style={{ background: FACE_COLORS[i] }} />
+                    {name}
+                  </button>
+                ))}
               </div>
-              <div className="editor-face"><TilePicker /></div>
+              <div className="editor-face">
+                <TilePicker />
+              </div>
               <div className="selection-actions">
                 <button
                   disabled={s.solving}
