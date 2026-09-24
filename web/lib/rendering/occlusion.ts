@@ -46,44 +46,42 @@ export class OcclusionCoverage {
     const sign = Math.sign(determinant);
     const zx = ((b.z - a.z) * ey - (c.z - a.z) * dy) / determinant;
     const zy = (dx * (c.z - a.z) - ex * (b.z - a.z)) / determinant;
+    const left = Math.max(0, Math.ceil(minX)),
+      right = Math.min(this.size, Math.floor(maxX)) - 1;
     for (
       let y = Math.max(0, Math.ceil(minY));
       y < Math.min(this.size, Math.floor(maxY));
       y++
     ) {
-      for (
-        let x = Math.max(0, Math.ceil(minX));
-        x < Math.min(this.size, Math.floor(maxX));
-        x++
-      ) {
-        let covered = true;
-        for (let i = 0; i < count; i++) {
-          const p = this.projected[i],
-            q = this.projected[(i + 1) % count];
-          const nx = -(q.y - p.y) * sign,
-            ny = (q.x - p.x) * sign;
-          if (
-            nx * (x - p.x) +
-              ny * (y - p.y) +
-              Math.min(0, nx) +
-              Math.min(0, ny) <
-            1e-7
-          ) {
-            covered = false;
-            break;
-          }
-        }
-        if (covered) {
-          const far =
-            a.z +
-            zx * (x - a.x) +
-            zy * (y - a.y) +
-            Math.max(0, zx) +
-            Math.max(0, zy) +
-            1e-7;
-          const index = y * this.size + x;
-          this.depth[index] = Math.min(this.depth[index], far);
-        }
+      let start = left,
+        end = right;
+      // A convex polygon covers one interval per row. Clip that interval by
+      // the same four-corner halfspaces instead of testing every cell/edge.
+      for (let i = 0; i < count && start <= end; i++) {
+        const p = this.projected[i],
+          q = this.projected[(i + 1) % count];
+        const nx = -(q.y - p.y) * sign,
+          ny = (q.x - p.x) * sign;
+        const offset = ny * (y - p.y) + Math.min(0, nx) + Math.min(0, ny);
+        if (nx > 0)
+          start = Math.max(
+            start,
+            Math.ceil(p.x + (1e-7 - offset) / nx + 1e-10),
+          );
+        else if (nx < 0)
+          end = Math.min(end, Math.floor(p.x + (1e-7 - offset) / nx - 1e-10));
+        else if (offset < 1e-7) end = start - 1;
+      }
+      for (let x = start; x <= end; x++) {
+        const far =
+          a.z +
+          zx * (x - a.x) +
+          zy * (y - a.y) +
+          Math.max(0, zx) +
+          Math.max(0, zy) +
+          1e-7;
+        const index = y * this.size + x;
+        this.depth[index] = Math.min(this.depth[index], far);
       }
     }
   }

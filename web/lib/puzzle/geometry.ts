@@ -40,7 +40,11 @@ export function capGeometry(def: Definition, tile: TileDefinition) {
         next = tile.outline[(index + 1) % count],
         lower = rings[Math.max(0, ring - 1)],
         upper = rings[Math.min(rings.length - 1, ring + 1)],
-        tangent = new T.Vector3(next[0] - previous[0], next[1] - previous[1], 0),
+        tangent = new T.Vector3(
+          next[0] - previous[0],
+          next[1] - previous[1],
+          0,
+        ),
         profile = new T.Vector3(
           (p[0] - tile.center[0]) * (upper[0] - lower[0]),
           (p[1] - tile.center[1]) * (upper[0] - lower[0]),
@@ -49,15 +53,22 @@ export function capGeometry(def: Definition, tile: TileDefinition) {
         local = tangent.cross(profile).normalize();
       if (ring >= 5) {
         const extent = bounds(tile.outline);
-        local.set(
-          (x - tile.center[0]) * 0.028 / (extent.w * extent.w / 4),
-          (y - tile.center[1]) * 0.028 / (extent.h * extent.h / 4),
-          1,
-        ).normalize();
+        local
+          .set(
+            ((x - tile.center[0]) * 0.028) / ((extent.w * extent.w) / 4),
+            ((y - tile.center[1]) * 0.028) / ((extent.h * extent.h) / 4),
+            1,
+          )
+          .normalize();
       }
-      normals.push(...v(face.right).multiplyScalar(local.x)
-        .addScaledVector(v(face.up), local.y)
-        .addScaledVector(v(face.normal), local.z).normalize().toArray());
+      normals.push(
+        ...v(face.right)
+          .multiplyScalar(local.x)
+          .addScaledVector(v(face.up), local.y)
+          .addScaledVector(v(face.normal), local.z)
+          .normalize()
+          .toArray(),
+      );
     }
   for (let ring = 0; ring < rings.length - 1; ring++)
     for (let i = 0; i < count; i++) {
@@ -91,6 +102,20 @@ export function capGeometry(def: Definition, tile: TileDefinition) {
   geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
   geo.setIndex(indices);
   geo.setAttribute('normal', new T.Float32BufferAttribute(normals, 3));
+  // Stay inside the raised cap so rounded edges and seams remain uncovered.
+  geo.userData.occluder = tile.outline.map(([x, y]) =>
+    facePoint(
+      face,
+      [
+        tile.center[0] + (x - tile.center[0]) * 0.95,
+        tile.center[1] + (y - tile.center[1]) * 0.95,
+      ],
+      0.023,
+    )
+      .sub(home)
+      .toArray(),
+  );
+  geo.userData.occluderNormal = face.normal;
   return geo;
 }
 export function shellGeometry(def: Definition, pieceIndex: number) {

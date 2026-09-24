@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { MinimalRenderer } from '@/lib/rendering/minimal';
+import { CubeRenderOptimizer } from '@/lib/cube/render-optimizer';
 import { buildPuzzle } from '@/lib/puzzle/geometry';
 import { paintFace } from '@/lib/puzzle/appearance';
 import { fitDistance } from '@/lib/cube/interaction';
@@ -46,6 +47,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     renderer.toneMappingExposure = 0.78;
     renderer.setClearColor(0, 0);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.autoUpdate = false;
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.domElement.style.touchAction = 'none';
     el.appendChild(renderer.domElement);
@@ -109,6 +111,36 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     scene.add(contact);
     const model = buildPuzzle(def, renderer.capabilities.getMaxAnisotropy());
     scene.add(model.root);
+    const mechanics: T.Mesh[] = [],
+      caps = [...model.caps.values()];
+    const capSet = new Set(caps);
+    model.root.traverse((object) => {
+      if (object instanceof T.Mesh && !capSet.has(object))
+        mechanics.push(object);
+    });
+    const optimizer = new CubeRenderOptimizer(mechanics, caps, {
+      occlusion: 'coverage',
+    });
+    scene.add(optimizer.group);
+    // Three builds the colour list before rendering shadows. Keep independent
+    // light-view instances so camera culling cannot remove shadow casters.
+    const drawShadows = renderer.shadowMap.render.bind(renderer.shadowMap);
+    renderer.shadowMap.render = (lights, shadowScene, shadowCamera) => {
+      if (!renderer.shadowMap.enabled || !renderer.shadowMap.needsUpdate)
+        return drawShadows(lights, shadowScene, shadowCamera);
+      key.shadow.updateMatrices(key);
+      optimizer.prepareShadow(key.shadow.camera);
+      try {
+        drawShadows(lights, shadowScene, shadowCamera);
+      } finally {
+        optimizer.restoreCamera();
+      }
+    };
+    if (import.meta.env.DEV)
+      Object.defineProperty(renderer.domElement, 'renderStats', {
+        configurable: true,
+        get: () => optimizer.stats,
+      });
     const grain = createPlasticGrain(renderer.capabilities.getMaxAnisotropy());
     model.caps.forEach((mesh) => {
       const material = mesh.material as T.MeshPhysicalMaterial;
@@ -118,6 +150,11 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     const textures = new Map<string, T.CanvasTexture>();
     const hiddenMaps = new HiddenFaces(def, model.caps);
     const minimal = new MinimalRenderer([scene], model.caps.values());
+    scene.traverse((object) => {
+      object.updateMatrix();
+      object.matrixAutoUpdate = false;
+    });
+    scene.matrixWorldAutoUpdate = false;
     let cameraDestination: {
       position: T.Vector3;
       target: T.Vector3;
@@ -130,6 +167,21 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         ...model.caps.values(),
         ...model.models.map((m) => m.shell),
       ];
+    raycaster.layers.enable(1);
+    const homes = def.pieces.map((piece) => new T.Vector3(...piece.home)),
+      radials = homes.map((home) => home.clone().normalize()),
+      poses = homes.map(() => new T.Quaternion()),
+      modelBounds = new T.Box3(),
+      meshBounds = new T.Box3(),
+      surface = new T.Vector3();
+    let boundsDirty = true,
+      optimizerDirty = true;
+    let previousLayout: typeof session.state | undefined,
+      wasMoving = false;
+    const damp = (value: number, goal: number, rate: number, dt: number) => {
+      const next = T.MathUtils.damp(value, goal, rate, dt);
+      return Math.abs(next - goal) < 1e-6 ? goal : next;
+    };
     let disposed = false,
       frame = 0,
       last = performance.now(),
@@ -170,7 +222,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       angle: number;
     } | null = null;
     function invalidate() {
-      if (!disposed && !frame) frame = requestAnimationFrame(render);
+      if (!disposed && !frame && !document.hidden)
+        frame = requestAnimationFrame(render);
     }
     function updateArt() {
       if (art === session.state.artVersion) return;
@@ -219,61 +272,83 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         });
     }
     function layout(now: number, dt: number) {
-      const settings = session.state.settings;
-      explode = T.MathUtils.damp(explode, settings.explode, 10, dt);
-      gap = T.MathUtils.damp(gap, settings.gap, 10, dt);
-      size = T.MathUtils.damp(size, settings.size, 10, dt);
-      internal = T.MathUtils.damp(internal, settings.internal, 10, dt);
-      offset = T.MathUtils.damp(offset, settings.stickerOffset, 10, dt);
-      magnetWeight = T.MathUtils.damp(
-        magnetWeight,
-        settings.showMagnets ? 1 : 0,
-        12,
-        dt,
-      );
+      const state = session.state,
+        settings = state.settings;
+      const oldExplode = explode,
+        oldGap = gap,
+        oldSize = size,
+        oldInternal = internal,
+        oldOffset = offset,
+        oldMagnets = magnetWeight;
+      explode = damp(explode, settings.explode, 10, dt);
+      gap = damp(gap, settings.gap, 10, dt);
+      size = damp(size, settings.size, 10, dt);
+      internal = damp(internal, settings.internal, 10, dt);
+      offset = damp(offset, settings.stickerOffset, 10, dt);
+      magnetWeight = damp(magnetWeight, settings.showMagnets ? 1 : 0, 12, dt);
       const separation = explode * 0.7,
         inner = Math.max(0, explode - 1) * internal;
-      model.models.forEach((piece, i) => {
-        const home = new T.Vector3(...def.pieces[i].home),
-          pose = session.motion.pose(i, now),
-          radial = home.clone().normalize();
-        piece.root.quaternion.copy(pose);
-        piece.root.position
-          .copy(home)
-          .addScaledVector(radial, separation + gap * 1.5)
-          .applyQuaternion(pose);
-        piece.root.scale.setScalar(size);
-        piece.parts.forEach((part) => {
-          part.object.position
-            .copy(part.base)
-            .addScaledVector(
-              part.direction,
-              inner * part.spread + (part.cap ? offset : 0),
-            );
-          if (part.magnet) {
-            part.object.scale.setScalar(magnetWeight);
-            part.object.visible = magnetWeight > 0.001;
-          }
+      const partsChanged =
+        !previousLayout ||
+        oldExplode !== explode ||
+        oldInternal !== internal ||
+        oldOffset !== offset ||
+        oldMagnets !== magnetWeight;
+      const poseChanged =
+        !previousLayout ||
+        state.puzzle !== previousLayout.puzzle ||
+        state.motionVersion !== previousLayout.motionVersion ||
+        session.motion.moving ||
+        wasMoving;
+      const shapeChanged =
+        partsChanged || poseChanged || oldGap !== gap || oldSize !== size;
+      if (poseChanged) session.motion.writePoses(poses, now);
+      if (shapeChanged)
+        model.models.forEach((piece, i) => {
+          const home = homes[i],
+            pose = poses[i],
+            radial = radials[i];
+          piece.root.quaternion.copy(pose);
+          piece.root.position
+            .copy(home)
+            .addScaledVector(radial, separation + gap * 1.5)
+            .applyQuaternion(pose);
+          piece.root.scale.setScalar(size);
+          piece.root.updateMatrix();
+          if (partsChanged)
+            piece.parts.forEach((part) => {
+              part.object.position
+                .copy(part.base)
+                .addScaledVector(
+                  part.direction,
+                  inner * part.spread + (part.cap ? offset : 0),
+                );
+              if (part.magnet) {
+                part.object.scale.setScalar(magnetWeight);
+                part.object.visible = magnetWeight > 0.001;
+              }
+              part.object.updateMatrix();
+            });
         });
-      });
-      model.core.scale.setScalar(
-        1 + Math.max(0, explode - 1) * internal * 0.18,
-      );
+      if (partsChanged) {
+        model.core.scale.setScalar(1 + inner * 0.18);
+        model.core.updateMatrix();
+      }
+      if (shapeChanged) {
+        boundsDirty = optimizerDirty = true;
+        renderer.shadowMap.needsUpdate = true;
+      }
       model.caps.forEach((mesh, id) => {
         const mat = mesh.material as T.MeshPhysicalMaterial;
-        mat.roughness = T.MathUtils.damp(
-          mat.roughness,
-          settings.roughness,
-          10,
-          dt,
-        );
+        mat.roughness = damp(mat.roughness, settings.roughness, 10, dt);
         mat.clearcoatRoughness = 0.07 + mat.roughness * 0.25;
-        mat.emissive.set(
-          session.state.selected.includes(id) ? '#3b4724' : '#000000',
-        );
+        if (state.selected !== previousLayout?.selected)
+          mat.emissive.set(state.selected.includes(id) ? '#3b4724' : '#000000');
         mat.emissiveIntensity = 0.2;
       });
       contact.material.opacity = 0.55 / (1 + explode * 2);
+      previousLayout = state;
+      wasMoving = session.motion.moving;
       return (
         Math.abs(explode - settings.explode) +
           Math.abs(gap - settings.gap) +
@@ -290,9 +365,24 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         0.0001
       );
     }
+    function updateBounds() {
+      if (!boundsDirty) return;
+      model.root.updateMatrixWorld();
+      modelBounds.makeEmpty();
+      for (const mesh of [...mechanics, ...caps])
+        modelBounds.union(
+          meshBounds
+            .copy(mesh.geometry.boundingBox!)
+            .applyMatrix4(mesh.matrixWorld),
+        );
+      modelBounds.getSize(surface);
+      boundsDirty = false;
+    }
+    const previousLightRotation = new T.Quaternion(0, 0, 0, 0);
+    let previousShadowRadius = -1;
     function render(now: number) {
       frame = 0;
-      if (disposed) return;
+      if (disposed || document.hidden) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       session.motion.tick(now);
@@ -349,20 +439,28 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       fill.intensity = (key.intensity * 1.2) / 2.8;
       rim.intensity = (key.intensity * 1.15) / 2.8;
       scene.environmentRotation.setFromQuaternion(rig.quaternion);
+      if (!previousLightRotation.equals(rig.quaternion)) {
+        previousLightRotation.copy(rig.quaternion);
+        rig.updateMatrix();
+        renderer.shadowMap.needsUpdate = true;
+      }
       camera.lookAt(target);
       camera.updateMatrixWorld();
-      scene.updateMatrixWorld(true);
-      const box = new T.Box3().setFromObject(model.root),
-        surface = box.getSize(new T.Vector3()),
+      updateBounds();
+      const box = modelBounds,
         floor = box.min.y - 0.065;
       const shadowRadius = Math.max(3, surface.length() / 2 + 0.5);
-      key.shadow.camera.left = -shadowRadius;
-      key.shadow.camera.right = shadowRadius;
-      key.shadow.camera.top = shadowRadius;
-      key.shadow.camera.bottom = -shadowRadius;
-      key.shadow.camera.near = 0.1;
-      key.shadow.camera.far = key.position.length() + shadowRadius * 2 + 4;
-      key.shadow.camera.updateProjectionMatrix();
+      if (shadowRadius !== previousShadowRadius) {
+        previousShadowRadius = shadowRadius;
+        key.shadow.camera.left = -shadowRadius;
+        key.shadow.camera.right = shadowRadius;
+        key.shadow.camera.top = shadowRadius;
+        key.shadow.camera.bottom = -shadowRadius;
+        key.shadow.camera.near = 0.1;
+        key.shadow.camera.far = key.position.length() + shadowRadius * 2 + 4;
+        key.shadow.camera.updateProjectionMatrix();
+        renderer.shadowMap.needsUpdate = true;
+      }
       ground.position.y = Math.min(
         floor,
         T.MathUtils.damp(ground.position.y, floor, 10, dt),
@@ -373,6 +471,13 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         (box.min.z + box.max.z) / 2,
       );
       contact.scale.set((surface.x * 1.65) / 5, (surface.z * 1.65) / 5, 1);
+      ground.updateMatrix();
+      contact.updateMatrix();
+      scene.updateMatrixWorld();
+      if (optimizerDirty) {
+        optimizer.updateBounds();
+        optimizerDirty = false;
+      }
       updateDepthRange(camera, box);
       const maps = hiddenMaps.update(
         camera,
@@ -384,6 +489,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       if (JSON.stringify(old) !== JSON.stringify(maps.anchors))
         session.patch({ faceAnchors: maps.anchors });
       const minimalMoving = minimal.update(settings.minimal, dt);
+      renderer.shadowMap.needsUpdate ||= minimal.changed;
+      optimizer.prepareCamera(camera);
       renderer.render(scene, camera);
       hiddenMaps.render(renderer, camera);
       const direction = camera.position.clone().sub(target).normalize(),
@@ -454,10 +561,14 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       objects: T.Object3D[] = [model.root],
       instant = false,
     ) {
-      model.root.updateMatrixWorld(true);
+      updateBounds();
       const box = new T.Box3();
       objects.forEach((object) =>
-        box.union(new T.Box3().setFromObject(object)),
+        box.union(
+          object === model.root
+            ? modelBounds
+            : new T.Box3().setFromObject(object),
+        ),
       );
       const center = box.getCenter(new T.Vector3()),
         distance = fitDistance(
@@ -539,7 +650,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
           return false;
         for (let p: T.Object3D | null = object; p; p = p.parent)
           if (!p.visible) return false;
-        return true;
+        return optimizer.isVisible(object);
       });
       return (
         raycaster.intersectObjects(
@@ -770,7 +881,10 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       setError(true);
     }
     function visibility() {
-      if (!document.hidden) {
+      if (document.hidden) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      } else {
         last = performance.now();
         invalidate();
       }
@@ -792,9 +906,25 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     resize();
+    let previousState = session.state;
     const unsubscribe = session.subscribe(() => {
-      resize();
-      invalidate();
+      const state = session.state,
+        before = previousState;
+      previousState = state;
+      if (state.settings.quality !== before.settings.quality) {
+        art = -1;
+        resize();
+      }
+      if (
+        state.puzzle !== before.puzzle ||
+        state.motionVersion !== before.motionVersion ||
+        state.settings !== before.settings ||
+        state.selected !== before.selected ||
+        state.artVersion !== before.artVersion ||
+        state.view !== before.view ||
+        state.presentation !== before.presentation
+      )
+        invalidate();
     });
     updateArt();
     layout(performance.now(), 1);
@@ -812,6 +942,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       canvas.removeEventListener('webglcontextlost', contextLost);
       canvas.remove();
       hiddenMaps.dispose();
+      optimizer.dispose();
       model.dispose();
       textures.forEach((texture) => texture.dispose());
       grain.dispose();

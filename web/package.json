@@ -15,7 +15,8 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "verify:solvers": "node ../scripts/launch.mjs verify:solvers",
-    "verify:views": "node ../scripts/launch.mjs verify:views"
+    "verify:views": "node ../scripts/launch.mjs verify:views",
+    "verify:render-optimization": "node ../scripts/launch.mjs verify:render-optimization"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

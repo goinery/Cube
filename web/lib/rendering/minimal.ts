@@ -2,6 +2,7 @@ import * as T from 'three';
 
 /** Fade only the mechanics; cap materials and auxiliary views are untouched. */
 export class MinimalRenderer {
+  changed = false;
   private weight = 1;
   private materials = new Map<
     T.Material,
@@ -45,8 +46,10 @@ export class MinimalRenderer {
 
   update(minimal: boolean, dt: number) {
     const goal = minimal ? 0 : 1;
+    const previous = this.weight;
     this.weight = T.MathUtils.damp(this.weight, goal, 18, dt);
     if (Math.abs(this.weight - goal) < 0.002) this.weight = goal;
+    this.changed = previous !== this.weight;
     for (const [material, original] of this.materials) {
       // Contact shadows can change their base opacity during an explosion.
       if (material.opacity !== original.lastOpacity)

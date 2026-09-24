@@ -129,6 +129,7 @@ export class Session {
   private previousAutoRotate = false;
   private actionSource: 'manual' | 'undo' | 'redo' = 'manual';
   state: SessionState;
+  private contentSnapshot: Omit<SessionState, 'faceAnchors'>;
   camera: {
     fit: () => void;
     reset: () => void;
@@ -185,6 +186,7 @@ export class Session {
       scramble: '',
       hiddenFaces: ['D', 'L', 'B'],
     };
+    this.contentSnapshot = this.state;
     this.motion = new TurnCoordinator(
       this.def,
       () => this.state.puzzle,
@@ -200,8 +202,13 @@ export class Session {
     };
   };
   getSnapshot = () => this.state;
+  getContentSnapshot = () => this.contentSnapshot;
+  getFaceAnchors = () => this.state.faceAnchors;
   patch(update: Partial<SessionState>) {
     this.state = { ...this.state, ...update };
+    // Per-frame label positions must not rerender the controls and solve checks.
+    if (Object.keys(update).some((key) => key !== 'faceAnchors'))
+      this.contentSnapshot = this.state;
     this.listeners.forEach((fn) => fn());
   }
   settings(update: Partial<Settings>) {
@@ -534,8 +541,15 @@ export function getSession(id: PuzzleId) {
 export function useSession(session: Session) {
   return useSyncExternalStore(
     session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
+    session.getContentSnapshot,
+    session.getContentSnapshot,
+  );
+}
+export function useFaceAnchors(session: Session) {
+  return useSyncExternalStore(
+    session.subscribe,
+    session.getFaceAnchors,
+    session.getFaceAnchors,
   );
 }
 export function stopSessions() {

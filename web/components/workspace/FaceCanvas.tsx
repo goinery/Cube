@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { bounds, hitTile, paintFace, path } from '@/lib/puzzle/appearance';
 import { facePoint } from '@/lib/puzzle/geometry';
 import { unfoldedNet } from '@/lib/puzzle/layout';
-import { useSession, type Session } from '@/lib/puzzle/session';
+import { useSession, useFaceAnchors, type Session } from '@/lib/puzzle/session';
 import { useTranslation } from '@/lib/i18n';
 
 export function FaceCanvas({
@@ -114,7 +114,12 @@ export function FaceCanvas({
             depth = center.dot(normal);
           return { tile, sourceFace, pose, n, center, depth };
         })
-        .filter((p) => p.n.dot(normal) > (def.id === 'megaminx' ? 1 / Math.sqrt(5) + 0.001 : 0.16) && p.depth > 0.45)
+        .filter(
+          (p) =>
+            p.n.dot(normal) >
+              (def.id === 'megaminx' ? 1 / Math.sqrt(5) + 0.001 : 0.16) &&
+            p.depth > 0.45,
+        )
         .sort((a, b) => a.depth - b.depth);
       regions.current = [];
       for (const { tile, sourceFace, pose, center } of pieces) {
@@ -212,12 +217,13 @@ export function FaceCanvas({
 }
 export function FaceMaps({ session }: { session: Session }) {
   const s = useSession(session),
+    anchors = useFaceAnchors(session),
     { t } = useTranslation();
   if (s.view === 'normal' || s.presentation) return null;
   if (s.view === 'hidden')
     return (
       <div className="puzzle-hidden-labels">
-        {Object.entries(s.faceAnchors || {}).map(([face, anchor]) => (
+        {Object.entries(anchors || {}).map(([face, anchor]) => (
           <button
             key={face}
             style={{
@@ -251,12 +257,14 @@ export function FaceMaps({ session }: { session: Session }) {
           return (
             <g
               key={item.face}
-              transform={`translate(${item.x - box.x + 0.075} ${box.y + box.h - item.y + 0.075}) rotate(${-item.angle * 180 / Math.PI})`}
+              transform={`translate(${item.x - box.x + 0.075} ${box.y + box.h - item.y + 0.075}) rotate(${(-item.angle * 180) / Math.PI})`}
             >
               <foreignObject x={b.x} y={-b.y - b.h} width={b.w} height={b.h}>
                 <div className="puzzle-net-face">
                   <FaceCanvas session={session} face={item.face} live />
-                  <button onClick={() => session.camera.face(item.face)}>{item.face}</button>
+                  <button onClick={() => session.camera.face(item.face)}>
+                    {item.face}
+                  </button>
                 </div>
               </foreignObject>
             </g>

@@ -168,6 +168,9 @@ export default memo(function PyraminxViewport() {
     const scene = new T.Scene(),
       camera = new T.PerspectiveCamera(31, 1, 0.01, 100),
       target = new T.Vector3(0, 0.15, 0);
+    // Model matrices are updated by updateModel; camera-only frames need only
+    // the light rig and contact plane, not another traversal of every piece.
+    scene.matrixWorldAutoUpdate = false;
     const model = createModel(renderer.capabilities.getMaxAnisotropy());
     scene.add(model.root);
     const mechanics: T.Mesh[] = [];
@@ -764,6 +767,8 @@ export default memo(function PyraminxViewport() {
       );
       const minimalMoving = minimal.update(s.settings.minimal, dt);
       if (canvas.style.visibility !== 'hidden') {
+        lights.updateMatrixWorld();
+        shadow.updateMatrixWorld();
         optimizer.prepareCamera(camera);
         renderer.render(scene, camera);
         if (viewWeights.hidden > 0) {

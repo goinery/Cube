@@ -17,6 +17,8 @@ import { OcclusionCoverage } from '../rendering/occlusion';
 
 interface Source {
   mesh: Mesh;
+  matrix: Matrix4;
+  version: number;
   sphere: Sphere;
   active: boolean;
   visible: boolean;
@@ -27,6 +29,7 @@ interface Batch {
   sources: Source[];
   draw: InstancedMesh;
   previous: Source[];
+  versions: number[];
 }
 interface Occluder {
   mesh: Mesh;
@@ -35,6 +38,9 @@ interface Occluder {
   planes: Plane[];
   center: Vector3;
   normal: Vector3;
+  localCenter: Vector3;
+  localNormal: Vector3;
+  version: number;
 }
 
 /** Include every ancestor: a hidden magnet group must not remain pickable. */
@@ -63,6 +69,7 @@ export class CubeRenderOptimizer {
   private readonly volumes: Occluder[] = [];
   private readonly coverage = new OcclusionCoverage();
   private perspective = true;
+  private readonly volumeCulling: boolean;
   private cameraDirty = true;
   private readonly lastView = new Matrix4();
   private readonly lastProjection = new Matrix4();
@@ -70,8 +77,9 @@ export class CubeRenderOptimizer {
   constructor(
     mechanics: Mesh[],
     private readonly caps: Mesh[],
-    options: { shadows?: boolean } = {},
+    options: { shadows?: boolean; occlusion?: 'coverage' } = {},
   ) {
+    this.volumeCulling = options.occlusion !== 'coverage';
     this.group.name = 'Visible mechanical instances';
     this.group.add(this.main, this.shadows);
     const grouped = new Map<string, Source[]>();
@@ -83,8 +91,8 @@ export class CubeRenderOptimizer {
         mesh.layers.set(1);
         continue;
       }
-      mesh.geometry.computeBoundingBox();
-      mesh.geometry.computeBoundingSphere();
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
       const bounds = mesh.geometry.boundingBox!;
       const localBounds = Array.from(
         { length: 8 },
@@ -97,6 +105,8 @@ export class CubeRenderOptimizer {
       );
       const source: Source = {
         mesh,
+        matrix: new Matrix4(),
+        version: 0,
         sphere: new Sphere(),
         active: true,
         visible: true,
@@ -146,7 +156,7 @@ export class CubeRenderOptimizer {
       };
       const draw = make();
       this.main.add(draw);
-      this.batches.push({ sources, draw, previous: [] });
+      this.batches.push({ sources, draw, previous: [], versions: [] });
     }
     // All cube components are opaque and cast the same depth-only silhouette.
     // Colour/photo materials do not need separate shadow submissions.
@@ -173,15 +183,27 @@ export class CubeRenderOptimizer {
         );
       });
       if (!points || points.length < 3) continue;
+      const local = points.map(
+        (p) => new Vector3(...(p as [number, number, number])),
+      );
       this.occluders.push({
         mesh,
-        local: points.map(
-          (p) => new Vector3(...(p as [number, number, number])),
-        ),
+        local,
         world: points.map(() => new Vector3()),
         planes: Array.from({ length: points.length + 1 }, () => new Plane()),
         center: new Vector3(),
         normal: new Vector3(),
+        localCenter: local
+          .reduce((center, p) => center.add(p), new Vector3())
+          .multiplyScalar(1 / local.length),
+        localNormal: new Vector3(
+          ...((mesh.geometry.userData.occluderNormal ?? [0, 0, 1]) as [
+            number,
+            number,
+            number,
+          ]),
+        ),
+        version: -1,
       });
     }
   }
@@ -193,6 +215,10 @@ export class CubeRenderOptimizer {
     for (const source of this.sources) {
       const { mesh } = source;
       source.active = isHierarchyVisible(mesh);
+      if (source.version > 0 && source.matrix.equals(mesh.matrixWorld))
+        continue;
+      source.matrix.copy(mesh.matrixWorld);
+      source.version++;
       source.sphere
         .copy(mesh.geometry.boundingSphere!)
         .applyMatrix4(mesh.matrixWorld);
@@ -201,17 +227,19 @@ export class CubeRenderOptimizer {
       );
     }
     for (const occluder of this.occluders) {
+      const version = this.byMesh.get(occluder.mesh)!.version;
+      if (version === occluder.version) continue;
+      occluder.version = version;
       occluder.center
-        .set(0, 0, occluder.local[0].z)
+        .copy(occluder.localCenter)
         .applyMatrix4(occluder.mesh.matrixWorld);
       occluder.normal
-        .set(0, 0, 1)
+        .copy(occluder.localNormal)
         .transformDirection(occluder.mesh.matrixWorld);
       occluder.world.forEach((p, i) =>
         p.copy(occluder.local[i]).applyMatrix4(occluder.mesh.matrixWorld),
       );
     }
-    for (const batch of this.batches) batch.previous = [];
   }
 
   prepareShadow(camera?: Camera) {
@@ -226,6 +254,7 @@ export class CubeRenderOptimizer {
       for (const source of batch.sources)
         if (
           source.active &&
+          source.mesh.castShadow &&
           (!camera ||
             (this.frustum.intersectsSphere(source.sphere) &&
               !this.occluded(source)))
@@ -240,7 +269,8 @@ export class CubeRenderOptimizer {
   restoreCamera() {
     this.main.visible = true;
     this.shadows.visible = false;
-    for (const cap of this.caps) cap.visible = this.byMesh.get(cap)!.visible;
+    for (const cap of this.caps)
+      cap.visible = this.byMesh.get(cap)?.visible ?? false;
   }
 
   private prepareOcclusion(camera: Camera) {
@@ -261,6 +291,8 @@ export class CubeRenderOptimizer {
         0.0001
       )
         continue;
+      this.coverage.add(volume.world);
+      if (!this.perspective || !this.volumeCulling) continue;
       // Halfspaces enclose only the solid cap's shadow cone. Gaps, rounded
       // cutouts, grazing views and partially exposed pieces are never culled.
       const front = volume.planes[0];
@@ -278,7 +310,6 @@ export class CubeRenderOptimizer {
         if (plane.distanceToPoint(this.behind) < 0) plane.negate();
       }
       this.volumes.push(volume);
-      this.coverage.add(volume.world);
     }
   }
 
@@ -305,20 +336,31 @@ export class CubeRenderOptimizer {
     this.restoreCamera();
     for (const batch of this.batches) {
       let count = 0,
-        changed = false;
+        firstChanged = Infinity,
+        lastChanged = -1;
       for (const source of batch.sources) {
         if (!source.visible) continue;
-        if (batch.previous[count] !== source) changed = true;
+        if (
+          batch.previous[count] !== source ||
+          batch.versions[count] !== source.version
+        ) {
+          batch.draw.setMatrixAt(count, source.mesh.matrixWorld);
+          firstChanged = Math.min(firstChanged, count);
+          lastChanged = count;
+        }
         batch.previous[count] = source;
+        batch.versions[count] = source.version;
         count++;
       }
-      // A changed prefix requires copying earlier entries too after layout.
-      if (changed) {
-        for (let i = 0; i < count; i++)
-          batch.draw.setMatrixAt(i, batch.previous[i].mesh.matrixWorld);
+      if (lastChanged >= 0) {
+        batch.draw.instanceMatrix.addUpdateRange(
+          firstChanged * 16,
+          (lastChanged - firstChanged + 1) * 16,
+        );
         batch.draw.instanceMatrix.needsUpdate = true;
       }
       batch.previous.length = count;
+      batch.versions.length = count;
       batch.draw.count = count;
       batch.draw.visible = count > 0;
     }
@@ -357,8 +399,11 @@ export class CubeRenderOptimizer {
           batch.draw.setMatrixAt(count++, source.mesh.matrixWorld);
       batch.draw.count = count;
       batch.draw.visible = count > 0;
+      // Warmup overwrites the entire buffer, including previously hidden slots.
+      batch.draw.instanceMatrix.clearUpdateRanges();
       batch.draw.instanceMatrix.needsUpdate = true;
       batch.previous = [];
+      batch.versions = [];
     }
   }
 

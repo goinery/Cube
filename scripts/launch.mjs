@@ -17,6 +17,7 @@ else if(task==='verify:solvers'){run('node_modules/tsx/dist/cli.mjs',['scripts/v
 else if(task==='verify:views'){run('node_modules/tsx/dist/cli.mjs',['scripts/verify-view-modes.mts']);}
 else if(task==='verify:pyraminx'){run('node_modules/tsx/dist/cli.mjs',['tests/verify-pyraminx.ts']);}
 else if(task==='verify:rendering'){run('node_modules/tsx/dist/cli.mjs',['tests/verify-rendering.ts']);}
+else if(task==='verify:render-optimization'){run('node_modules/tsx/dist/cli.mjs',['tests/verify-render-optimization.ts']);}
 else if(task==='verify'){run('node_modules/tsx/dist/cli.mjs',['scripts/verify-core.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-workflows.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-interaction.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-motion.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-tolerance.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-rendering.ts']);run('node_modules/tsx/dist/cli.mjs',['scripts/verify-visual.ts']);run('scripts/verify-dev-worker.ts',[],['--experimental-vm-modules','--import','tsx']);}
 else if(task==='start'){if(!existsSync(join(web,'dist','index.html'))){console.error('请先运行 npm run build。');process.exit(1);}run('node_modules/vite/bin/vite.js',['preview','--host','0.0.0.0','--port','3000']);}
 else run('node_modules/vite/bin/vite.js',['--host','0.0.0.0','--port','3000']);

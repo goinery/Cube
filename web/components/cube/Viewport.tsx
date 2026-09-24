@@ -1832,7 +1832,7 @@ export default memo(function Viewport() {
         optimizer.prepareCamera(camera);
       }
       const minimalMoving = minimal.update(s.settings.minimal, dt);
-      renderer.shadowMap.needsUpdate ||= minimalMoving;
+      renderer.shadowMap.needsUpdate ||= minimal.changed;
       renderer.render(scene, camera);
       if (s.view === 'hidden' && !s.presentation) {
         renderer.autoClear = false;

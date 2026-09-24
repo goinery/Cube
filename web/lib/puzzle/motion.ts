@@ -450,6 +450,23 @@ export class TurnCoordinator {
   pose(piece: number, now = performance.now()) {
     return this.localPose(piece, this.tracks, now);
   }
+  writePoses(poses: Quaternion[], now: number) {
+    for (let i = 0; i < this.driver.count; i++)
+      poses[i].copy(this.driver.pose(i));
+    const rotation = new Quaternion(),
+      axis = new Vector3();
+    for (const alignment of this.alignments) {
+      const progress = this.progress(alignment, now);
+      for (const [piece, offset] of alignment.offsets)
+        poses[piece].multiply(rotation.copy(offset).slerp(identity, progress));
+    }
+    for (const track of [...this.tracks].sort(
+      (a, b) => a.pieces.length - b.pieces.length,
+    )) {
+      rotation.setFromAxisAngle(axis.set(...track.axis), track.angle);
+      for (const piece of track.pieces) poses[piece].premultiply(rotation);
+    }
+  }
   transition(change: () => void, duration = 320) {
     const poses = Array.from({ length: this.driver.count }, (_, i) =>
       this.pose(i),

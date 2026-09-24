@@ -17,10 +17,28 @@ export class HiddenFaces {
   >();
   private readonly radius: number;
   private materials = new Map<string, T.MeshBasicMaterial>();
+  private active = false;
+  private sources = new Map<
+    string,
+    {
+      mesh: T.Mesh;
+      normal: T.Vector3;
+      worldNormal: T.Vector3;
+    }
+  >();
+  private readonly selectionColor = new T.Color('#d5e6ae');
   constructor(
     private def: Definition,
     private caps: Map<string, T.Mesh>,
   ) {
+    const facesById = new Map(def.faces.map((face) => [face.id, face]));
+    for (const tile of def.tiles)
+      this.sources.set(tile.id, {
+        mesh: caps.get(tile.id)!,
+        normal: new T.Vector3(...facesById.get(tile.face)!.normal),
+        worldNormal: new T.Vector3(),
+      });
+    this.scene.matrixWorldAutoUpdate = false;
     // Canonical geometry, independent of any layer pose or transient bounding box.
     this.radius = Math.max(
       ...def.faces.flatMap((face) =>
@@ -58,6 +76,12 @@ export class HiddenFaces {
     enabled: boolean,
     dt: number,
   ) {
+    if (!enabled && !this.active) return { anchors: {}, moving: false };
+    this.active = false;
+    for (const source of this.sources.values())
+      source.worldNormal
+        .copy(source.normal)
+        .transformDirection(source.mesh.matrixWorld);
     const radius = this.radius;
     const direction = camera.position.clone().sub(target).normalize(),
       center = new T.Vector3().project(camera),
@@ -76,6 +100,7 @@ export class HiddenFaces {
       else moving = true;
       group.root.visible = group.opacity > 0.001;
       if (!group.root.visible) continue;
+      this.active = true;
       const raw = normal
           .clone()
           .multiplyScalar(radius + 1.8)
@@ -154,16 +179,11 @@ export class HiddenFaces {
             .invert(),
         );
       for (const [id, tile] of group.tiles) {
-        const source = this.caps.get(id)!,
-          origin = this.def.faces.find(
-            (f) => f.id === this.def.tiles.find((t) => t.id === id)!.face,
-          )!,
-          n = new T.Vector3(...origin.normal).transformDirection(
-            source.matrixWorld,
-          );
+        const info = this.sources.get(id)!,
+          source = info.mesh;
         const adjacentNormal =
           this.def.id === 'megaminx' ? 1 / Math.sqrt(5) : 0;
-        tile.visible = n.dot(normal) > adjacentNormal + 0.001;
+        tile.visible = info.worldNormal.dot(normal) > adjacentNormal + 0.001;
         if (tile.visible)
           tile.matrix.multiplyMatrices(transform, source.matrixWorld);
         const material = tile.material as T.MeshBasicMaterial,
@@ -174,7 +194,7 @@ export class HiddenFaces {
         }
         material.color.copy(original.color);
         if (original.emissive.r > 0)
-          material.color.lerp(new T.Color('#d5e6ae'), 0.45);
+          material.color.lerp(this.selectionColor, 0.45);
         material.opacity = 0.92 * group.opacity;
       }
       group.root.updateMatrixWorld(true);
@@ -193,9 +213,14 @@ export class HiddenFaces {
     return { anchors, moving };
   }
   render(renderer: T.WebGLRenderer, camera: T.Camera) {
+    if (!this.active) return;
+    const autoClear = renderer.autoClear;
     renderer.autoClear = false;
-    renderer.render(this.scene, camera);
-    renderer.autoClear = true;
+    try {
+      renderer.render(this.scene, camera);
+    } finally {
+      renderer.autoClear = autoClear;
+    }
   }
   dispose() {
     this.materials.forEach((m) => m.dispose());

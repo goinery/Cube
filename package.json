@@ -12,7 +12,8 @@
     "setup": "npm install --prefix web",
     "deploy": "wrangler deploy",
     "verify:solvers": "node scripts/launch.mjs verify:solvers",
-    "verify:views": "node scripts/launch.mjs verify:views"
+    "verify:views": "node scripts/launch.mjs verify:views",
+    "verify:render-optimization": "node scripts/launch.mjs verify:render-optimization"
   },
   "devDependencies": {
     "wrangler": "4.130.0"
