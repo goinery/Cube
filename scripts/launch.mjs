@@ -10,13 +10,22 @@ if (major < 22 || (major === 22 && minor < 13)) {
   console.error("AXIS 需要 Node.js 22.13 或更高版本。请更新 Node.js 后重试。");
   process.exit(1);
 }
-if (!existsSync(join(web, "node_modules", "vite", "bin", "vite.js"))) {
-  console.error("请先运行 npm run setup 安装依赖。");
-  process.exit(1);
+// 依赖由仓库根的 npm workspace 统一安装，可能被提升到根 node_modules，也可能留在 web 内。
+function tool(relative) {
+  const candidates = [
+    join(web, "node_modules", relative),
+    join(root, "node_modules", relative),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) {
+    console.error("请先运行 npm install 安装依赖。");
+    process.exit(1);
+  }
+  return found;
 }
 
 function run(relative, args = []) {
-  const result = spawnSync(process.execPath, [join(web, relative), ...args], {
+  const result = spawnSync(process.execPath, [tool(relative), ...args], {
     cwd: web,
     stdio: "inherit",
     env: process.env,
@@ -28,21 +37,21 @@ function run(relative, args = []) {
 const task = process.argv[2] || "dev";
 switch (task) {
   case "build":
-    run("node_modules/typescript/bin/tsc", ["--noEmit"]);
-    run("node_modules/vite/bin/vite.js", ["build"]);
+    run("typescript/bin/tsc", ["--noEmit"]);
+    run("vite/bin/vite.js", ["build"]);
     break;
   case "verify":
-    run("node_modules/typescript/bin/tsc", ["--noEmit"]);
+    run("typescript/bin/tsc", ["--noEmit"]);
     break;
   case "start":
     if (!existsSync(join(web, "dist", "index.html"))) {
       console.error("请先运行 npm run build。");
       process.exit(1);
     }
-    run("node_modules/vite/bin/vite.js", ["preview", "--host", "0.0.0.0", "--port", "3000"]);
+    run("vite/bin/vite.js", ["preview", "--host", "0.0.0.0", "--port", "3000"]);
     break;
   case "dev":
-    run("node_modules/vite/bin/vite.js", ["--host", "0.0.0.0", "--port", "3000"]);
+    run("vite/bin/vite.js", ["--host", "0.0.0.0", "--port", "3000"]);
     break;
   default:
     console.error(`未知任务：${task}。可用任务：dev、build、start、verify。`);

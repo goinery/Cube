@@ -8,11 +8,12 @@
 
 ```sh
 npm install
-npm run setup
 npm run dev
 ```
 
 打开 `http://localhost:3000`。Windows 也可以在安装依赖后运行 `start.bat`。
+
+`web` 是仓库根的 npm workspace，根目录执行一次 `npm install` 会连同 `web` 的依赖一起安装，Cloudflare 构建（`npm clean-install` + `npm run build`）使用同一份 `package-lock.json`，无需再单独安装 `web`。
 
 ## 常用命令
 
