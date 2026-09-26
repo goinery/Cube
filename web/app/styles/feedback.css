@@ -1,0 +1,127 @@
+.app-footer {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 29px;
+  background: #161a16;
+  border-top: 1px solid #ffffff09;
+  font: 9px var(--font-mono);
+  letter-spacing: 1.3px;
+  color: #697b60;
+  flex-shrink: 0;
+}
+.app-footer > span:nth-child(2) {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #a0b790;
+}
+.app-footer i {
+  width: 4px;
+  height: 4px;
+  background: #a2bc8d;
+  border-radius: 50%;
+}
+.app-footer > span:last-child > span {
+  padding: 0 7px;
+}
+.toast {
+  position: fixed;
+  bottom: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(600px, 90vw);
+  background: #d2dfbf;
+  color: #283a20;
+  padding: 14px 22px;
+  border: 1px solid #e8f4d7;
+  border-radius: 9px;
+  box-shadow: 0 15px 50px #0003;
+  font-size: 13px;
+  z-index: 100;
+  line-height: 1.7;
+}
+.mobile-handle {
+  display: none;
+}
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: #1b221b;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+  color: #b9cfa7;
+}
+.loading-overlay strong {
+  letter-spacing: 6px;
+  font-size: 23px;
+  font-weight: 400;
+}
+.loading-overlay > span {
+  font-size: 12px;
+  color: #91a27f;
+}
+.loading-bar {
+  width: 140px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #d3e7c0, transparent);
+  animation: loading 1s ease-in-out infinite alternate;
+}
+@keyframes loading {
+  from {
+    opacity: 0.2;
+    transform: scaleX(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+.webgl-error {
+  position: absolute;
+  inset: 20%;
+  z-index: 40;
+  background: #252c22;
+  border: 1px solid #728064;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+  text-align: center;
+  line-height: 1.8;
+}
+.webgl-error p {
+  font-size: 13px;
+}
+.webgl-error button {
+  border: 1px solid #819970;
+  padding: 7px 14px;
+  border-radius: 6px;
+}
+.presentation .control-panel,
+.presentation .stage-state,
+.presentation .view-controls,
+.presentation .stage-bottom,
+.presentation .object-spec,
+.presentation .app-footer {
+  display: none;
+}
+.presentation .app-header {
+  height: 56px;
+  background: #181e1980;
+}
+.presentation .header-center,
+.presentation .brand-subtitle,
+.presentation .brand-divider,
+.presentation .autosave-switch,
+.presentation .local-badge {
+  display: none;
+}

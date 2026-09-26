@@ -1,4 +1,5 @@
-import { tx, builtinLabel } from '@/lib/i18n';
+import { builtinLabel, tx } from '@/lib/i18n';
+import { DEFAULT_PRESETS } from '@/lib/puzzle-config';
 import { parseAlgorithm } from './model';
 export interface AlgorithmPreset {
   name: string;
@@ -7,19 +8,18 @@ export interface AlgorithmPreset {
 export const MAX_ALGORITHM_PRESETS = 100;
 export const MAX_ALGORITHM_LENGTH = 20000;
 export const MAX_PRESET_NAME_LENGTH = 40;
-export const defaultAlgorithmPresets = (): AlgorithmPreset[] => [
-  {
-    name: tx('legacy.m408'),
-    algorithm: "F D2 L2 B D B' F2 U' F U F2 U2 F' L D F' U",
-  },
-  {
-    name: tx('legacy.m409'),
-    algorithm: "U2 L2 F2 U' B2 D R F' R F' R F' D' B2 U'",
-  },
-];
+export const defaultAlgorithmPresets = (): AlgorithmPreset[] =>
+  DEFAULT_PRESETS.cube.map(({ labelKey, algorithm }) => ({
+    name: tx(labelKey),
+    algorithm,
+  }));
 export function algorithmPresetLabel(preset: AlgorithmPreset) {
-  const index = defaultAlgorithmPresets().findIndex(item => item.algorithm === preset.algorithm);
-  return index < 0 ? preset.name : builtinLabel(preset.name, ['legacy.m408', 'legacy.m409'][index]);
+  const index = defaultAlgorithmPresets().findIndex(
+    (item) => item.algorithm === preset.algorithm,
+  );
+  return index < 0
+    ? preset.name
+    : builtinLabel(preset.name, DEFAULT_PRESETS.cube[index].labelKey);
 }
 export function validateAlgorithmPreset(value: unknown): AlgorithmPreset {
   if (!value || typeof value !== 'object') throw new Error(tx('legacy.m410'));

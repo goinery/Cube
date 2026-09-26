@@ -1,11 +1,11 @@
 import { Camera, Scene, WebGLRenderer, WebGLRenderTarget } from 'three';
-import type { CubeRenderOptimizer } from '../cube/render-optimizer';
+import type { RenderOptimizer } from '../rendering/render-optimizer';
 
 export async function warmRenderer(
   renderer: WebGLRenderer,
   scene: Scene,
   camera: Camera,
-  optimizer: CubeRenderOptimizer | null,
+  optimizer: RenderOptimizer | null,
   projections: Scene,
   cancelled: () => boolean,
 ) {

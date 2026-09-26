@@ -1,9 +1,10 @@
+import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
-import { PIECES, ROTATIONS, TILES, VERTICES, type Tile } from './model';
-import { createChassisRelief, createPlasticGrain } from '../cube/studio';
-import { hollowChassis, sleeve } from './mechanics';
-import type { State } from './store';
+import { createChassisRelief, createPlasticGrain } from '../rendering/studio';
 import { capOutline, TIP_CUT } from './cap-profile';
+import { hollowChassis, sleeve } from './mechanics';
+import { PIECES, ROTATIONS, TILES, VERTICES, type Tile } from './model';
+import type { State } from './store';
 
 export const vertices = VERTICES.map((v) => new T.Vector3(...v));
 export const normals = vertices.map((v) => v.clone().normalize().negate());
@@ -308,7 +309,7 @@ export function createModel(anisotropy: number) {
     for (const tile of pieceTiles) {
       const material = new T.MeshPhysicalMaterial({
         color: '#ffffff',
-        roughness: 0.24,
+        roughness: PUZZLE_DEFAULTS['pyraminx'].settings.roughness,
         ior: 1.48,
         specularIntensity: 0.75,
         clearcoat: 0.2,

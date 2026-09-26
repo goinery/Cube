@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { FACE, solved } from '../lib/cube/model';
 import { createTileGeometry } from '../lib/cube/geometry';
 import {
   createCenterHousing,
   createMechanics,
   magnetMounts,
 } from '../lib/cube/mechanics';
-import { CubeRenderOptimizer } from '../lib/cube/render-optimizer';
+import { FACE, solved } from '../lib/cube/model';
 import { defaultSettings } from '../lib/cube/store';
+import { TIP_CUT } from '../lib/pyraminx/cap-profile';
 import { createModel, normals, tileCenter } from '../lib/pyraminx/geometry';
 import { TILES, VERTICES } from '../lib/pyraminx/model';
-import { getState, defaultPyraminxSettings } from '../lib/pyraminx/store';
-import { TIP_CUT } from '../lib/pyraminx/cap-profile';
+import { defaultPyraminxSettings, getState } from '../lib/pyraminx/store';
+import { updateDepthRange } from '../lib/rendering/camera';
 import { OcclusionCoverage } from '../lib/rendering/occlusion';
-import { updateDepthRange } from '../lib/cube/camera';
+import { RenderOptimizer } from '../lib/rendering/render-optimizer';
 
 assert.equal(defaultSettings().stickerOffset, 0);
 assert.equal(defaultPyraminxSettings().stickerOffset, 0);
@@ -201,7 +201,7 @@ for (const piece of solved()) {
   });
 }
 
-const cubeOptimizer = new CubeRenderOptimizer(cubeMechanics, cubeCaps, {
+const cubeOptimizer = new RenderOptimizer(cubeMechanics, cubeCaps, {
   shadows: false,
 });
 const cubeCamera = new T.PerspectiveCamera(30, 1.5, 0.1, 100),
@@ -358,15 +358,24 @@ for (const tile of TILES) {
     );
     const contact = seamRay.intersectObject(chassis)[0];
     if (!contact || Math.abs(contact.distance - 0.1431) >= 1e-5) {
- console.log(tile.id, point, contact?.distance, chassis.geometry.groups);
- const expected = new T.Vector3(point.x,point.y,-0.0431).applyMatrix4(cap.matrixWorld);
- console.log('world', expected.toArray(), 'planes', normals.map(n=>n.dot(expected)));
- for(const other of TILES.filter(t=>t.piece===tile.piece)){
- const c=pyr.tiles.get(other.id)!;
- const probe=expected.clone().applyMatrix4(c.matrixWorld.clone().invert());
- console.log(other.id,probe.toArray());
- }
-}
+      console.log(tile.id, point, contact?.distance, chassis.geometry.groups);
+      const expected = new T.Vector3(point.x, point.y, -0.0431).applyMatrix4(
+        cap.matrixWorld,
+      );
+      console.log(
+        'world',
+        expected.toArray(),
+        'planes',
+        normals.map((n) => n.dot(expected)),
+      );
+      for (const other of TILES.filter((t) => t.piece === tile.piece)) {
+        const c = pyr.tiles.get(other.id)!;
+        const probe = expected
+          .clone()
+          .applyMatrix4(c.matrixWorld.clone().invert());
+        console.log(other.id, probe.toArray());
+      }
+    }
     assert(
       contact && Math.abs(contact.distance - 0.1431) < 1e-5,
       `cap backing is detached or incomplete: ${tile.id}`,
@@ -462,7 +471,7 @@ for (let face = 0; face < 4; face++) {
 pyr.root.traverse((o) => {
   if (o instanceof T.Mesh && !o.userData.cap) mechanics.push(o);
 });
-const optimizer = new CubeRenderOptimizer(mechanics, [...pyr.tiles.values()], {
+const optimizer = new RenderOptimizer(mechanics, [...pyr.tiles.values()], {
   shadows: false,
 });
 const sources = [...mechanics, ...pyr.tiles.values()].filter(

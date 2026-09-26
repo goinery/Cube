@@ -1,3 +1,4 @@
+import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx, useLanguage, localized } from '@/lib/i18n';
 import {
   useCallback,
@@ -1092,13 +1093,7 @@ export default function PyraminxApp({
                 className="wide-button"
                 disabled={s.solving}
                 onClick={() => {
-                  settings({
-                    explode: 0,
-                    internal: 1,
-                    gap: 0,
-                    size: 1,
-                    stickerOffset: 0,
-                  });
+                  settings(assemblyDefaults('pyraminx'));
                   cameraActions.reset();
                 }}
               >

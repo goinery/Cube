@@ -1,0 +1,222 @@
+.control-panel {
+  width: 358px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: #1b1e20;
+  z-index: 10;
+}
+.panel-nav {
+  border-bottom: 1px solid #ffffff0c;
+  flex-shrink: 0;
+  padding: 13px 13px 11px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+}
+.panel-nav button {
+  font-size: 11px;
+  gap: 7px;
+  flex-direction: column;
+  min-height: 53px;
+  padding: 7px 2px;
+  color: #8b938e;
+  border-radius: 8px;
+}
+.panel-nav button.active {
+  color: var(--primary);
+  background: #c7d5ad0c;
+}
+.panel-nav button:hover {
+  background: #ffffff05;
+}
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 25px 25px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #414742 transparent;
+}
+.panel-block {
+  padding-bottom: 26px;
+  border-bottom: 1px solid #ffffff0c;
+  margin-bottom: 26px;
+  scroll-margin-top: 2px;
+}
+.panel-block:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 10px;
+}
+.panel-block > .magnetic-controls {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+.primary-button,
+.secondary-button,
+.wide-button {
+  border-radius: 8px;
+  min-height: 43px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.primary-button {
+  background: var(--primary);
+  color: #263022;
+  flex: 1;
+  font-weight: 550;
+}
+.primary-button:hover:not(:disabled) {
+  background: #d8e3c3;
+  color: #17210f;
+}
+.primary-button svg:last-child {
+  margin-left: auto;
+}
+.secondary-button {
+  border: 1px solid #454c43;
+  color: #bec7b8;
+}
+.wide-button {
+  border: 1px solid #414941;
+  justify-content: space-between;
+  width: 100%;
+  color: #c3cbbd;
+  margin: 9px 0;
+}
+.wide-button:hover:not(:disabled),
+.secondary-button:hover:not(:disabled) {
+  background: #ffffff06;
+}
+.wide-button.replay-stop {
+  border-color: #7f9a68;
+  background: #c7d5ad0f;
+  color: #c7d5ad;
+}
+.quick-actions {
+  display: flex;
+  gap: 10px;
+}
+.history-actions {
+  display: flex;
+  margin-top: 15px;
+  margin-bottom: 17px;
+  align-items: center;
+  gap: 20px;
+}
+.history-actions button {
+  color: #a2ad9f;
+  font-size: 12px;
+}
+.history-actions span {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #758272;
+}
+.toggle-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 13px;
+  color: #aeb8a8;
+  min-height: 43px;
+}
+.toggle-control [data-slot='switch'] {
+  flex-shrink: 0;
+}
+.panel-section {
+  border-top: 1px solid #ffffff0c;
+  margin-top: 20px;
+  padding-top: 22px;
+}
+.helper-text {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 6px 0 18px;
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.section-head h3,
+h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #d6ded1;
+}
+.modifier-buttons {
+  display: flex;
+  gap: 2px;
+  border: 1px solid #3b4439;
+  border-radius: 6px;
+  padding: 2px;
+}
+.modifier-buttons button {
+  padding: 3px 6px;
+  font-size: 11px;
+  color: #879780;
+}
+.modifier-buttons button.active {
+  background: #354130;
+  color: #d7e5cd;
+  border-radius: 3px;
+}
+.face-moves {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.face-moves button {
+  position: relative;
+  height: 51px;
+  border: 1px solid #3c433a;
+  background: #252b25;
+  border-radius: 7px;
+  flex-direction: column;
+  gap: 7px;
+}
+.face-moves button:hover:not(:disabled) {
+  border-color: #909b87;
+  background: #303a2b;
+}
+.face-moves i {
+  height: 3px;
+  width: 14px;
+  border-radius: 4px;
+  opacity: 0.85;
+}
+.face-moves strong {
+  font: 500 16px var(--font-mono);
+  line-height: 1;
+}
+.microcopy {
+  font-size: 11px;
+  color: #85927f;
+  line-height: 1.8;
+  margin-top: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.tag {
+  font-size: 9px;
+  letter-spacing: 1.1px;
+  color: #8b987f;
+  border: 1px solid #424e3b;
+  padding: 3px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.tag.off {
+  color: #7d8580;
+  border-color: #383e3c;
+}

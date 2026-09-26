@@ -1,8 +1,8 @@
 import {
   BackSide,
   BoxGeometry,
-  Color,
   CanvasTexture,
+  Color,
   DataTexture,
   LinearFilter,
   LinearMipmapLinearFilter,

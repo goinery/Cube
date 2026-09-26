@@ -1,5 +1,19 @@
-import { i18n, tx, builtinLabel } from '@/lib/i18n';
+import { builtinLabel, i18n, tx } from '@/lib/i18n';
+import {
+  createPuzzleSettings,
+  DEFAULT_PRESETS,
+  GENERAL_KEYS,
+  PUZZLE_DEFAULTS,
+  STUDIO_DEFAULTS,
+} from '@/lib/puzzle-config';
 import { useSyncExternalStore } from 'react';
+import { magneticTarget } from '../cube/interaction';
+import {
+  defaultSettings,
+  type Mode,
+  type Settings,
+  type View,
+} from '../cube/store';
 import {
   heldAngle,
   partialsAfterMove,
@@ -8,30 +22,23 @@ import {
   visibleTurns,
   type PartialTurn,
 } from './interaction';
-import { magneticTarget } from '../cube/interaction';
-export type { PartialTurn } from './interaction';
 import {
-  defaultSettings,
-  type Mode,
-  type Settings,
-  type View,
-} from '../cube/store';
-import {
+  apply,
   AXES,
   FACE_COLORS,
-  TILES,
-  TURN,
-  apply,
   inverseMove,
   isSolved,
   moveToken,
   parseAlgorithm,
   parseMove,
   solved,
+  TILES,
+  TURN,
   turn,
   type Move,
   type PuzzleState,
 } from './model';
+export type { PartialTurn } from './interaction';
 export interface Photo {
   src: string;
   scale: number;
@@ -50,15 +57,18 @@ export interface Preset {
   name: string;
   algorithm: string;
 }
-export const defaultPresets = (): Preset[] => [
-  { name: tx('legacy.m506'), algorithm: "R U R' U R U R' U" },
-  { name: tx('legacy.m507'), algorithm: "L R' L' R U R U' R'" },
-  { name: tx('legacy.m508'), algorithm: 'u l r b' },
-  { name: tx('legacy.m509'), algorithm: "Uw Rw' Bw Lw'" },
-];
+export const defaultPresets = (): Preset[] =>
+  DEFAULT_PRESETS.pyraminx.map(({ labelKey, algorithm }) => ({
+    name: tx(labelKey),
+    algorithm,
+  }));
 export function presetLabel(preset: Preset) {
-  const index = defaultPresets().findIndex(item => item.algorithm === preset.algorithm);
-  return index < 0 ? preset.name : builtinLabel(preset.name, ['legacy.m506', 'legacy.m507', 'legacy.m508', 'legacy.m509'][index]);
+  const index = defaultPresets().findIndex(
+    (item) => item.algorithm === preset.algorithm,
+  );
+  return index < 0
+    ? preset.name
+    : builtinLabel(preset.name, DEFAULT_PRESETS.pyraminx[index].labelKey);
 }
 export const defaultKeys = (): Record<string, string> => ({
   ...Object.fromEntries(
@@ -71,10 +81,7 @@ export const defaultKeys = (): Record<string, string> => ({
       ),
     ),
   ),
-  undo: 'Mod+KeyZ',
-  redo: 'Mod+Shift+KeyZ',
-  playPause: 'Space',
-  exitPresentation: 'Escape',
+  ...GENERAL_KEYS,
 });
 export interface State {
   puzzle: PuzzleState;
@@ -107,8 +114,7 @@ export const defaultColors = () =>
   Object.fromEntries(TILES.map((t) => [t.id, FACE_COLORS[t.face]]));
 export const defaultPyraminxSettings = (): Settings => ({
   ...defaultSettings(),
-  gap: 0,
-  turnTolerance: 60,
+  ...createPuzzleSettings('pyraminx'),
 });
 let state: State = {
   puzzle: solved(),
@@ -116,8 +122,8 @@ let state: State = {
   cursor: 0,
   partials: [],
   settings: defaultPyraminxSettings(),
-  mode: 'play',
-  view: 'hidden',
+  mode: STUDIO_DEFAULTS.mode,
+  view: STUDIO_DEFAULTS.view,
   busy: false,
   dragging: false,
   settling: false,
@@ -128,11 +134,11 @@ let state: State = {
   selected: [],
   colors: defaultColors(),
   photos: {},
-  editFace: 3,
+  editFace: PUZZLE_DEFAULTS.pyraminx.editFace,
   presets: defaultPresets(),
   keybindings: defaultKeys(),
-  autoSave: false,
-  presentation: false,
+  autoSave: STUDIO_DEFAULTS.autoSave,
+  presentation: STUDIO_DEFAULTS.presentation,
   solving: false,
   solveStatus: '',
   ready: false,

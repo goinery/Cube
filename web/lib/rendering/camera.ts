@@ -1,3 +1,4 @@
+import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
 import { Box3, MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 
 const depthCenter = new Vector3(),
@@ -20,8 +21,10 @@ export function updateDepthRange(camera: PerspectiveCamera, bounds: Box3) {
   camera.updateProjectionMatrix();
 }
 
-export const PRODUCT_DIRECTION = new Vector3(1, 0.65, 1).normalize();
-export const PRODUCT_OCCUPANCY = 0.68;
+export const PRODUCT_DIRECTION = new Vector3(
+  ...PUZZLE_DEFAULTS.cube.camera.direction,
+).normalize();
+export const PRODUCT_OCCUPANCY = PUZZLE_DEFAULTS.cube.camera.occupancy;
 
 export function rotateView(
   camera: PerspectiveCamera,
@@ -91,8 +94,14 @@ export function lightRotation(
   camera: Quaternion,
 ) {
   const rotation = new Quaternion().setFromUnitVectors(
-    lightDirection(-31, 50),
+    lightDirection(STUDIO_DEFAULTS.key.azimuth, STUDIO_DEFAULTS.key.elevation),
     lightDirection(azimuth, elevation),
   );
   return followCamera ? rotation.premultiply(camera) : rotation;
+}
+
+export interface CameraDestination {
+  position: Vector3;
+  target: Vector3;
+  orientation: Quaternion;
 }

@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { FACE, solved } from '../lib/cube/model';
 import { createTileGeometry } from '../lib/cube/geometry';
 import {
   createCenterHousing,
   createMechanics,
   magnetMounts,
 } from '../lib/cube/mechanics';
-import { CubeRenderOptimizer } from '../lib/cube/render-optimizer';
+import { FACE, solved } from '../lib/cube/model';
 import { defaultSettings } from '../lib/cube/store';
-import { createModel, normals, tileCenter } from '../lib/pyraminx/geometry';
-import { TILES, VERTICES } from '../lib/pyraminx/model';
-import { getState, defaultPyraminxSettings } from '../lib/pyraminx/store';
 import { TIP_CUT } from '../lib/pyraminx/cap-profile';
+import { createModel, normals, tileCenter } from '../lib/pyraminx/geometry';
 import { CENTER_SHELL_RADIUS } from '../lib/pyraminx/mechanics';
+import { TILES, VERTICES } from '../lib/pyraminx/model';
+import { defaultPyraminxSettings, getState } from '../lib/pyraminx/store';
+import { updateDepthRange } from '../lib/rendering/camera';
 import { OcclusionCoverage } from '../lib/rendering/occlusion';
-import { updateDepthRange } from '../lib/cube/camera';
+import { RenderOptimizer } from '../lib/rendering/render-optimizer';
 
 assert.equal(defaultSettings().stickerOffset, 0);
 assert.equal(defaultPyraminxSettings().stickerOffset, 0);
@@ -202,7 +202,7 @@ for (const piece of solved()) {
   });
 }
 
-const cubeOptimizer = new CubeRenderOptimizer(cubeMechanics, cubeCaps, {
+const cubeOptimizer = new RenderOptimizer(cubeMechanics, cubeCaps, {
   shadows: false,
 });
 const cubeCamera = new T.PerspectiveCamera(30, 1.5, 0.1, 100),
@@ -311,15 +311,27 @@ for (const piece of pyr.pieces) {
   if (piece.kind === 'center') {
     // The floor is concave and concentric with the puzzle, including away
     // from the bearing axis. A flat end or an open rim cannot pass these rays.
-    const tangent = new T.Vector3().crossVectors(piece.radial, new T.Vector3(1, 0, 0)).normalize();
+    const tangent = new T.Vector3()
+      .crossVectors(piece.radial, new T.Vector3(1, 0, 0))
+      .normalize();
     for (const offset of [-0.22, 0, 0.22]) {
-      const direction = piece.radial.clone().addScaledVector(tangent, offset).normalize();
+      const direction = piece.radial
+        .clone()
+        .addScaledVector(tangent, offset)
+        .normalize();
       const probe = new T.Raycaster(new T.Vector3(), direction);
       const hit = probe.intersectObject(chassis)[0];
-      assert(hit && Math.abs(hit.distance - CENTER_SHELL_RADIUS) < 0.012,
-        `centre spherical floor is missing: ${piece.root.name}`);
-      const normal = hit.face!.normal.clone().transformDirection(chassis.matrixWorld);
-      assert(normal.dot(direction) < -0.96, 'spherical floor must face the core');
+      assert(
+        hit && Math.abs(hit.distance - CENTER_SHELL_RADIUS) < 0.012,
+        `centre spherical floor is missing: ${piece.root.name}`,
+      );
+      const normal = hit
+        .face!.normal.clone()
+        .transformDirection(chassis.matrixWorld);
+      assert(
+        normal.dot(direction) < -0.96,
+        'spherical floor must face the core',
+      );
     }
   }
   piece.root.traverse((mesh) => {
@@ -471,7 +483,7 @@ for (let face = 0; face < 4; face++) {
 pyr.root.traverse((o) => {
   if (o instanceof T.Mesh && !o.userData.cap) mechanics.push(o);
 });
-const optimizer = new CubeRenderOptimizer(mechanics, [...pyr.tiles.values()], {
+const optimizer = new RenderOptimizer(mechanics, [...pyr.tiles.values()], {
   shadows: false,
 });
 const sources = [...mechanics, ...pyr.tiles.values()].filter(

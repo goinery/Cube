@@ -1,15 +1,9 @@
-import { tx, localized } from '@/lib/i18n';
+import { localized, tx } from '@/lib/i18n';
+import { CUBE_COLORS } from '@/lib/puzzle-config';
 export type Vec = [number, number, number];
 export type Face = 'U' | 'R' | 'F' | 'D' | 'L' | 'B';
 export const FACES: Face[] = ['U', 'R', 'F', 'D', 'L', 'B'];
-export const COLORS: Record<Face, string> = {
-  U: '#f2f3f5',
-  R: '#ed211a',
-  F: '#08a665',
-  D: '#ffd52b',
-  L: '#ff851c',
-  B: '#0767eb',
-};
+export const COLORS: Record<Face, string> = CUBE_COLORS;
 export const FACE: Record<
   Face,
   {

@@ -1,3 +1,4 @@
+import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -421,7 +422,7 @@ export function buildPuzzle(def: Definition, anisotropy: number) {
         normal = v(face.normal);
       const material = new T.MeshPhysicalMaterial({
         color: face.color,
-        roughness: 0.24,
+        roughness: PUZZLE_DEFAULTS[def.id].settings.roughness,
         metalness: 0,
         clearcoat: 0.22,
         clearcoatRoughness: 0.13,

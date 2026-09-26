@@ -1,14 +1,21 @@
+import {
+  createPuzzleSettings,
+  DEFAULT_PRESETS,
+  GENERAL_KEYS,
+  PUZZLE_DEFAULTS,
+  STUDIO_DEFAULTS,
+  type PuzzleSettings,
+} from '@/lib/puzzle-config';
 import { useSyncExternalStore } from 'react';
+import { defaultAppearance, type Appearance } from './appearance';
 import {
   apply,
   definition,
-  inverse,
   inverseMove,
   moveSpec,
   parseAlgorithm,
   solved,
 } from './model';
-import { defaultAppearance, type Appearance } from './appearance';
 import { TurnCoordinator } from './motion';
 import type {
   Definition,
@@ -18,27 +25,7 @@ import type {
   Stage,
 } from './types';
 
-export interface Settings {
-  magnetStrength: number;
-  magnetDamping: number;
-  turnTolerance: number;
-  speed: number;
-  easing: 'smooth' | 'magnetic' | 'linear';
-  explode: number;
-  internal: number;
-  gap: number;
-  size: number;
-  stickerOffset: number;
-  minimal: boolean;
-  showMagnets: boolean;
-  roughness: number;
-  autoRotate: boolean;
-  lightFollowCamera: boolean;
-  lightAzimuth: number;
-  lightElevation: number;
-  lightIntensity: number;
-  quality: 'auto' | 'high' | 'low';
-}
+export type Settings = PuzzleSettings;
 export interface Preset {
   id: string;
   name: string;
@@ -81,27 +68,7 @@ export interface SessionState {
   faceAnchors?: Record<string, import('./hidden-faces').FaceAnchor>;
 }
 export function defaultSettings(def: Definition): Settings {
-  return {
-    magnetStrength: 1,
-    magnetDamping: 0.7,
-    turnTolerance: (def.step * 90) / Math.PI,
-    speed: 1,
-    easing: 'magnetic',
-    explode: 0,
-    internal: 1,
-    gap: 0.008,
-    size: 1,
-    stickerOffset: 0,
-    minimal: false,
-    showMagnets: true,
-    roughness: 0.24,
-    autoRotate: false,
-    lightFollowCamera: true,
-    lightAzimuth: -31,
-    lightElevation: 50,
-    lightIntensity: 2.8,
-    quality: 'auto',
-  };
+  return createPuzzleSettings(def.id);
 }
 export function defaultKeys(def: Definition) {
   return Object.fromEntries([
@@ -112,10 +79,7 @@ export function defaultKeys(def: Definition) {
         [f.id + "'", `Shift+Key${f.id}`],
         [f.id + '2', `Alt+Key${f.id}`],
       ]),
-    ['undo', 'Mod+KeyZ'],
-    ['redo', 'Mod+Shift+KeyZ'],
-    ['playPause', 'Space'],
-    ['exitPresentation', 'Escape'],
+    ...Object.entries(GENERAL_KEYS),
   ]);
 }
 export class Session {
@@ -138,7 +102,6 @@ export class Session {
   } = { fit: () => {}, reset: () => {}, focus: () => {}, face: () => {} };
   constructor(id: PuzzleId) {
     this.def = definition(id);
-    const minx = id === 'megaminx';
     this.state = {
       puzzle: solved(this.def),
       history: [],
@@ -146,39 +109,19 @@ export class Session {
       settings: defaultSettings(this.def),
       appearance: defaultAppearance(this.def),
       selected: [],
-      editFace: 'F',
-      mode: 'play',
-      view: 'hidden',
+      editFace: PUZZLE_DEFAULTS[id].editFace,
+      mode: STUDIO_DEFAULTS.mode,
+      view: STUDIO_DEFAULTS.view,
       player: null,
       notice: null,
       solving: false,
       solveStatus: null,
       solveResult: null,
-      autoSave: false,
-      presentation: false,
+      autoSave: STUDIO_DEFAULTS.autoSave,
+      presentation: STUDIO_DEFAULTS.presentation,
       presets: [
-        {
-          id: 'trigger',
-          name: '',
-          labelKey: 'algorithm.trigger',
-          algorithm: "R U R' U'",
-        },
-        {
-          id: 'reverse',
-          name: '',
-          labelKey: 'algorithm.reverse',
-          algorithm: "L' U' L U",
-        },
-        {
-          id: 'pattern',
-          name: '',
-          labelKey: minx ? 'algorithm.cycle' : 'algorithm.checker',
-          algorithm: minx
-            ? 'U R F L BL'
-            : id === 'cube-2'
-              ? 'R2 U2 F2'
-              : '2R2 2U2 2F2',
-        },
+        ...DEFAULT_PRESETS.workspace.map((preset) => ({ ...preset, name: '' })),
+        { id: 'pattern', name: '', ...DEFAULT_PRESETS.pattern[id] },
       ],
       keys: defaultKeys(this.def),
       motionVersion: 0,

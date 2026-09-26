@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { definition, moveSpec } from '../lib/puzzle/model';
 import { capGeometry } from '../lib/puzzle/geometry';
 import { HiddenFaces } from '../lib/puzzle/hidden-faces';
-import { MinimalRenderer } from '../lib/rendering/minimal';
-import { updateDepthRange } from '../lib/cube/camera';
-import { Session } from '../lib/puzzle/session';
+import { definition, moveSpec } from '../lib/puzzle/model';
 import { capture, validate } from '../lib/puzzle/persistence';
+import { Session } from '../lib/puzzle/session';
+import { updateDepthRange } from '../lib/rendering/camera';
+import { MinimalRenderer } from '../lib/rendering/minimal';
 
 for (const id of ['cube-2', 'cube-4', 'cube-5', 'megaminx'] as const) {
   const session = new Session(id),

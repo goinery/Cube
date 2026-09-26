@@ -1,0 +1,155 @@
+.scramble-record {
+  background: #20291e;
+  border: 1px solid #3a4833;
+  border-radius: 7px;
+  padding: 12px;
+  margin-top: 14px;
+}
+.scramble-record p {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #a7bc96;
+  line-height: 1.8;
+  margin-top: 5px;
+}
+.scramble-record button {
+  color: #91a681;
+}
+.control-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #adb9a4;
+  gap: 12px;
+}
+.control-label .value-input {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #c7d5ad;
+}
+.value-input input {
+  width: 64px;
+  min-height: 26px;
+  padding: 3px 6px;
+  text-align: right;
+  font: inherit;
+  color: inherit;
+  background: #ffffff08;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  outline: 0;
+}
+.value-input input:hover:not(:disabled) {
+  border-color: #ffffff16;
+}
+.value-input input:focus {
+  border-color: #94aa80;
+  background: #ffffff12;
+}
+.value-input input:disabled {
+  opacity: 0.45;
+}
+.value-input i {
+  font-style: normal;
+  color: #8b9c7f;
+}
+.range-control {
+  padding: 12px 0 17px;
+}
+.range-control [data-slot='slider'] {
+  padding: 4px 0;
+}
+.range-control [data-slot='slider-track'] {
+  height: 3px;
+}
+.range-control [data-slot='slider-thumb'] {
+  height: 11px;
+  width: 11px;
+  background: #d6e1c6;
+  border-color: #d6e1c6;
+}
+.choice-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  font-size: 13px;
+  color: #a9b6a0;
+}
+.choice-control [data-slot='select-trigger'] {
+  font-size: 12px;
+}
+.engineering-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid #48503e;
+  background: #c7d5ad08;
+  border-radius: 9px;
+  padding: 16px 12px;
+  margin-bottom: 17px;
+  color: #b4c7a4;
+}
+.engineering-card strong {
+  font-size: 13px;
+  font-weight: 450;
+}
+.engineering-card p {
+  font-size: 11px;
+  margin-top: 5px;
+  color: #86967b;
+}
+.engineering-card > span {
+  font-size: 26px;
+  font-family: var(--font-mono);
+  font-weight: 200;
+  color: #606e55;
+  margin-left: auto;
+}
+.explode-presets {
+  display: flex;
+  justify-content: space-between;
+  margin: -3px 0 12px;
+}
+.explode-presets button {
+  font-size: 11px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  color: #8a9c7c;
+}
+.explode-presets button.active {
+  color: #dae7ce;
+  background: #c7d5ad12;
+}
+.part-legend {
+  border-top: 1px solid #ffffff0d;
+  margin-top: 21px;
+  padding-top: 20px;
+}
+.part-legend h3 {
+  margin-bottom: 12px;
+}
+.part-legend p {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 2.7;
+  font-size: 12px;
+  color: #9cad8f;
+}
+.part-legend i {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+}
+.part-legend p span {
+  margin-left: auto;
+  font: 10px var(--font-mono);
+  color: #657d54;
+}

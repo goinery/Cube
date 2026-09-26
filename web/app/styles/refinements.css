@@ -1,0 +1,127 @@
+.panel-section textarea,
+.text-design input {
+  background: #15191a;
+  border-color: #3c4444;
+}
+.scramble-record {
+  background: #202626;
+  border-color: #384241;
+}
+.app-footer {
+  background: #171a1b;
+}
+.face-moves button {
+  background: #252a2b;
+  border-color: #3b4343;
+}
+.face-moves button:hover:not(:disabled) {
+  background: #313839;
+}
+.scramble-record p,
+.help-text {
+  color: #a7b3aa;
+}
+.microcopy {
+  color: #839189;
+}
+.control-label,
+.toggle-control,
+.choice-control,
+.color-control {
+  color: #aeb8b0;
+}
+.palette-presets button,
+.project-actions button,
+.camera-grid button {
+  border-color: #3e4845;
+}
+.solver-options small,
+.stage-description p {
+  color: #95a296;
+}
+.cfop-guide p {
+  color: #8d9b91;
+}
+.panel-footer {
+  color: #748078;
+}
+.source-image {
+  background: #24292a;
+}
+.image-previews canvas {
+  background: #24292a;
+}
+.panel-nav button {
+  font-size: 12px;
+}
+.eyebrow {
+  font-size: 12px;
+}
+.microcopy,
+.help-text,
+.control-label,
+.toggle-control,
+.choice-control {
+  font-size: 13px;
+}
+.app-footer,
+.panel-footer,
+.map-heading {
+  font-size: 10px;
+}
+.face-label {
+  font-size: 10px;
+}
+.header-center {
+  font-size: 10px;
+}
+.algorithm-presets button,
+.image-actions,
+.file-button,
+.selection-actions,
+.edit-grid-heading {
+  font-size: 12px;
+}
+.stage-description p {
+  font-size: 13px;
+}
+.stage-description strong {
+  font-size: 13px;
+}
+.solver-options small {
+  font-size: 12px;
+}
+.project-actions button {
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .panel-nav button {
+    font-size: 11px;
+  }
+  .map-heading {
+    font-size: 10px;
+  }
+  .image-actions button,
+  .file-button,
+  .project-actions button {
+    min-height: 44px;
+  }
+  .selection-actions button {
+    min-height: 34px;
+  }
+  .face-selector button {
+    min-height: 46px;
+  }
+  .microcopy {
+    font-size: 12px;
+  }
+  .image-previews {
+    max-width: 390px;
+  }
+  .editor-face {
+    max-width: 235px;
+  }
+  .stage-description p {
+    font-size: 13px;
+  }
+}

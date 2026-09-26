@@ -1,28 +1,34 @@
-'use client';
 import { tx } from '@/lib/i18n';
+import {
+  createPuzzleSettings,
+  PUZZLE_DEFAULTS,
+  STUDIO_DEFAULTS,
+  type PuzzleSettings,
+} from '@/lib/puzzle-config';
 import { useMemo, useSyncExternalStore } from 'react';
-import {
-  solved,
-  turn,
-  inverseMove,
-  parseAlgorithm,
-  apply,
-  type CubeState,
-  type Face,
-} from './model';
-import { defaultAppearance, type Appearance } from './appearance';
-import { defaultKeybindings, type Keybindings } from './keybindings';
 import { defaultAlgorithmPresets, type AlgorithmPreset } from './algorithms';
+import { defaultAppearance, type Appearance } from './appearance';
 import {
-  canTurnSequence,
-  partialAfterMove,
   alignedPartialForTurn,
-  partialAfterAllowedMove,
+  canTurnSequence,
   layerFace,
   moveForAngle,
+  partialAfterAllowedMove,
+  partialAfterMove,
   QUARTER,
   type PartialTurns,
 } from './interaction';
+import { defaultKeybindings, type Keybindings } from './keybindings';
+import {
+  apply,
+  inverseMove,
+  parseAlgorithm,
+  solved,
+  turn,
+  type CubeState,
+  type Face,
+} from './model';
+('use client');
 export type Mode =
   | 'play'
   | 'camera'
@@ -31,51 +37,14 @@ export type Mode =
   | 'solver'
   | 'inspect';
 export type View = 'normal' | 'hidden' | 'six' | 'net';
-export interface Settings {
+export interface Settings extends PuzzleSettings {
   algorithmPresets: AlgorithmPreset[];
   keybindings: Keybindings;
-  explode: number;
-  gap: number;
-  size: number;
-  stickerOffset: number;
-  internal: number;
-  speed: number;
-  easing: 'smooth' | 'magnetic' | 'linear';
-  roughness: number;
-  autoRotate: boolean;
-  lightFollowCamera: boolean;
-  lightAzimuth: number;
-  lightElevation: number;
-  lightIntensity: number;
-  quality: 'auto' | 'high' | 'low';
-  minimal: boolean;
-  showMagnets: boolean;
-  magnetStrength: number;
-  magnetDamping: number;
-  turnTolerance: number;
 }
 export const defaultSettings = (): Settings => ({
+  ...createPuzzleSettings('cube'),
   algorithmPresets: defaultAlgorithmPresets(),
   keybindings: defaultKeybindings(),
-  explode: 0,
-  gap: 0.006,
-  size: 1,
-  stickerOffset: 0,
-  internal: 1,
-  speed: 1,
-  easing: 'magnetic',
-  roughness: 0.24,
-  autoRotate: false,
-  lightFollowCamera: true,
-  lightAzimuth: -31,
-  lightElevation: 50,
-  lightIntensity: 2.8,
-  quality: 'auto',
-  minimal: false,
-  showMagnets: true,
-  magnetStrength: 1,
-  magnetDamping: 0.7,
-  turnTolerance: 45,
 });
 export interface Stage {
   name: string;
@@ -134,13 +103,13 @@ let state: AppState = {
   busy: false,
   dragging: false,
   partialTurns: null,
-  mode: 'play',
-  view: 'hidden',
+  mode: STUDIO_DEFAULTS.mode,
+  view: STUDIO_DEFAULTS.view,
   settings: defaultSettings(),
   appearance: defaultAppearance(),
   artVersion: 0,
   selected: [],
-  editFace: 'F',
+  editFace: PUZZLE_DEFAULTS.cube.editFace,
   player: null,
   currentMove: '',
   scramble: '',
@@ -149,8 +118,8 @@ let state: AppState = {
   solving: false,
   solveStatus: '',
   visibleFaces: ['U', 'R', 'F'],
-  presentation: false,
-  autoSave: false,
+  presentation: STUDIO_DEFAULTS.presentation,
+  autoSave: STUDIO_DEFAULTS.autoSave,
   ready: false,
   faceAnchors: {},
 };

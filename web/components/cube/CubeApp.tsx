@@ -1,4 +1,5 @@
 'use client';
+import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx, useLanguage, localized } from '@/lib/i18n';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
@@ -873,13 +874,7 @@ export default function CubeApp({
                 <button
                   className="wide-button"
                   onClick={() => {
-                    settings({
-                      explode: 0,
-                      gap: 0.006,
-                      size: 1,
-                      stickerOffset: 0,
-                      internal: 1,
-                    });
+                    settings(assemblyDefaults('cube'));
                     setTimeout(() => cameraActions.reset(), 30);
                   }}
                 >

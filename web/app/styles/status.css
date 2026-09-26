@@ -1,0 +1,133 @@
+.stage[data-solving='true'] .viewport {
+  pointer-events: none;
+}
+.solve-lock {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 8;
+  background: #18201de6;
+  border: 1px solid #9ab38866;
+  border-radius: 8px;
+  padding: 12px 18px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: #c7d5ad;
+  font-size: 13px;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+.solve-lock span {
+  color: #92a488;
+  font-size: 12px;
+}
+.preflight {
+  padding: 16px;
+  background: #c7d5ad08;
+  border: 1px solid #9cad8455;
+  border-radius: 9px;
+  margin-top: 12px;
+}
+.preflight h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #c7d5ad;
+}
+.preflight p {
+  font-size: 13px;
+  line-height: 1.85;
+  color: #a9b5a2;
+  margin-top: 9px;
+}
+.preflight-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.preflight-stats span {
+  border: 1px solid #66705b55;
+  padding: 4px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #afbf9e;
+}
+.preflight .primary-button {
+  width: 100%;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.preflight .toggle-control {
+  font-size: 12px;
+}
+.fatal-error {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 30px;
+  text-align: center;
+}
+.fatal-error h1 {
+  font-size: 24px;
+}
+.fatal-error button {
+  padding: 12px 20px;
+  border: 1px solid #879675;
+  border-radius: 6px;
+}
+@media (max-width: 760px) {
+  .projection-label {
+    font-size: 9px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+  .projection-label b {
+    font-size: 11px;
+  }
+  .solve-lock {
+    bottom: 50px;
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+  .solve-lock span {
+    display: none;
+  }
+}
+
+.preflight > strong {
+  font-size: 13px;
+  color: #c7d5ad;
+}
+.preflight > small {
+  display: block;
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #83947e;
+}
+.preflight.invalid {
+  border-color: #c87969;
+}
+.stage[data-solving='true'] .camera-buttons {
+  opacity: 0.4;
+}
+.player[inert] {
+  opacity: 0.45;
+}
+
+.solver-progress button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  width: auto;
+  min-width: 56px;
+  padding: 5px 8px;
+  font-size: 12px;
+}

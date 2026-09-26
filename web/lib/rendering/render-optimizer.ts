@@ -1,19 +1,19 @@
 import {
+  BufferGeometry,
   Camera,
+  DynamicDrawUsage,
   Frustum,
   Group,
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   Object3D,
   Plane,
   Sphere,
   Vector3,
-  DynamicDrawUsage,
-  BufferGeometry,
-  MeshBasicMaterial,
 } from 'three';
-import { OcclusionCoverage } from '../rendering/occlusion';
+import { OcclusionCoverage } from './occlusion';
 
 interface Source {
   mesh: Mesh;
@@ -51,7 +51,7 @@ export function isHierarchyVisible(object: Object3D) {
 }
 
 /** Exact-geometry instancing plus conservative, whole-bounds occlusion. */
-export class CubeRenderOptimizer {
+export class RenderOptimizer {
   readonly group = new Group();
   private readonly main = new Group();
   private readonly shadows = new Group();

@@ -1,9 +1,10 @@
+import { pause as pauseCube } from '@/lib/cube/store';
+import { useTranslation } from '@/lib/i18n';
+import { STUDIO_DEFAULTS } from '@/lib/puzzle-config';
+import { stopSessions } from '@/lib/puzzle/session';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import CubeApp from './CubeApp';
-import { pause as pauseCube } from '@/lib/cube/store';
 import type { PuzzleType } from './PuzzleSwitcher';
-import { useTranslation } from '@/lib/i18n';
-import { stopSessions } from '@/lib/puzzle/session';
 const PyraminxApp = lazy(() => import('../pyraminx/PyraminxApp'));
 const PuzzleApp = lazy(() => import('../workspace/PuzzleApp'));
 export default function WorkspaceApp() {
@@ -20,9 +21,9 @@ export default function WorkspaceApp() {
         'megaminx',
       ].includes(saved || '')
         ? (saved as PuzzleType)
-        : 'cube';
+        : STUDIO_DEFAULTS.activePuzzle;
     } catch {
-      return 'cube';
+      return STUDIO_DEFAULTS.activePuzzle;
     }
   });
   useEffect(() => {

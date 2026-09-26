@@ -1,3 +1,4 @@
+import { assemblyDefaults } from '@/lib/puzzle-config';
 import {
   useEffect,
   useMemo,
@@ -595,13 +596,7 @@ export default function PuzzleApp({
               <button
                 className="wide-button"
                 onClick={() => {
-                  session.settings({
-                    explode: 0,
-                    gap: 0.008,
-                    size: 1,
-                    internal: 1,
-                    stickerOffset: 0,
-                  });
+                  session.settings(assemblyDefaults(session.def.id));
                   setTimeout(() => session.camera.fit(), 350);
                 }}
               >

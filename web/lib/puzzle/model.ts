@@ -1,3 +1,4 @@
+import { CUBE_COLORS, MEGAMINX_COLORS } from '@/lib/puzzle-config';
 import { Matrix3, Quaternion, Vector3 } from 'three';
 import type {
   Definition,
@@ -64,12 +65,12 @@ export function roundedPolygon(
   return result;
 }
 const cubeFaces: [string, V3, V3, V3, string][] = [
-  ['U', [0, 1, 0], [1, 0, 0], [0, 0, -1], '#f2f3f5'],
-  ['R', [1, 0, 0], [0, 0, -1], [0, 1, 0], '#ed211a'],
-  ['F', [0, 0, 1], [1, 0, 0], [0, 1, 0], '#08a665'],
-  ['D', [0, -1, 0], [1, 0, 0], [0, 0, 1], '#ffd52b'],
-  ['L', [-1, 0, 0], [0, 0, 1], [0, 1, 0], '#ff851c'],
-  ['B', [0, 0, -1], [-1, 0, 0], [0, 1, 0], '#0767eb'],
+  ['U', [0, 1, 0], [1, 0, 0], [0, 0, -1], CUBE_COLORS.U],
+  ['R', [1, 0, 0], [0, 0, -1], [0, 1, 0], CUBE_COLORS.R],
+  ['F', [0, 0, 1], [1, 0, 0], [0, 1, 0], CUBE_COLORS.F],
+  ['D', [0, -1, 0], [1, 0, 0], [0, 0, 1], CUBE_COLORS.D],
+  ['L', [-1, 0, 0], [0, 0, 1], [0, 1, 0], CUBE_COLORS.L],
+  ['B', [0, 0, -1], [-1, 0, 0], [0, 1, 0], CUBE_COLORS.B],
 ];
 function cubeDefinition(order: number): Definition {
   const widths =
@@ -240,20 +241,6 @@ function megaminxDefinition(): Definition {
     'D',
     'B',
   ];
-  const colors = [
-    '#909397',
-    '#f3ed54',
-    '#ec629e',
-    '#32b8ed',
-    '#70ce30',
-    '#ff8619',
-    '#8126be',
-    '#ffffff',
-    '#115de1',
-    '#ef2921',
-    '#006c49',
-    '#d1b999',
-  ];
   const faces: FaceDefinition[] = normals.map((normal, i) => {
     const up = new Vector3(0, 1, 0)
         .addScaledVector(normal, -normal.y)
@@ -277,7 +264,7 @@ function megaminxDefinition(): Definition {
       up: tuple(up),
       center: tuple(center),
       outline: points,
-      color: colors[i],
+      color: MEGAMINX_COLORS[names[i]],
     };
   });
   const pieces: PieceDefinition[] = [],

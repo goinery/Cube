@@ -1,4 +1,5 @@
 import { tx } from '@/lib/i18n';
+import { GENERAL_KEYS } from '@/lib/puzzle-config';
 import { FACES, type Face } from './model';
 export type ShortcutAction =
   | Face
@@ -37,10 +38,7 @@ export function defaultKeybindings(): Keybindings {
   }
   return {
     ...bindings,
-    undo: 'Mod+KeyZ',
-    redo: 'Mod+Shift+KeyZ',
-    playPause: 'Space',
-    exitPresentation: 'Escape',
+    ...GENERAL_KEYS,
   };
 }
 const keyCode =

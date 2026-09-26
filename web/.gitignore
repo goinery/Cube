@@ -37,5 +37,9 @@ next-env.d.ts
 /outputs/
 /work/
 
-/scripts/
-/tests/
+/scripts/*
+/tests/*
+!/scripts/benchmark-rendering.mjs
+!/scripts/verify-viewport-browser.mjs
+!/tests/verify-render-optimization.ts
+!/tests/verify-viewport-core.ts

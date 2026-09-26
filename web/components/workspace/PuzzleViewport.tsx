@@ -1,29 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import * as T from 'three';
-import { MinimalRenderer } from '@/lib/rendering/minimal';
-import { CubeRenderOptimizer } from '@/lib/cube/render-optimizer';
-import { buildPuzzle } from '@/lib/puzzle/geometry';
-import { paintFace } from '@/lib/puzzle/appearance';
 import { fitDistance } from '@/lib/cube/interaction';
+import { i18n, t } from '@/lib/i18n';
+import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
+import { paintFace } from '@/lib/puzzle/appearance';
+import { buildPuzzle } from '@/lib/puzzle/geometry';
 import { HiddenFaces } from '@/lib/puzzle/hidden-faces';
-import { moveSpec } from '@/lib/puzzle/model';
 import type { Session } from '@/lib/puzzle/session';
-import type { Track } from '@/lib/puzzle/motion';
+import { createPuzzleInteraction } from '@/lib/puzzle/viewport-interaction';
 import {
-  StudioEnvironment,
-  createContactShadow,
-  createPlasticGrain,
-} from '@/lib/cube/studio';
-import {
-  rotateView,
-  zoomView,
   lightRotation,
-  PRODUCT_DIRECTION,
-  PRODUCT_OCCUPANCY,
+  rotateView,
   transitionView,
   updateDepthRange,
-} from '@/lib/cube/camera';
-import { i18n, t } from '@/lib/i18n';
+} from '@/lib/rendering/camera';
+import { createFrameLoop } from '@/lib/rendering/frame-loop';
+import { MinimalRenderer } from '@/lib/rendering/minimal';
+import { createPlasticGrain } from '@/lib/rendering/studio';
+import {
+  attachOptimizer,
+  createPuzzleOptimizer,
+  createRenderer,
+  createStudio,
+  pixelRatio,
+} from '@/lib/rendering/viewport';
+import { useEffect, useRef, useState } from 'react';
+import * as T from 'three';
 
 export default function PuzzleViewport({ session }: { session: Session }) {
   const host = useRef<HTMLDivElement>(null),
@@ -33,82 +33,16 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       def = session.def;
     let renderer: T.WebGLRenderer;
     try {
-      renderer = new T.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        powerPreference: 'high-performance',
-      });
+      renderer = createRenderer(def.id);
     } catch {
       setError(true);
       return;
     }
-    renderer.outputColorSpace = T.SRGBColorSpace;
-    renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.78;
-    renderer.setClearColor(0, 0);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.autoUpdate = false;
-    renderer.shadowMap.type = T.PCFSoftShadowMap;
-    renderer.domElement.style.touchAction = 'none';
+    const defaults = PUZZLE_DEFAULTS[def.id];
     el.appendChild(renderer.domElement);
-    const scene = new T.Scene(),
-      camera = new T.PerspectiveCamera(30, 1, 0.01, 100),
-      target = new T.Vector3();
-    camera.position
-      .copy(PRODUCT_DIRECTION)
-      .multiplyScalar(def.id === 'megaminx' ? 10.4 : 9.5);
-    camera.lookAt(target);
-    const environment = new StudioEnvironment(),
-      pmrem = new T.PMREMGenerator(renderer),
-      env = pmrem.fromScene(environment, 0.035);
-    scene.environment = env.texture;
-    scene.environmentIntensity = 0.5;
-    environment.dispose();
-    pmrem.dispose();
-    scene.add(new T.HemisphereLight(0xf2f4f7, 0x17191d, 0.4));
-    const rig = new T.Group(),
-      key = new T.DirectionalLight(0xfff3e6, 2.8),
-      fill = new T.DirectionalLight(0xfffbf5, 1.2),
-      rim = new T.DirectionalLight(0xd6e5ff, 1.15);
-    key.position.set(-3, 7, 5);
-    fill.position.set(6, 1, 5);
-    rim.position.set(4, 3, -5);
-    key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.left = -8;
-    key.shadow.camera.right = 8;
-    key.shadow.camera.top = 8;
-    key.shadow.camera.bottom = -8;
-    key.shadow.normalBias = 0.008;
-    key.shadow.bias = -0.00008;
-    rig.add(key, fill, rim);
-    scene.add(rig);
-    const ground = new T.Mesh(
-      new T.PlaneGeometry(80, 80),
-      new T.ShadowMaterial({
-        opacity: 0.1,
-        color: '#101720',
-        depthWrite: false,
-      }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = def.id === 'megaminx' ? -1.98 : -1.57;
-    ground.receiveShadow = true;
-    scene.add(ground);
-    const contactMap = createContactShadow(),
-      contact = new T.Mesh(
-        new T.PlaneGeometry(5, 5),
-        new T.MeshBasicMaterial({
-          map: contactMap,
-          transparent: true,
-          opacity: 0.55,
-          toneMapped: false,
-          depthWrite: false,
-        }),
-      );
-    contact.rotation.x = -Math.PI / 2;
-    contact.position.y = ground.position.y + 0.004;
-    scene.add(contact);
+    const studio = createStudio(renderer, def.id, def.faces);
+    const { scene, camera, target, rig, key, fill, rim, ground, contact } =
+      studio;
     const model = buildPuzzle(def, renderer.capabilities.getMaxAnisotropy());
     scene.add(model.root);
     const mechanics: T.Mesh[] = [],
@@ -118,29 +52,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       if (object instanceof T.Mesh && !capSet.has(object))
         mechanics.push(object);
     });
-    const optimizer = new CubeRenderOptimizer(mechanics, caps, {
-      occlusion: 'coverage',
-    });
-    scene.add(optimizer.group);
-    // Three builds the colour list before rendering shadows. Keep independent
-    // light-view instances so camera culling cannot remove shadow casters.
-    const drawShadows = renderer.shadowMap.render.bind(renderer.shadowMap);
-    renderer.shadowMap.render = (lights, shadowScene, shadowCamera) => {
-      if (!renderer.shadowMap.enabled || !renderer.shadowMap.needsUpdate)
-        return drawShadows(lights, shadowScene, shadowCamera);
-      key.shadow.updateMatrices(key);
-      optimizer.prepareShadow(key.shadow.camera);
-      try {
-        drawShadows(lights, shadowScene, shadowCamera);
-      } finally {
-        optimizer.restoreCamera();
-      }
-    };
-    if (import.meta.env.DEV)
-      Object.defineProperty(renderer.domElement, 'renderStats', {
-        configurable: true,
-        get: () => optimizer.stats,
-      });
+    const optimizer = createPuzzleOptimizer(def.id, mechanics, caps);
+    attachOptimizer(renderer, scene, key, optimizer);
     const grain = createPlasticGrain(renderer.capabilities.getMaxAnisotropy());
     model.caps.forEach((mesh) => {
       const material = mesh.material as T.MeshPhysicalMaterial;
@@ -160,14 +73,11 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       target: T.Vector3;
       orientation: T.Quaternion;
     } | null = null;
-    const raycaster = new T.Raycaster(),
-      pointer = new T.Vector2(),
-      hitObjects = [
-        ...hiddenMaps.hitMeshes,
-        ...model.caps.values(),
-        ...model.models.map((m) => m.shell),
-      ];
-    raycaster.layers.enable(1);
+    const hitObjects = [
+      ...hiddenMaps.hitMeshes,
+      ...model.caps.values(),
+      ...model.models.map((m) => m.shell),
+    ];
     const homes = def.pieces.map((piece) => new T.Vector3(...piece.home)),
       radials = homes.map((home) => home.clone().normalize()),
       poses = homes.map(() => new T.Quaternion()),
@@ -183,48 +93,17 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       return Math.abs(next - goal) < 1e-6 ? goal : next;
     };
     let disposed = false,
-      frame = 0,
-      last = performance.now(),
       art = -1,
       artRequest = 0,
-      explode = 0,
-      gap = 0.008,
-      size = 1,
-      internal = 1,
-      offset = 0,
-      magnetWeight = 1,
+      explode = session.state.settings.explode,
+      gap = session.state.settings.gap,
+      size = session.state.settings.size,
+      internal = session.state.settings.internal,
+      offset = session.state.settings.stickerOffset,
+      magnetWeight = Number(session.state.settings.showMagnets),
       followFit = false;
-    let drag: {
-      track: Track;
-      start: number;
-      x: number;
-      y: number;
-      sx: number;
-      sy: number;
-      lastAngle: number;
-      time: number;
-    } | null = null;
-    let down: {
-      id: number;
-      x: number;
-      y: number;
-      startX: number;
-      startY: number;
-      hit: T.Intersection | null;
-      orbit: boolean;
-      moved: boolean;
-    } | null = null;
-    const pointers = new Map<number, { x: number; y: number }>();
-    let pinch: {
-      x: number;
-      y: number;
-      distance: number;
-      angle: number;
-    } | null = null;
-    function invalidate() {
-      if (!disposed && !frame && !document.hidden)
-        frame = requestAnimationFrame(render);
-    }
+    const loop = createFrameLoop(render),
+      invalidate = loop.invalidate;
     function updateArt() {
       if (art === session.state.artVersion) return;
       art = session.state.artVersion;
@@ -346,7 +225,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
           mat.emissive.set(state.selected.includes(id) ? '#3b4724' : '#000000');
         mat.emissiveIntensity = 0.2;
       });
-      contact.material.opacity = 0.55 / (1 + explode * 2);
+      contact.material.opacity =
+        defaults.render.contactOpacity / (1 + explode * 2);
       previousLayout = state;
       wasMoving = session.motion.moving;
       return (
@@ -380,11 +260,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     }
     const previousLightRotation = new T.Quaternion(0, 0, 0, 0);
     let previousShadowRadius = -1;
-    function render(now: number) {
-      frame = 0;
-      if (disposed || document.hidden) return;
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
+    function render(now: number, dt: number) {
+      if (disposed) return;
       session.motion.tick(now);
       updateArt();
       const transitioning = layout(now, dt),
@@ -419,8 +296,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
           cameraDestination = null;
         }
       }
-      if (settings.autoRotate && !cameraDestination && !drag && !down && !pinch)
-        rotateView(camera, target, dt * 0.22, 0);
+      if (settings.autoRotate && !cameraDestination && !interactions.active)
+        rotateView(camera, target, dt * defaults.camera.autoRotateSpeed, 0);
       rig.quaternion.slerp(
         lightRotation(
           settings.lightAzimuth,
@@ -436,8 +313,12 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         10,
         dt,
       );
-      fill.intensity = (key.intensity * 1.2) / 2.8;
-      rim.intensity = (key.intensity * 1.15) / 2.8;
+      fill.intensity =
+        (key.intensity * STUDIO_DEFAULTS.fill.intensity) /
+        STUDIO_DEFAULTS.key.intensity;
+      rim.intensity =
+        (key.intensity * STUDIO_DEFAULTS.rim.intensity) /
+        STUDIO_DEFAULTS.key.intensity;
       scene.environmentRotation.setFromQuaternion(rig.quaternion);
       if (!previousLightRotation.equals(rig.quaternion)) {
         previousLightRotation.copy(rig.quaternion);
@@ -470,7 +351,11 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         ground.position.y + 0.002,
         (box.min.z + box.max.z) / 2,
       );
-      contact.scale.set((surface.x * 1.65) / 5, (surface.z * 1.65) / 5, 1);
+      contact.scale.set(
+        (surface.x * 1.65) / defaults.render.contactSize,
+        (surface.z * 1.65) / defaults.render.contactSize,
+        1,
+      );
       ground.updateMatrix();
       contact.updateMatrix();
       scene.updateMatrixWorld();
@@ -526,17 +411,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       const width = el.clientWidth,
         height = el.clientHeight;
       if (!width || !height) return;
-      const q = session.state.settings.quality,
-        ratio = Math.min(
-          devicePixelRatio,
-          q === 'low'
-            ? 1
-            : q === 'high'
-              ? 2
-              : matchMedia('(max-width:760px)').matches
-                ? 1.5
-                : 2,
-        );
+      const ratio = pixelRatio(session.state.settings.quality);
       if (
         width === lastWidth &&
         height === lastHeight &&
@@ -556,7 +431,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     }
     function moveCamera(
       direction: T.Vector3,
-      occupancy = 0.75,
+      occupancy = defaults.camera.fitOccupancy,
       up = camera.up,
       objects: T.Object3D[] = [model.root],
       instant = false,
@@ -609,9 +484,9 @@ export default function PuzzleViewport({ session }: { session: Session }) {
           Math.abs(internal - session.state.settings.internal) >
         0.001;
       moveCamera(
-        reset ? PRODUCT_DIRECTION : camera.position.clone().sub(target),
-        reset ? PRODUCT_OCCUPANCY : 0.75,
-        reset ? new T.Vector3(0, 1, 0) : camera.up,
+        reset ? studio.initial.direction : camera.position.clone().sub(target),
+        reset ? defaults.camera.occupancy : defaults.camera.fitOccupancy,
+        reset ? studio.initial.up : camera.up,
         [model.root],
         instant,
       );
@@ -633,273 +508,32 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         if (face)
           moveCamera(
             new T.Vector3(...face.normal),
-            0.75,
+            defaults.camera.fitOccupancy,
             new T.Vector3(...face.up),
           );
       },
     };
-    function hit(x: number, y: number) {
-      const rect = el.getBoundingClientRect();
-      pointer.set(
-        ((x - rect.left) / rect.width) * 2 - 1,
-        (-(y - rect.top) / rect.height) * 2 + 1,
-      );
-      raycaster.setFromCamera(pointer, camera);
-      const visible = hitObjects.filter((object) => {
-        if (session.state.settings.minimal && !object.userData.tile)
-          return false;
-        for (let p: T.Object3D | null = object; p; p = p.parent)
-          if (!p.visible) return false;
-        return optimizer.isVisible(object);
-      });
-      return (
-        raycaster.intersectObjects(
-          visible.filter((o) => o.userData.mapping),
-          false,
-        )[0] ??
-        raycaster.intersectObjects(
-          visible.filter((o) => !o.userData.mapping),
-          false,
-        )[0] ??
-        null
-      );
-    }
-    function pinchState() {
-      const ps = [...pointers.values()];
-      if (ps.length < 2) return null;
-      return {
-        x: (ps[0].x + ps[1].x) / 2,
-        y: (ps[0].y + ps[1].y) / 2,
-        distance: Math.hypot(ps[1].x - ps[0].x, ps[1].y - ps[0].y),
-        angle: Math.atan2(ps[1].y - ps[0].y, ps[1].x - ps[0].x),
-      };
-    }
-    function finish(cancel = false) {
-      if (drag) {
-        session.motion.release(drag.track, cancel);
-        drag = null;
-      }
-      down = null;
-      invalidate();
-    }
-    function onDown(e: PointerEvent) {
-      if (session.state.solving) return;
-      cameraDestination = null;
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      renderer.domElement.setPointerCapture(e.pointerId);
-      if (pointers.size > 1) {
-        finish(true);
-        pinch = pinchState();
-        return;
-      }
-      const h = hit(e.clientX, e.clientY);
-      down = {
-        id: e.pointerId,
-        x: e.clientX,
-        y: e.clientY,
-        startX: e.clientX,
-        startY: e.clientY,
-        hit: h,
-        orbit:
-          !h ||
-          e.button !== 0 ||
-          e.shiftKey ||
-          ['camera', 'explode'].includes(session.state.mode),
-        moved: false,
-      };
-      invalidate();
-      e.preventDefault();
-    }
-    function onMove(e: PointerEvent) {
-      if (!pointers.has(e.pointerId)) return;
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pinch) {
-        const next = pinchState();
-        if (next) {
-          zoomView(camera, target, pinch.distance / Math.max(next.distance, 1));
-          rotateView(
-            camera,
-            target,
-            (next.x - pinch.x) * 0.005,
-            (next.y - pinch.y) * 0.005,
-            Math.atan2(
-              Math.sin(next.angle - pinch.angle),
-              Math.cos(next.angle - pinch.angle),
-            ),
-          );
-          pinch = next;
-          invalidate();
-        }
-        return;
-      }
-      if (!down || down.id !== e.pointerId) return;
-      const dx = e.clientX - down.startX,
-        dy = e.clientY - down.startY;
-      if (Math.hypot(dx, dy) > 5) down.moved = true;
-      if (down.orbit) {
-        rotateView(
-          camera,
-          target,
-          e.shiftKey ? 0 : (e.clientX - down.x) * 0.005,
-          e.shiftKey ? 0 : (e.clientY - down.y) * 0.005,
-          e.shiftKey ? (e.clientX - down.x) * 0.005 : 0,
-        );
-        down.x = e.clientX;
-        down.y = e.clientY;
-        invalidate();
-        return;
-      }
-      if (
-        session.state.mode !== 'play' ||
-        !down.hit ||
-        down.hit.object.userData.mapping
-      )
-        return;
-      if (!drag && Math.hypot(dx, dy) > 5) {
-        const piece = down.hit.object.userData.piece as number,
-          position = down.hit.point,
-          tile = def.tiles.find(
-            (tile) => tile.id === down!.hit!.object.userData.tile,
-          ),
-          normal = tile
-            ? new T.Vector3(
-                ...def.faces.find((f) => f.id === tile.face)!.normal,
-              ).transformDirection(down.hit.object.matrixWorld)
-            : down.hit.face?.normal
-                .clone()
-                .transformDirection(down.hit.object.matrixWorld);
-        let best: {
-          score: number;
-          token: string;
-          sx: number;
-          sy: number;
-        } | null = null;
-        for (const token of def.primitiveMoves) {
-          const move = moveSpec(def, token);
-          if (
-            !move.affects(piece, session.state.puzzle.rotations[piece]) ||
-            (normal && Math.abs(normal.dot(new T.Vector3(...move.axis))) > 0.97)
-          )
-            continue;
-          const tangent = new T.Vector3(...move.axis).cross(position),
-            a = position.clone().project(camera),
-            b = position.clone().addScaledVector(tangent, 0.01).project(camera),
-            sx = ((b.x - a.x) * el.clientWidth) / 2 / 0.01,
-            sy = (-(b.y - a.y) * el.clientHeight) / 2 / 0.01,
-            pixels = Math.hypot(sx, sy);
-          if (pixels < 12) continue;
-          const score = Math.abs(dx * sx + dy * sy) / pixels;
-          if (!best || score > best.score) best = { score, token, sx, sy };
-        }
-        if (best) {
-          session.pause();
-          session.patch({ player: null });
-          const track = session.motion.beginDrag(best.token);
-          if (!track) {
-            session.notify('motion.outOfTolerance', {
-              degrees: session.state.settings.turnTolerance,
-            });
-            down = null;
-            return;
-          }
-          drag = {
-            track,
-            start: track.angle,
-            x: down.startX,
-            y: down.startY,
-            sx: best.sx,
-            sy: best.sy,
-            lastAngle: track.angle,
-            time: performance.now(),
-          };
-        }
-      }
-      if (drag) {
-        const now = performance.now(),
-          angle =
-            drag.start +
-            ((e.clientX - drag.x) * drag.sx + (e.clientY - drag.y) * drag.sy) /
-              (drag.sx * drag.sx + drag.sy * drag.sy),
-          velocity =
-            (angle - drag.lastAngle) /
-            Math.max(0.005, (now - drag.time) / 1000);
-        session.motion.drag(drag.track, angle, velocity);
-        drag.lastAngle = angle;
-        drag.time = now;
-        invalidate();
-      }
-    }
-    function onUp(e: PointerEvent) {
-      pointers.delete(e.pointerId);
-      if (pinch) {
-        if (pointers.size < 2) pinch = null;
-        down = null;
-        invalidate();
-        return;
-      }
-      if (down && !down.moved && !drag) {
-        const tile = down.hit?.object.userData.tile;
-        if (tile && ['customize', 'inspect'].includes(session.state.mode))
-          session.select(tile);
-        else if (!down.hit) {
-          if (session.state.presentation)
-            session.settings({
-              autoRotate: !session.state.settings.autoRotate,
-            });
-          else session.patch({ selected: [] });
-        }
-      }
-      finish(e.type === 'pointercancel');
-    }
-    function wheel(e: WheelEvent) {
-      e.preventDefault();
-      cameraDestination = null;
-      zoomView(camera, target, Math.exp(e.deltaY * 0.001));
-      invalidate();
-    }
-    function double(e: MouseEvent) {
-      const h = hit(e.clientX, e.clientY),
-        tile = h?.object.userData.tile;
-      if (tile) {
-        session.select(tile, false);
-        session.camera.focus();
-      }
-    }
-    function context(e: Event) {
-      e.preventDefault();
-    }
-    function lostCapture(e: PointerEvent) {
-      if (pointers.has(e.pointerId)) {
-        pointers.delete(e.pointerId);
-        finish(true);
-      }
-    }
+    const interactions = createPuzzleInteraction({
+      el,
+      renderer,
+      camera,
+      target,
+      session,
+      hitObjects,
+      optimizer,
+      invalidate,
+      cancelCamera: () => {
+        cameraDestination = null;
+      },
+    });
     function contextLost(e: Event) {
       e.preventDefault();
       session.pause();
       session.motion.freeze();
       setError(true);
     }
-    function visibility() {
-      if (document.hidden) {
-        cancelAnimationFrame(frame);
-        frame = 0;
-      } else {
-        last = performance.now();
-        invalidate();
-      }
-    }
     const canvas = renderer.domElement;
-    canvas.addEventListener('pointerdown', onDown);
-    canvas.addEventListener('pointermove', onMove);
-    canvas.addEventListener('pointerup', onUp);
-    canvas.addEventListener('pointercancel', onUp);
-    canvas.addEventListener('lostpointercapture', lostCapture);
     canvas.addEventListener('webglcontextlost', contextLost);
-    canvas.addEventListener('wheel', wheel, { passive: false });
-    canvas.addEventListener('dblclick', double);
-    canvas.addEventListener('contextmenu', context);
-    document.addEventListener('visibilitychange', visibility);
     const lang = () => canvas.setAttribute('aria-label', t('camera.hint'));
     lang();
     i18n.on('languageChanged', lang);
@@ -932,13 +566,12 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     invalidate();
     return () => {
       disposed = true;
-      cancelAnimationFrame(frame);
+      loop.dispose();
       unsubscribe();
       observer.disconnect();
       i18n.off('languageChanged', lang);
-      document.removeEventListener('visibilitychange', visibility);
       session.motion.freeze();
-      canvas.removeEventListener('lostpointercapture', lostCapture);
+      interactions.dispose();
       canvas.removeEventListener('webglcontextlost', contextLost);
       canvas.remove();
       hiddenMaps.dispose();
@@ -946,13 +579,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       model.dispose();
       textures.forEach((texture) => texture.dispose());
       grain.dispose();
-      ground.geometry.dispose();
-      ground.material.dispose();
-      contact.geometry.dispose();
-      contact.material.dispose();
-      contactMap.dispose();
-      env.dispose();
-      key.shadow.dispose();
+      studio.dispose();
       renderer.dispose();
       session.camera = {
         fit: () => {},
