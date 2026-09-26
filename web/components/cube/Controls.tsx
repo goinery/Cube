@@ -36,9 +36,14 @@ export function Range({
   const [error, setError] = useState('');
   const id = useId(),
     [draft, setDraft] = useState<string | null>(null),
+    cancelBlur = useRef(false),
     hostRef = useRef<HTMLDivElement>(null),
     [epoch, setEpoch] = useState(0);
-  useEffect(() => setDraft(null), [value]);
+  const [previousValue, setPreviousValue] = useState(value);
+  if (previousValue !== value) {
+    setPreviousValue(value);
+    setDraft(null);
+  }
   // 边对齐滑块在挂载时测量一次轨道位置。手机与横屏下的面板初始为 display:none，
   // 此时测不到宽度，轨道与滑块会一直隐藏；容器重新可见时重挂载一次以重新测量。
   useEffect(() => {
@@ -85,14 +90,23 @@ export function Range({
               setDraft(value.toFixed(digits));
               e.currentTarget.select();
             }}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={(e) => commit(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setError('');
+            }}
+            onBlur={(e) => {
+              if (cancelBlur.current) cancelBlur.current = false;
+              else commit(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                commit(e.currentTarget.value);
+                e.preventDefault();
                 e.currentTarget.blur();
               } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelBlur.current = true;
                 setDraft(null);
+                setError('');
                 e.currentTarget.blur();
               } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -103,6 +117,7 @@ export function Range({
                   Math.max(min, base + (e.key === 'ArrowUp' ? step : -step)),
                 );
                 setDraft(null);
+                setError('');
                 onChange(next);
               }
             }}
@@ -111,9 +126,9 @@ export function Range({
         </span>
       </div>
       {error && (
-        <p role="status" className="range-input-error">
+        <output className="range-input-error">
           {error}
-        </p>
+        </output>
       )}
       <Slider
         key={epoch}
@@ -123,7 +138,10 @@ export function Range({
         max={max}
         step={step}
         value={[value]}
-        onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : v)}
+        onValueChange={(v) => {
+          setError('');
+          onChange(Array.isArray(v) ? v[0] : v);
+        }}
       />
     </div>
   );
@@ -158,18 +176,24 @@ export function Choice({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: string;
   options: [string, string][];
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   useLanguage();
   const id = useId();
   return (
     <div className="choice-control">
       <label id={id}>{label}</label>
-      <Select value={value} onValueChange={(v) => v && onChange(v)}>
+      <Select
+        disabled={disabled}
+        value={value}
+        onValueChange={(v) => v && onChange(v)}
+      >
         <SelectTrigger aria-labelledby={id}>
           <SelectValue>{options.find((o) => o[0] === value)?.[1]}</SelectValue>
         </SelectTrigger>

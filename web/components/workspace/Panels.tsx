@@ -16,7 +16,7 @@ import { useSession, defaultKeys, type Session } from '@/lib/puzzle/session';
 import { parseAlgorithm } from '@/lib/puzzle/model';
 import { download } from '@/lib/puzzle/persistence';
 import { keyboardShortcut, formatShortcut } from '@/lib/cube/keybindings';
-import { Range, Choice, Toggle } from '../cube/Controls';
+import { Range, Toggle } from '../cube/Controls';
 
 export function AlgorithmPanel({ session }: { session: Session }) {
   const s = useSession(session),
@@ -365,10 +365,14 @@ export function Player({ session }: { session: Session }) {
 export function SolverPanel({ session }: { session: Session }) {
   const s = useSession(session),
     { t } = useTranslation(),
-    [pictures, setPictures] = useState(Object.keys(s.appearance.photos).length > 0);
+    [pictures, setPictures] = useState(
+      Object.keys(s.appearance.photos).length > 0,
+    );
   return (
     <>
-<div className="section-head"><h3>{t('solver.title')}</h3></div>
+      <div className="section-head">
+        <h3>{t('solver.title')}</h3>
+      </div>
       <Toggle
         label={t('solver.pictures')}
         value={pictures}
@@ -385,9 +389,9 @@ export function SolverPanel({ session }: { session: Session }) {
         {t(s.solving ? 'solver.cancel' : 'solver.start')}
       </button>
       {s.solveStatus && (
-        <p className="solve-progress" role="status">
+        <output className="solve-progress">
           {t(s.solveStatus.key, s.solveStatus.params)}
-        </p>
+        </output>
       )}
       {s.solveResult && (
         <p className="help-text">{t('solver.done', s.solveResult)}</p>

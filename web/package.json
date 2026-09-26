@@ -10,18 +10,12 @@
     "build": "node ../scripts/launch.mjs build",
     "start": "vite preview --host 0.0.0.0 --port 3000",
     "verify": "node ../scripts/launch.mjs verify",
-    "verify:pyraminx": "node ../scripts/launch.mjs verify:pyraminx",
-    "verify:rendering": "node ../scripts/launch.mjs verify:rendering",
     "lint": "oxlint",
-    "format": "oxfmt",
-    "verify:solvers": "node ../scripts/launch.mjs verify:solvers",
-    "verify:views": "node ../scripts/launch.mjs verify:views",
-    "verify:render-optimization": "node ../scripts/launch.mjs verify:render-optimization"
+    "format": "oxfmt"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
     "@shadcn/react": "0.3.0",
-    "axis-cube-workspace": "file:..",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
@@ -54,7 +48,6 @@
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
     "tailwindcss": "4.2.1",
-    "tsx": "^4.20.5",
     "typescript": "5.9.3",
     "vite": "8.0.13"
   },

@@ -22,7 +22,11 @@
     "tiles": "{{count}} tiles",
     "engine": "Motion engine",
     "local": "Local workspace",
-    "axes": "{{count}} axes"
+    "axes": "{{count}} axes",
+    "collapsePanel": "Collapse control panel",
+    "expandPanel": "Expand control panel",
+    "controls": "Puzzle controls",
+    "steps": "{{count}} moves"
   },
   "puzzle": {
     "cube": "3 × 3 cube",
@@ -213,7 +217,8 @@
     "adaptive": "Auto",
     "hint": "Drag a face to turn. Drag the background or right-drag to orbit; Shift-drag to roll. Scroll to zoom. Two fingers orbit, zoom and roll.",
     "select": "Select a sticker before focusing on a piece.",
-    "minimal": "Minimal"
+    "minimal": "Minimal",
+    "view": "View"
   },
   "solver": {
     "title": "Solve current state",

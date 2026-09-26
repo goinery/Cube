@@ -1,32 +1,19 @@
 import { assemblyDefaults } from '@/lib/puzzle-config';
-import { tx, useLanguage, localized } from '@/lib/i18n';
+import { tx, useLanguage } from '@/lib/i18n';
+import { useEffect, useRef, useState } from 'react';
 import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react';
-import {
-  Box,
   Check,
   CircleStop,
   Copy,
   Download,
-  Expand,
   Eye,
   Focus,
-  Layers3,
   MousePointer2,
-  Move3D,
-  Palette,
   Pause,
   Play,
   Pyramid,
   Redo2,
   RotateCcw,
-  Save,
-  Scan,
   Shuffle,
   SkipBack,
   SkipForward,
@@ -35,11 +22,17 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react';
-import PuzzleSwitcher, { type PuzzleType } from '../cube/PuzzleSwitcher';
-import LanguageSwitcher from '../cube/LanguageSwitcher';
+import type { PuzzleType } from '../cube/PuzzleSwitcher';
+import WorkspaceHeader, { WorkspaceFooter } from '../workspace/WorkspaceHeader';
+import WorkspacePanel, { useWorkspacePanel } from '../workspace/WorkspacePanel';
+
 import { Choice, Range, Toggle } from '../cube/Controls';
 import { useCube, type Mode, type View } from '@/lib/cube/store';
-import { formatShortcut, keyboardShortcut } from '@/lib/cube/keybindings';
+import {
+  formatShortcut,
+  keyboardShortcut,
+  shouldIgnoreShortcut,
+} from '@/lib/cube/keybindings';
 import { FACE_HEIGHT_RATIO, paintPhoto } from '@/lib/pyraminx/appearance';
 import {
   AXES,
@@ -92,20 +85,6 @@ import {
   type Photo,
 } from '@/lib/pyraminx/store';
 import Viewport from './Viewport';
-const modes = localized(
-  () =>
-    [
-      ['play', tx('legacy.m028'), Box],
-      ['explode', tx('legacy.m029'), Layers3],
-      ['customize', tx('legacy.m030'), Palette],
-      ['solver', tx('legacy.m031'), WandSparkles],
-      ['camera', tx('legacy.m032'), Move3D],
-      ['inspect', tx('legacy.m033'), Scan],
-    ] as const,
-);
-const phone =
-  '(max-width: 760px), (max-height: 530px) and (orientation: landscape)';
-const landscape = '(max-height: 530px) and (orientation: landscape)';
 function download(value: unknown, filename: string) {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
@@ -211,7 +190,6 @@ function PhotoDialog({
           <path d="M150 0 L0 300 L300 300 Z M100 100 L200 100 M50 200 L250 200 M100 100 L200 300 M200 100 L100 300 M50 200 L100 300 M250 200 L200 300 M50 200 L100 100 M250 200 L200 100" />
         </svg>
       </div>
-      <></>
       <Range
         label={tx('legacy.m306')}
         value={draft.scale}
@@ -316,26 +294,7 @@ export default function PyraminxApp({
       face: number;
       photo: Photo;
     } | null>(null);
-  const [mobile, setMobile] = useState(() => matchMedia(phone).matches),
-    [rail, setRail] = useState(() => matchMedia(landscape).matches);
-  const [panelOpen, setPanelOpen] = useState(() => !matchMedia(phone).matches),
-    [sheetSize, setSheetSize] = useState<number | null>(null);
-  const scroll = useRef<HTMLDivElement>(null),
-    panel = useRef<HTMLElement>(null),
-    handle = useRef<HTMLButtonElement>(null),
-    nav = useRef<HTMLElement>(null);
-  const sections = useRef<Partial<Record<Mode, HTMLElement | null>>>({});
-  const sheetDrag = useRef<{
-      origin: number;
-      size: number;
-      min: number;
-      max: number;
-      moved: boolean;
-      next: number;
-    } | null>(null),
-    lastSheet = useRef<number | null>(null),
-    suppressClick = useRef(false),
-    pendingMode = useRef<Mode | null>(null);
+  const panel = useWorkspacePanel(s.mode, s.solving, (mode) => patch({ mode }));
   const importInput = useRef<HTMLInputElement>(null),
     algorithmInput = useRef<HTMLInputElement>(null),
     photoInput = useRef<HTMLInputElement>(null);
@@ -348,31 +307,8 @@ export default function PyraminxApp({
     };
   }, []);
   useEffect(() => {
-    const p = matchMedia(phone),
-      r = matchMedia(landscape),
-      sync = () => {
-        setMobile(p.matches);
-        setRail(r.matches);
-        setSheetSize(null);
-      };
-    p.addEventListener('change', sync);
-    r.addEventListener('change', sync);
-    return () => {
-      p.removeEventListener('change', sync);
-      r.removeEventListener('change', sync);
-    };
-  }, []);
-  useEffect(() => {
     function key(e: KeyboardEvent) {
-      if (
-        e.defaultPrevented ||
-        e.isComposing ||
-        (e.target instanceof HTMLElement &&
-          e.target.closest(
-            'input,textarea,select,[contenteditable=true],[role=slider],[role=combobox],dialog,summary',
-          ))
-      )
-        return;
+      if (shouldIgnoreShortcut(e)) return;
       const state = getState();
       if (state.solving) return;
       const shortcut = keyboardShortcut(e),
@@ -393,86 +329,6 @@ export default function PyraminxApp({
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, []);
-  function jump(mode: Mode) {
-    if (s.solving && mode !== 'solver') return;
-    patch({ mode });
-    pendingMode.current = mode;
-    setPanelOpen(true);
-    requestAnimationFrame(() => {
-      const node = sections.current[mode];
-      if (node && scroll.current)
-        scroll.current.scrollTo({
-          top: node.offsetTop - scroll.current.offsetTop,
-          behavior: 'smooth',
-        });
-      setTimeout(() => {
-        pendingMode.current = null;
-      }, 900);
-    });
-  }
-  function trackScroll() {
-    if (pendingMode.current || s.solving || !scroll.current) return;
-    const top =
-      scroll.current.getBoundingClientRect().top +
-      Math.min(100, scroll.current.clientHeight * 0.25);
-    let mode: Mode = 'play';
-    for (const [id] of modes)
-      if (
-        (sections.current[id]?.getBoundingClientRect().top ?? Infinity) <= top
-      )
-        mode = id;
-    if (getState().mode !== mode) patch({ mode });
-  }
-  function startSheet(e: React.PointerEvent<HTMLButtonElement>) {
-    if (!mobile || !panel.current) return;
-    const min = rail
-      ? 42
-      : (handle.current?.offsetHeight ?? 32) +
-        (nav.current?.offsetHeight ?? 48);
-    const parent = panel.current.parentElement!,
-      max = Math.max(
-        min + 80,
-        rail ? parent.clientWidth - 320 : parent.clientHeight - 300,
-      );
-    const size = rail ? panel.current.offsetWidth : panel.current.offsetHeight;
-    sheetDrag.current = {
-      origin: rail ? e.clientX : e.clientY,
-      size,
-      min,
-      max,
-      moved: false,
-      next: size,
-    };
-    suppressClick.current = false;
-    setSheetSize(size);
-    setPanelOpen(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function moveSheet(e: React.PointerEvent<HTMLButtonElement>) {
-    const d = sheetDrag.current;
-    if (!d) return;
-    const delta = (rail ? e.clientX : e.clientY) - d.origin;
-    d.moved ||= Math.abs(delta) > 5;
-    d.next = Math.max(d.min, Math.min(d.max, d.size - delta));
-    setSheetSize(d.next);
-  }
-  function endSheet(cancelled = false) {
-    const d = sheetDrag.current;
-    if (!d) return;
-    sheetDrag.current = null;
-    suppressClick.current = true;
-    const open = cancelled
-      ? d.size > d.min + 1
-      : d.moved
-        ? d.next > d.min + 24
-        : d.size <= d.min + 1;
-    setPanelOpen(open);
-    if (open) {
-      const size = cancelled ? d.size : d.moved ? d.next : lastSheet.current;
-      setSheetSize(size);
-      lastSheet.current = size;
-    } else setSheetSize(null);
-  }
   async function uploadPhoto(file: File) {
     try {
       if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 20000000)
@@ -540,83 +396,29 @@ export default function PyraminxApp({
   const locked = s.busy || s.solving,
     solved = !s.partials.length && isSolved(s.puzzle),
     selectedTile = TILES.find((t) => t.id === s.selected[0]);
-  const sheetStyle =
-    sheetSize === null
-      ? undefined
-      : ({
-          [rail ? '--sheet-w' : '--sheet-h']: `${sheetSize}px`,
-        } as CSSProperties);
-  const attachSection = useCallback((node: HTMLElement | null) => {
-    if (node) sections.current[node.dataset.section as Mode] = node;
-  }, []);
   const section = (id: Mode) => ({
-    className: `panel-block${s.mode === id ? ' active' : ''}`,
+    className: 'panel-block',
     'data-section': id,
-    ref: attachSection,
   });
   return (
     <main
-      className={`cube-app pyr-app ${s.presentation ? 'presentation' : ''} ${panelOpen ? '' : 'panel-collapsed'}`}
+      className={`cube-app pyr-app ${s.presentation ? 'presentation' : ''} ${panel.open ? '' : 'panel-collapsed'}`}
     >
-      <header className="app-header">
-        <div className="brand">
-          <PuzzleSwitcher
-            value="pyraminx"
-            onChange={(type) => {
-              pause();
-              onSwitch(type);
-            }}
-            disabled={locked}
-          />
-          <strong>
-            AXIS<span>/</span>04
-          </strong>
-          <span className="brand-divider" />
-          <span className="brand-subtitle">{tx('legacy.m039')}</span>
-        </div>
-        <div className="header-actions">
-          <LanguageSwitcher />
-          <div className="autosave-switch">
-            <Toggle
-              label={tx('legacy.m041')}
-              value={s.autoSave}
-              onChange={setAutoSave}
-            />
-          </div>
-          <button
-            className="icon-button"
-            aria-label={tx('legacy.m043')}
-            title={tx('legacy.m043')}
-            disabled={locked}
-            onClick={() => saveLocal()}
-          >
-            <Save size={18} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={tx('legacy.m044')}
-            title={tx('legacy.m044')}
-            onClick={() => {
-              if (document.fullscreenElement) void document.exitFullscreen();
-              else
-                void document.documentElement
-                  .requestFullscreen()
-                  .catch(() => notify(tx('legacy.m045')));
-            }}
-          >
-            <Expand size={18} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={s.presentation ? tx('legacy.m315') : tx('legacy.m046')}
-            title={tx('legacy.m046')}
-            disabled={s.solving}
-            onClick={() => setPresentation(!s.presentation)}
-          >
-            <Eye size={18} />
-          </button>
-        </div>
-      </header>
+      <WorkspaceHeader
+        puzzle="pyraminx"
+        onSwitch={(type) => {
+          pause();
+          onSwitch(type);
+        }}
+        autoSave={s.autoSave}
+        onAutoSave={setAutoSave}
+        onSave={() => saveLocal()}
+        onError={() => notify(tx('common.error'))}
+        locked={locked}
+        solving={s.solving}
+        presentation={s.presentation}
+        onPresentation={setPresentation}
+      />
       <div className="workspace">
         <section className="stage" inert={s.solving}>
           <Viewport />
@@ -639,6 +441,7 @@ export default function PyraminxApp({
           </div>
           <div className="view-controls">
             <Choice
+              disabled={s.solving}
               label={tx('legacy.m058')}
               value={s.view}
               options={[
@@ -705,898 +508,847 @@ export default function PyraminxApp({
             </div>
           )}
         </section>
-        <aside className="control-panel" ref={panel} style={sheetStyle}>
-          <button
-            className="mobile-handle"
-            ref={handle}
-            aria-expanded={panelOpen}
-            aria-label={tx('legacy.m323')}
-            onPointerDown={startSheet}
-            onPointerMove={moveSheet}
-            onPointerUp={() => endSheet()}
-            onPointerCancel={() => endSheet(true)}
-            onClick={() => {
-              if (suppressClick.current) {
-                suppressClick.current = false;
-                return;
-              }
-              setPanelOpen(!panelOpen);
-            }}
-          >
-            <span className="handle-bar" />
-          </button>
-          <nav className="panel-nav" ref={nav} aria-label={tx('legacy.m324')}>
-            {modes.map(([mode, title, Icon]) => (
-              <button
-                key={mode}
-                className={s.mode === mode ? 'active' : ''}
-                aria-current={s.mode === mode ? 'page' : undefined}
-                disabled={s.solving && mode !== 'solver'}
-                onClick={() => jump(mode)}
-              >
-                <Icon size={19} />
-                {title}
-              </button>
-            ))}
-          </nav>
-          <div className="panel-scroll" ref={scroll} onScroll={trackScroll}>
-            <section {...section('play')}>
-              <></>
-              <section className="panel-section magnetic-controls">
-                <div className="section-head">
-                  <h3>{tx('legacy.m074')}</h3>
-                  <span className="tag">
-                    {s.settings.magnetStrength === 0
-                      ? tx('legacy.m075')
-                      : tx('legacy.m076')}
-                  </span>
-                </div>
-                <Range
-                  label={tx('legacy.m077')}
-                  value={s.settings.magnetStrength}
-                  min={0}
-                  max={2}
-                  step={0.05}
-                  disabled={s.solving}
-                  onChange={(magnetStrength) => settings({ magnetStrength })}
-                />
-                <Range
-                  label={tx('legacy.m078')}
-                  value={s.settings.magnetDamping}
-                  min={0.05}
-                  max={2}
-                  step={0.05}
-                  disabled={s.solving}
-                  onChange={(magnetDamping) => settings({ magnetDamping })}
-                />
-                <Range
-                  label={tx('legacy.m079')}
-                  value={s.settings.turnTolerance}
-                  min={0}
-                  max={60}
-                  step={1}
-                  digits={0}
-                  unit="°"
-                  disabled={s.solving}
-                  onChange={(turnTolerance) => settings({ turnTolerance })}
-                />
-                <></>
-              </section>
-              <div className="quick-actions">
-                <button
-                  className="primary-button"
-                  disabled={locked}
-                  onClick={newScramble}
-                >
-                  <Shuffle size={17} />
-                  {tx('legacy.m084')}
-                </button>
-                <button
-                  className="secondary-button"
-                  disabled={locked}
-                  onClick={resetPuzzle}
-                >
-                  <RotateCcw size={16} />
-                  {tx('legacy.m085')}
-                </button>
-              </div>
-              <div className="history-actions">
-                <button
-                  disabled={locked || !s.cursor}
-                  onClick={() => void undo()}
-                >
-                  <Undo2 size={16} />
-                  {tx('legacy.m086')}
-                </button>
-                <button
-                  disabled={locked || s.cursor === s.history.length}
-                  onClick={() => void redo()}
-                >
-                  <Redo2 size={16} />
-                  {tx('legacy.m087')}
-                </button>
-                <span>
-                  {s.cursor} / {s.history.length}
+        <WorkspacePanel controller={panel}>
+          <section {...section('play')}>
+            <section className="panel-section magnetic-controls">
+              <div className="section-head">
+                <h3>{tx('legacy.m074')}</h3>
+                <span className="tag">
+                  {s.settings.magnetStrength === 0
+                    ? tx('legacy.m075')
+                    : tx('legacy.m076')}
                 </span>
               </div>
-              <Toggle
-                label={tx('legacy.m088')}
-                value={animated}
-                onChange={setAnimated}
-              />
-              {s.scramble && (
-                <div className="scramble-record">
-                  <div className="control-label">
-                    <span>{tx('legacy.m089')}</span>
-                    <button
-                      aria-label={tx('legacy.m090')}
-                      onClick={() =>
-                        void navigator.clipboard.writeText(s.scramble).then(
-                          () => notify(tx('legacy.m091')),
-                          () => notify(tx('legacy.m092')),
-                        )
-                      }
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <p>{s.scramble}</p>
-                </div>
-              )}
-              <section className="panel-section">
-                <div className="section-head">
-                  <h3>{tx('legacy.m328')}</h3>
-                  <div className="modifier-buttons">
-                    <button
-                      className={!reverse ? 'active' : ''}
-                      onClick={() => setReverse(false)}
-                    >
-                      120°
-                    </button>
-                    <button
-                      className={reverse ? 'active' : ''}
-                      onClick={() => setReverse(true)}
-                    >
-                      −120°
-                    </button>
-                  </div>
-                </div>
-                <Choice
-                  label={tx('legacy.m329')}
-                  value={layer}
-                  options={[
-                    ['tip', tx('legacy.m330')],
-                    ['body', tx('legacy.m331')],
-                    ['base', tx('legacy.m332')],
-                  ]}
-                  onChange={(value) => setLayer(value as Layer)}
-                />
-                <div className="face-moves pyr-face-moves">
-                  {AXES.map((axis, i) => (
-                    <button
-                      key={axis}
-                      disabled={s.solving || (s.busy && !s.settling)}
-                      onClick={() =>
-                        void perform(moveToken(i, layer, reverse ? -1 : 1))
-                      }
-                    >
-                      <i style={{ background: FACE_COLORS[i] }} />
-                      <strong>{moveToken(i, layer, reverse ? -1 : 1)}</strong>
-                    </button>
-                  ))}
-                </div>
-                <></>
-                <details className="pyr-keybindings">
-                  <summary>{tx('legacy.m236')}</summary>
-                  <></>
-                  {Object.entries(s.keybindings).map(([action, value]) => (
-                    <label key={action}>
-                      <span>
-                        {(
-                          {
-                            undo: tx('legacy.m086'),
-                            redo: tx('legacy.m087'),
-                            playPause: tx('legacy.m335'),
-                            exitPresentation: tx('legacy.m336'),
-                          } as Record<string, string>
-                        )[action] || action}
-                      </span>
-                      <input
-                        aria-label={tx('legacy.m337', { p0: action })}
-                        readOnly
-                        value={formatShortcut(value)}
-                        disabled={s.solving}
-                        onKeyDown={(e) => {
-                          e.preventDefault();
-                          if (e.key === 'Escape') {
-                            e.currentTarget.blur();
-                            return;
-                          }
-                          const key =
-                            e.key === 'Delete' || e.key === 'Backspace'
-                              ? ''
-                              : keyboardShortcut(e.nativeEvent);
-                          if (key === null) return;
-                          if (
-                            key &&
-                            Object.entries(s.keybindings).some(
-                              ([a, k]) => a !== action && k === key,
-                            )
-                          ) {
-                            notify(tx('legacy.m338'));
-                            return;
-                          }
-                          patch({
-                            keybindings: { ...s.keybindings, [action]: key },
-                          });
-                          e.currentTarget.blur();
-                        }}
-                      />
-                    </label>
-                  ))}
-                  <button
-                    className="wide-button"
-                    onClick={() => patch({ keybindings: defaultKeys() })}
-                  >
-                    {tx('legacy.m239')}
-                  </button>
-                </details>
-              </section>
-              <section className="panel-section">
-                <div className="section-head">
-                  <h3>{tx('legacy.m009')}</h3>
-                  <span className="tag">{tx('puzzle.pyraminx')}</span>
-                </div>
-                <div className="algorithm-presets">
-                  {s.presets.map((p, i) => (
-                    <button
-                      key={`${presetLabel(p)}-${i}`}
-                      className={algorithm === p.algorithm ? 'active' : ''}
-                      onClick={() => setAlgorithm(p.algorithm)}
-                    >
-                      {presetLabel(p)}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  className="pyr-algorithm"
-                  aria-label={tx('legacy.m339')}
-                  value={algorithm}
-                  onChange={(e) => setAlgorithm(e.target.value)}
-                  spellCheck={false}
-                />
-                <button
-                  className="wide-button"
-                  disabled={locked}
-                  onClick={() => runAlgorithm(algorithm)}
-                >
-                  {tx('legacy.m018')}
-                  <Play size={16} />
-                </button>
-                <div className="pyr-button-row">
-                  <input
-                    className="pyr-text-input"
-                    aria-label={tx('legacy.m021')}
-                    placeholder={tx('legacy.m021')}
-                    value={presetName}
-                    onChange={(e) => setPresetName(e.target.value)}
-                  />
-                  <button
-                    className="secondary-button"
-                    disabled={locked}
-                    onClick={addPreset}
-                  >
-                    {tx('legacy.m016')}
-                  </button>
-                </div>
-                <div className="pyr-button-row">
-                  <button
-                    onClick={() =>
-                      download(s.presets, 'AXIS-pyraminx-algorithms.json')
-                    }
-                  >
-                    <Download size={14} />
-                    {tx('legacy.m340')}
-                  </button>
-                  <button
-                    disabled={locked}
-                    onClick={() => algorithmInput.current?.click()}
-                  >
-                    <Upload size={14} />
-                    {tx('legacy.m341')}
-                  </button>
-                  <button
-                    disabled={locked}
-                    onClick={() => patch({ presets: defaultPresets() })}
-                  >
-                    {tx('legacy.m342')}
-                  </button>
-                </div>
-              </section>
-            </section>
-            <section {...section('explode')}>
-              <></>
               <Range
-                label={tx('legacy.m097')}
-                value={s.settings.explode}
+                label={tx('legacy.m077')}
+                value={s.settings.magnetStrength}
                 min={0}
-                max={3}
+                max={2}
+                step={0.05}
                 disabled={s.solving}
-                onChange={(explode) => {
-                  settings({ explode });
-                }}
+                onChange={(magnetStrength) => settings({ magnetStrength })}
               />
-              <div className="explode-presets">
-                {[
-                  tx('legacy.m098'),
-                  tx('legacy.m099'),
-                  tx('legacy.m100'),
-                  tx('legacy.m101'),
-                ].map((label, explode) => (
+              <Range
+                label={tx('legacy.m078')}
+                value={s.settings.magnetDamping}
+                min={0.05}
+                max={2}
+                step={0.05}
+                disabled={s.solving}
+                onChange={(magnetDamping) => settings({ magnetDamping })}
+              />
+              <Range
+                label={tx('legacy.m079')}
+                value={s.settings.turnTolerance}
+                min={0}
+                max={60}
+                step={1}
+                digits={0}
+                unit="°"
+                disabled={s.solving}
+                onChange={(turnTolerance) => settings({ turnTolerance })}
+              />
+            </section>
+            <div className="quick-actions">
+              <button
+                className="primary-button"
+                disabled={locked}
+                onClick={newScramble}
+              >
+                <Shuffle size={17} />
+                {tx('legacy.m084')}
+              </button>
+              <button
+                className="secondary-button"
+                disabled={locked}
+                onClick={resetPuzzle}
+              >
+                <RotateCcw size={16} />
+                {tx('legacy.m085')}
+              </button>
+            </div>
+            <div className="history-actions">
+              <button
+                disabled={locked || !s.cursor}
+                onClick={() => void undo()}
+              >
+                <Undo2 size={16} />
+                {tx('legacy.m086')}
+              </button>
+              <button
+                disabled={locked || s.cursor === s.history.length}
+                onClick={() => void redo()}
+              >
+                <Redo2 size={16} />
+                {tx('legacy.m087')}
+              </button>
+              <span>
+                {s.cursor} / {s.history.length}
+              </span>
+            </div>
+            <Toggle
+              label={tx('legacy.m088')}
+              value={animated}
+              onChange={setAnimated}
+            />
+            {s.scramble && (
+              <div className="scramble-record">
+                <div className="control-label">
+                  <span>{tx('legacy.m089')}</span>
                   <button
-                    key={label}
-                    disabled={s.solving}
-                    className={
-                      Math.abs(s.settings.explode - explode) < 0.03
-                        ? 'active'
-                        : ''
+                    aria-label={tx('legacy.m090')}
+                    onClick={() =>
+                      void navigator.clipboard.writeText(s.scramble).then(
+                        () => notify(tx('legacy.m091')),
+                        () => notify(tx('legacy.m092')),
+                      )
                     }
-                    onClick={() => {
-                      settings({ explode });
-                    }}
                   >
-                    {label}
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <p>{s.scramble}</p>
+              </div>
+            )}
+            <section className="panel-section">
+              <div className="section-head">
+                <h3>{tx('legacy.m328')}</h3>
+                <div className="modifier-buttons">
+                  <button
+                    className={!reverse ? 'active' : ''}
+                    onClick={() => setReverse(false)}
+                  >
+                    120°
+                  </button>
+                  <button
+                    className={reverse ? 'active' : ''}
+                    onClick={() => setReverse(true)}
+                  >
+                    −120°
+                  </button>
+                </div>
+              </div>
+              <Choice
+                disabled={s.solving}
+                label={tx('legacy.m329')}
+                value={layer}
+                options={[
+                  ['tip', tx('legacy.m330')],
+                  ['body', tx('legacy.m331')],
+                  ['base', tx('legacy.m332')],
+                ]}
+                onChange={(value) => setLayer(value as Layer)}
+              />
+              <div className="face-moves pyr-face-moves">
+                {AXES.map((axis, i) => (
+                  <button
+                    key={axis}
+                    disabled={s.solving || (s.busy && !s.settling)}
+                    onClick={() =>
+                      void perform(moveToken(i, layer, reverse ? -1 : 1))
+                    }
+                  >
+                    <i style={{ background: FACE_COLORS[i] }} />
+                    <strong>{moveToken(i, layer, reverse ? -1 : 1)}</strong>
                   </button>
                 ))}
               </div>
-              <Range
-                label={tx('legacy.m102')}
-                value={s.settings.internal}
-                min={0}
-                max={1.5}
-                disabled={s.solving}
-                onChange={(internal) => settings({ internal })}
-              />
-              <Range
-                label={tx('legacy.m103')}
-                value={s.settings.gap}
-                min={0}
-                max={0.3}
-                step={0.001}
-                digits={3}
-                disabled={s.solving}
-                onChange={(gap) => settings({ gap })}
-              />
-              <Range
-                label={tx('legacy.m104')}
-                value={s.settings.size}
-                min={0.65}
-                max={1.08}
-                disabled={s.solving}
-                onChange={(size) => settings({ size })}
-              />
-              <Range
-                label={tx('legacy.m105')}
-                value={s.settings.stickerOffset}
-                min={0}
-                max={0.2}
-                disabled={s.solving}
-                onChange={(stickerOffset) => settings({ stickerOffset })}
-              />
-              <Toggle
-                label={tx('legacy.m106')}
-                value={s.settings.showMagnets}
-                disabled={s.solving}
-                onChange={(showMagnets) => settings({ showMagnets })}
+              <details className="pyr-keybindings">
+                <summary>{tx('legacy.m236')}</summary>
+                {Object.entries(s.keybindings).map(([action, value]) => (
+                  <label key={action}>
+                    <span>
+                      {(
+                        {
+                          undo: tx('legacy.m086'),
+                          redo: tx('legacy.m087'),
+                          playPause: tx('legacy.m335'),
+                          exitPresentation: tx('legacy.m336'),
+                        } as Record<string, string>
+                      )[action] || action}
+                    </span>
+                    <input
+                      aria-label={tx('legacy.m337', { p0: action })}
+                      readOnly
+                      value={formatShortcut(value)}
+                      disabled={s.solving}
+                      onKeyDown={(e) => {
+                        e.preventDefault();
+                        if (e.key === 'Escape') {
+                          e.currentTarget.blur();
+                          return;
+                        }
+                        const key =
+                          e.key === 'Delete' || e.key === 'Backspace'
+                            ? ''
+                            : keyboardShortcut(e.nativeEvent);
+                        if (key === null) return;
+                        if (
+                          key &&
+                          Object.entries(s.keybindings).some(
+                            ([a, k]) => a !== action && k === key,
+                          )
+                        ) {
+                          notify(tx('legacy.m338'));
+                          return;
+                        }
+                        patch({
+                          keybindings: { ...s.keybindings, [action]: key },
+                        });
+                        e.currentTarget.blur();
+                      }}
+                    />
+                  </label>
+                ))}
+                <button
+                  className="wide-button"
+                  onClick={() => patch({ keybindings: defaultKeys() })}
+                >
+                  {tx('legacy.m239')}
+                </button>
+              </details>
+            </section>
+            <section className="panel-section">
+              <div className="section-head">
+                <h3>{tx('legacy.m009')}</h3>
+                <span className="tag">{tx('puzzle.pyraminx')}</span>
+              </div>
+              <div className="algorithm-presets">
+                {s.presets.map((p, i) => (
+                  <button
+                    key={`${presetLabel(p)}-${i}`}
+                    className={algorithm === p.algorithm ? 'active' : ''}
+                    onClick={() => setAlgorithm(p.algorithm)}
+                  >
+                    {presetLabel(p)}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="pyr-algorithm"
+                aria-label={tx('legacy.m339')}
+                value={algorithm}
+                onChange={(e) => setAlgorithm(e.target.value)}
+                spellCheck={false}
               />
               <button
                 className="wide-button"
-                disabled={s.solving}
-                onClick={() => {
-                  settings(assemblyDefaults('pyraminx'));
-                  cameraActions.reset();
-                }}
+                disabled={locked}
+                onClick={() => runAlgorithm(algorithm)}
               >
-                {tx('legacy.m107')}
-                <RotateCcw size={16} />
+                {tx('legacy.m018')}
+                <Play size={16} />
               </button>
-              <div className="part-legend">
-                <h3>{tx('legacy.m108')}</h3>
-                {[
-                  [tx('legacy.m345'), 4],
-                  [tx('legacy.m346'), 4],
-                  [tx('legacy.m347'), 6],
-                  [tx('legacy.m348'), 36],
-                  [tx('legacy.m349'), 4],
-                ].map(([label, count]) => (
-                  <p key={label}>
-                    <i style={{ background: '#c7d5ad' }} />
-                    {label}
-                    <span>{count}</span>
-                  </p>
-                ))}
+              <div className="pyr-button-row">
+                <input
+                  className="pyr-text-input"
+                  aria-label={tx('legacy.m021')}
+                  placeholder={tx('legacy.m021')}
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                />
+                <button
+                  className="secondary-button"
+                  disabled={locked}
+                  onClick={addPreset}
+                >
+                  {tx('legacy.m016')}
+                </button>
+              </div>
+              <div className="pyr-button-row">
+                <button
+                  onClick={() =>
+                    download(s.presets, 'AXIS-pyraminx-algorithms.json')
+                  }
+                >
+                  <Download size={14} />
+                  {tx('legacy.m340')}
+                </button>
+                <button
+                  disabled={locked}
+                  onClick={() => algorithmInput.current?.click()}
+                >
+                  <Upload size={14} />
+                  {tx('legacy.m341')}
+                </button>
+                <button
+                  disabled={locked}
+                  onClick={() => patch({ presets: defaultPresets() })}
+                >
+                  {tx('legacy.m342')}
+                </button>
               </div>
             </section>
-            <section {...section('customize')}>
-              <div className="section-head">
-                <h3>{tx('legacy.m350')}</h3>
-                <span className="tag">
-                  {s.selected.length}
-                  {tx('legacy.m351')}
-                </span>
-              </div>
-              <div className="face-selector">
-                {FACE_NAMES.map((name, i) => (
-                  <button
-                    key={i}
-                    className={s.editFace === i ? 'active' : ''}
-                    aria-pressed={s.editFace === i}
-                    onClick={() => {
-                      patch({
-                        editFace: i,
-                        selected: TILES.filter((t) => t.face === i).map(
-                          (t) => t.id,
-                        ),
-                      });
-                      cameraActions.face(i);
-                    }}
-                  >
-                    <i style={{ background: FACE_COLORS[i] }} />
-                    {name}
-                  </button>
-                ))}
-              </div>
-              <div className="editor-face">
-                <TilePicker />
-              </div>
-              <div className="selection-actions">
+          </section>
+          <section {...section('explode')}>
+            <Range
+              label={tx('legacy.m097')}
+              value={s.settings.explode}
+              min={0}
+              max={3}
+              disabled={s.solving}
+              onChange={(explode) => {
+                settings({ explode });
+              }}
+            />
+            <div className="explode-presets">
+              {[
+                tx('legacy.m098'),
+                tx('legacy.m099'),
+                tx('legacy.m100'),
+                tx('legacy.m101'),
+              ].map((label, explode) => (
                 <button
+                  key={label}
+                  disabled={s.solving}
+                  className={
+                    Math.abs(s.settings.explode - explode) < 0.03
+                      ? 'active'
+                      : ''
+                  }
+                  onClick={() => {
+                    settings({ explode });
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Range
+              label={tx('legacy.m102')}
+              value={s.settings.internal}
+              min={0}
+              max={1.5}
+              disabled={s.solving}
+              onChange={(internal) => settings({ internal })}
+            />
+            <Range
+              label={tx('legacy.m103')}
+              value={s.settings.gap}
+              min={0}
+              max={0.3}
+              step={0.001}
+              digits={3}
+              disabled={s.solving}
+              onChange={(gap) => settings({ gap })}
+            />
+            <Range
+              label={tx('legacy.m104')}
+              value={s.settings.size}
+              min={0.65}
+              max={1.08}
+              disabled={s.solving}
+              onChange={(size) => settings({ size })}
+            />
+            <Range
+              label={tx('legacy.m105')}
+              value={s.settings.stickerOffset}
+              min={0}
+              max={0.2}
+              disabled={s.solving}
+              onChange={(stickerOffset) => settings({ stickerOffset })}
+            />
+            <Toggle
+              label={tx('legacy.m106')}
+              value={s.settings.showMagnets}
+              disabled={s.solving}
+              onChange={(showMagnets) => settings({ showMagnets })}
+            />
+            <button
+              className="wide-button"
+              disabled={s.solving}
+              onClick={() => {
+                settings(assemblyDefaults('pyraminx'));
+                cameraActions.reset();
+              }}
+            >
+              {tx('legacy.m107')}
+              <RotateCcw size={16} />
+            </button>
+            <div className="part-legend">
+              <h3>{tx('legacy.m108')}</h3>
+              {[
+                [tx('legacy.m345'), 4],
+                [tx('legacy.m346'), 4],
+                [tx('legacy.m347'), 6],
+                [tx('legacy.m348'), 36],
+                [tx('legacy.m349'), 4],
+              ].map(([label, count]) => (
+                <p key={label}>
+                  <i style={{ background: '#c7d5ad' }} />
+                  {label}
+                  <span>{count}</span>
+                </p>
+              ))}
+            </div>
+          </section>
+          <section {...section('customize')}>
+            <div className="section-head">
+              <h3>{tx('legacy.m350')}</h3>
+              <span className="tag">
+                {s.selected.length}
+                {tx('legacy.m351')}
+              </span>
+            </div>
+            <div className="face-selector">
+              {FACE_NAMES.map((name, i) => (
+                <button
+                  key={i}
+                  className={s.editFace === i ? 'active' : ''}
+                  aria-pressed={s.editFace === i}
+                  onClick={() => {
+                    patch({
+                      editFace: i,
+                      selected: TILES.filter((t) => t.face === i).map(
+                        (t) => t.id,
+                      ),
+                    });
+                    cameraActions.face(i);
+                  }}
+                >
+                  <i style={{ background: FACE_COLORS[i] }} />
+                  {name}
+                </button>
+              ))}
+            </div>
+            <div className="editor-face">
+              <TilePicker />
+            </div>
+            <div className="selection-actions">
+              <button
+                disabled={s.solving}
+                onClick={() =>
+                  patch({
+                    selected: TILES.filter((t) => t.face === s.editFace).map(
+                      (t) => t.id,
+                    ),
+                  })
+                }
+              >
+                {tx('legacy.m160')}
+              </button>
+              <button
+                disabled={s.solving}
+                onClick={() => patch({ selected: [] })}
+              >
+                {tx('legacy.m353')}
+              </button>
+            </div>
+            <div className="color-control">
+              <label htmlFor="pyr-color">{tx('legacy.m354')}</label>
+              <input
+                id="pyr-color"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+              />
+              <button
+                className="secondary-button"
+                disabled={s.solving || !s.selected.length}
+                onClick={() => {
+                  const colors = { ...s.colors };
+                  s.selected.forEach((id) => {
+                    colors[id] = color;
+                  });
+                  patch({ colors });
+                }}
+              >
+                {tx('legacy.m355')}
+              </button>
+            </div>
+            <div className="palette-presets">
+              {PYRAMINX_PALETTES.map(({ name, colors }) => (
+                <button
+                  key={String(name)}
                   disabled={s.solving}
                   onClick={() =>
                     patch({
-                      selected: TILES.filter((t) => t.face === s.editFace).map(
-                        (t) => t.id,
+                      colors: Object.fromEntries(
+                        TILES.map((t) => [t.id, colors[t.face]]),
                       ),
                     })
                   }
                 >
-                  {tx('legacy.m160')}
+                  <span>
+                    {colors.map((c) => (
+                      <i key={c} style={{ background: c }} />
+                    ))}
+                  </span>
+                  {name}
                 </button>
-                <button
-                  disabled={s.solving}
-                  onClick={() => patch({ selected: [] })}
-                >
-                  {tx('legacy.m353')}
-                </button>
-              </div>
-              <div className="color-control">
-                <label htmlFor="pyr-color">{tx('legacy.m354')}</label>
-                <input
-                  id="pyr-color"
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                />
-                <button
-                  className="secondary-button"
-                  disabled={s.solving || !s.selected.length}
-                  onClick={() => {
-                    const colors = { ...s.colors };
-                    s.selected.forEach((id) => {
-                      colors[id] = color;
-                    });
-                    patch({ colors });
-                  }}
-                >
-                  {tx('legacy.m355')}
-                </button>
-              </div>
-              <div className="palette-presets">
-                {PYRAMINX_PALETTES.map(({ name, colors }) => (
+              ))}
+            </div>
+            <section className="panel-section">
+              <h3>{tx('legacy.m356')}</h3>
+              <button
+                className="wide-button"
+                disabled={s.solving}
+                onClick={() => photoInput.current?.click()}
+              >
+                {tx('legacy.m358')}
+                <Upload size={16} />
+              </button>
+              {s.photos[s.editFace] && (
+                <>
                   <button
-                    key={String(name)}
+                    className="wide-button"
                     disabled={s.solving}
                     onClick={() =>
-                      patch({
-                        colors: Object.fromEntries(
-                          TILES.map((t) => [t.id, colors[t.face]]),
-                        ),
+                      setPhoto({
+                        face: s.editFace,
+                        photo: s.photos[s.editFace],
                       })
                     }
                   >
-                    <span>
-                      {colors.map((c) => (
-                        <i key={c} style={{ background: c }} />
-                      ))}
-                    </span>
-                    {name}
-                  </button>
-                ))}
-              </div>
-              <section className="panel-section">
-                <h3>{tx('legacy.m356')}</h3>
-                <></>
-                <button
-                  className="wide-button"
-                  disabled={s.solving}
-                  onClick={() => photoInput.current?.click()}
-                >
-                  {tx('legacy.m358')}
-                  <Upload size={16} />
-                </button>
-                {s.photos[s.editFace] && (
-                  <>
-                    <button
-                      className="wide-button"
-                      disabled={s.solving}
-                      onClick={() =>
-                        setPhoto({
-                          face: s.editFace,
-                          photo: s.photos[s.editFace],
-                        })
-                      }
-                    >
-                      {tx('legacy.m176')}
-                      <Focus size={16} />
-                    </button>
-                    <button
-                      className="wide-button"
-                      disabled={s.solving}
-                      onClick={() => {
-                        const photos = { ...s.photos };
-                        delete photos[s.editFace];
-                        patch({ photos });
-                      }}
-                    >
-                      {tx('legacy.m359')}
-                      <X size={16} />
-                    </button>
-                  </>
-                )}
-              </section>
-              <section className="panel-section">
-                <h3>{tx('legacy.m360')}</h3>
-                <button
-                  className="wide-button"
-                  disabled={locked}
-                  onClick={() =>
-                    download(captureProject(), 'AXIS-pyraminx.json')
-                  }
-                >
-                  {tx('legacy.m361')}
-                  <Download size={16} />
-                </button>
-                <button
-                  className="wide-button"
-                  disabled={locked}
-                  onClick={() => importInput.current?.click()}
-                >
-                  {tx('legacy.m362')}
-                  <Upload size={16} />
-                </button>
-                <button
-                  className="wide-button"
-                  disabled={locked}
-                  onClick={() => patch({ colors: defaultColors(), photos: {} })}
-                >
-                  {tx('legacy.m363')}
-                  <RotateCcw size={16} />
-                </button>
-                <></>
-              </section>
-            </section>
-            <section {...section('solver')}>
-              <div className="section-head">
-                <h3>{tx('legacy.m365')}</h3>
-                <span className="tag">{tx('legacy.m366')}</span>
-              </div>
-              <></>
-              <button
-                className="wide-button"
-                disabled={s.busy}
-                onClick={() => {
-                  if (s.solving) cancelSolve();
-                  else void startSolve();
-                }}
-              >
-                {s.solving ? tx('legacy.m368') : tx('legacy.m369')}
-                {s.solving ? (
-                  <CircleStop size={16} />
-                ) : (
-                  <WandSparkles size={16} />
-                )}
-              </button>
-              {s.solving && (
-                <output className="microcopy">{s.solveStatus}</output>
-              )}
-              <Range
-                label={tx('legacy.m255')}
-                value={s.settings.speed}
-                min={0.2}
-                max={3}
-                step={0.1}
-                digits={1}
-                unit="×"
-                disabled={s.solving}
-                onChange={(speed) => settings({ speed })}
-              />
-              <Choice
-                label={tx('legacy.m370')}
-                value={s.settings.easing}
-                options={[
-                  ['magnetic', tx('legacy.m371')],
-                  ['smooth', tx('legacy.m137')],
-                  ['linear', tx('legacy.m138')],
-                ]}
-                onChange={(value) =>
-                  settings({ easing: value as typeof s.settings.easing })
-                }
-              />
-              {s.player && (
-                <div className="pyr-player">
-                  <div className="section-head">
-                    <h3>{s.player.title}</h3>
-                    <span className="tag">
-                      {s.player.index} / {s.player.moves.length}
-                    </span>
-                  </div>
-                  <div className="player-buttons">
-                    <button
-                      aria-label={tx('legacy.m249')}
-                      disabled={locked || !s.player.index}
-                      onClick={() => void previous()}
-                    >
-                      <SkipBack size={19} />
-                    </button>
-                    <button
-                      aria-label={
-                        s.player.playing ? tx('legacy.m372') : tx('legacy.m373')
-                      }
-                      disabled={s.solving || (s.busy && !s.player.playing)}
-                      onClick={() => {
-                        if (s.player?.playing) pause();
-                        else void play();
-                      }}
-                    >
-                      {s.player.playing ? (
-                        <Pause size={23} />
-                      ) : (
-                        <Play size={23} />
-                      )}
-                    </button>
-                    <button
-                      aria-label={tx('legacy.m251')}
-                      disabled={
-                        locked || s.player.index === s.player.moves.length
-                      }
-                      onClick={() => void next()}
-                    >
-                      <SkipForward size={19} />
-                    </button>
-                    <button
-                      aria-label={tx('legacy.m374')}
-                      disabled={s.solving}
-                      onClick={() => {
-                        pause();
-                        patch({ player: null });
-                      }}
-                    >
-                      <CircleStop size={18} />
-                    </button>
-                  </div>
-                  <input
-                    className="pyr-player-range"
-                    aria-label={tx('legacy.m375')}
-                    type="range"
-                    min={0}
-                    max={s.player.moves.length}
-                    step={1}
-                    value={s.player.index}
-                    disabled={locked}
-                    onChange={(e) => void seek(Number(e.target.value))}
-                  />
-                  {s.player.bodyLength !== undefined && (
-                    <div className="pyr-button-row">
-                      <button disabled={locked} onClick={() => void seek(0)}>
-                        {tx('legacy.m376')}
-                      </button>
-                      <button
-                        disabled={locked}
-                        onClick={() => void seek(s.player!.bodyLength!)}
-                      >
-                        {tx('legacy.m377')}
-                      </button>
-                      <button
-                        disabled={locked}
-                        onClick={() => void seek(s.player!.moves.length)}
-                      >
-                        {tx('legacy.m378')}
-                      </button>
-                    </div>
-                  )}
-                  <div className="pyr-move-list">
-                    {s.player.moves.map((move, i) => (
-                      <button
-                        key={i}
-                        className={
-                          i < s.player!.index
-                            ? 'done'
-                            : i === s.player!.index
-                              ? 'current'
-                              : ''
-                        }
-                        disabled={locked}
-                        onClick={() => void seek(i + 1)}
-                      >
-                        {move}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-            <section {...section('camera')}>
-              <div className="section-head">
-                <h3>{tx('legacy.m379')}</h3>
-              </div>
-              <div className="camera-grid">
-                {FACE_NAMES.map((name, face) => (
-                  <button key={name} onClick={() => cameraActions.face(face)}>
-                    <i style={{ background: FACE_COLORS[face] }} />
-                    {name}
-                  </button>
-                ))}
-              </div>
-              <Toggle
-                label={tx('legacy.m380')}
-                value={s.settings.autoRotate}
-                disabled={s.solving}
-                onChange={(autoRotate) => settings({ autoRotate })}
-              />
-              <Range
-                label={tx('legacy.m381')}
-                value={s.settings.roughness}
-                min={0.05}
-                max={1}
-                disabled={s.solving}
-                onChange={(roughness) => settings({ roughness })}
-              />
-              <Choice
-                label={tx('legacy.m131')}
-                value={s.settings.quality}
-                options={[
-                  ['auto', tx('legacy.m382')],
-                  ['high', tx('legacy.m133')],
-                  ['low', tx('legacy.m383')],
-                ]}
-                onChange={(quality) =>
-                  settings({ quality: quality as typeof s.settings.quality })
-                }
-              />
-              <section className="panel-section">
-                <h3>{tx('legacy.m125')}</h3>
-                <Toggle
-                  label={tx('legacy.m384')}
-                  value={s.settings.lightFollowCamera}
-                  disabled={s.solving}
-                  onChange={(lightFollowCamera) =>
-                    settings({ lightFollowCamera })
-                  }
-                />
-                <Range
-                  label={tx('legacy.m128')}
-                  value={s.settings.lightAzimuth}
-                  min={-180}
-                  max={180}
-                  digits={0}
-                  unit="°"
-                  disabled={s.solving}
-                  onChange={(lightAzimuth) => settings({ lightAzimuth })}
-                />
-                <Range
-                  label={tx('legacy.m129')}
-                  value={s.settings.lightElevation}
-                  min={-10}
-                  max={90}
-                  digits={0}
-                  unit="°"
-                  disabled={s.solving}
-                  onChange={(lightElevation) => settings({ lightElevation })}
-                />
-                <Range
-                  label={tx('legacy.m130')}
-                  value={s.settings.lightIntensity}
-                  min={0}
-                  max={6}
-                  disabled={s.solving}
-                  onChange={(lightIntensity) => settings({ lightIntensity })}
-                />
-              </section>
-              <button
-                className="wide-button"
-                disabled={s.solving}
-                onClick={() => setPresentation(true)}
-              >
-                {tx('legacy.m139')}
-                <Eye size={16} />
-              </button>
-            </section>
-            <section {...section('inspect')}>
-              <div className="section-head">
-                <h3>{tx('legacy.m385')}</h3>
-                <span className="tag">
-                  {solved ? tx('legacy.m055') : tx('legacy.m386')}
-                </span>
-              </div>
-              <></>
-              {selectedTile && (
-                <div className="pyr-piece-info">
-                  <strong>{PIECES[selectedTile.piece].id}</strong>
-                  <p>
-                    {PIECES[selectedTile.piece].kind === 'tip'
-                      ? tx('legacy.m388')
-                      : PIECES[selectedTile.piece].kind === 'center'
-                        ? tx('legacy.m389')
-                        : tx('legacy.m390')}
-                  </p>
-                  <p>
-                    {tx('legacy.m391')}
-                    {FACE_NAMES[selectedTile.face]}
-                  </p>
-                  <button
-                    className="wide-button"
-                    onClick={() => cameraActions.focus()}
-                  >
-                    {tx('legacy.m392')}
+                    {tx('legacy.m176')}
                     <Focus size={16} />
                   </button>
-                </div>
+                  <button
+                    className="wide-button"
+                    disabled={s.solving}
+                    onClick={() => {
+                      const photos = { ...s.photos };
+                      delete photos[s.editFace];
+                      patch({ photos });
+                    }}
+                  >
+                    {tx('legacy.m359')}
+                    <X size={16} />
+                  </button>
+                </>
               )}
+            </section>
+            <section className="panel-section">
+              <h3>{tx('legacy.m360')}</h3>
               <button
                 className="wide-button"
-                disabled={
-                  s.solving ||
-                  (!s.cursor && s.player?.title !== tx('legacy.m393'))
-                }
-                onClick={() => {
-                  if (s.player?.title === tx('legacy.m393')) {
-                    pause();
-                    patch({ player: null });
-                  } else replayHistory();
-                }}
+                disabled={locked}
+                onClick={() => download(captureProject(), 'AXIS-pyraminx.json')}
               >
-                {s.player?.title === tx('legacy.m393')
-                  ? tx('legacy.m394', {
-                      p0: s.player.index,
-                      p1: s.player.moves.length,
-                    })
-                  : tx('legacy.m151')}
-                {s.player?.title === tx('legacy.m393') ? (
-                  <CircleStop size={16} />
-                ) : (
-                  <Play size={16} />
-                )}
+                {tx('legacy.m361')}
+                <Download size={16} />
               </button>
-              <div className="pyr-move-list">
-                {s.history.map((move, i) => (
-                  <span key={i} className={i < s.cursor ? 'done' : ''}>
-                    {move}
-                  </span>
-                ))}
-              </div>
-              <></>
+              <button
+                className="wide-button"
+                disabled={locked}
+                onClick={() => importInput.current?.click()}
+              >
+                {tx('legacy.m362')}
+                <Upload size={16} />
+              </button>
+              <button
+                className="wide-button"
+                disabled={locked}
+                onClick={() => patch({ colors: defaultColors(), photos: {} })}
+              >
+                {tx('legacy.m363')}
+                <RotateCcw size={16} />
+              </button>
             </section>
-          </div>
-        </aside>
+          </section>
+          <section {...section('solver')}>
+            <div className="section-head">
+              <h3>{tx('legacy.m365')}</h3>
+              <span className="tag">{tx('legacy.m366')}</span>
+            </div>
+            <button
+              className="wide-button"
+              disabled={s.busy}
+              onClick={() => {
+                if (s.solving) cancelSolve();
+                else void startSolve();
+              }}
+            >
+              {s.solving ? tx('legacy.m368') : tx('legacy.m369')}
+              {s.solving ? (
+                <CircleStop size={16} />
+              ) : (
+                <WandSparkles size={16} />
+              )}
+            </button>
+            {s.solving && (
+              <output className="microcopy">{s.solveStatus}</output>
+            )}
+            <Range
+              label={tx('legacy.m255')}
+              value={s.settings.speed}
+              min={0.2}
+              max={3}
+              step={0.1}
+              digits={1}
+              unit="×"
+              disabled={s.solving}
+              onChange={(speed) => settings({ speed })}
+            />
+            <Choice
+              disabled={s.solving}
+              label={tx('legacy.m370')}
+              value={s.settings.easing}
+              options={[
+                ['magnetic', tx('legacy.m371')],
+                ['smooth', tx('legacy.m137')],
+                ['linear', tx('legacy.m138')],
+              ]}
+              onChange={(value) =>
+                settings({ easing: value as typeof s.settings.easing })
+              }
+            />
+            {s.player && (
+              <div className="pyr-player">
+                <div className="section-head">
+                  <h3>{s.player.title}</h3>
+                  <span className="tag">
+                    {s.player.index} / {s.player.moves.length}
+                  </span>
+                </div>
+                <div className="player-buttons">
+                  <button
+                    aria-label={tx('legacy.m249')}
+                    disabled={locked || !s.player.index}
+                    onClick={() => void previous()}
+                  >
+                    <SkipBack size={19} />
+                  </button>
+                  <button
+                    aria-label={
+                      s.player.playing ? tx('legacy.m372') : tx('legacy.m373')
+                    }
+                    disabled={s.solving || (s.busy && !s.player.playing)}
+                    onClick={() => {
+                      if (s.player?.playing) pause();
+                      else void play();
+                    }}
+                  >
+                    {s.player.playing ? (
+                      <Pause size={23} />
+                    ) : (
+                      <Play size={23} />
+                    )}
+                  </button>
+                  <button
+                    aria-label={tx('legacy.m251')}
+                    disabled={
+                      locked || s.player.index === s.player.moves.length
+                    }
+                    onClick={() => void next()}
+                  >
+                    <SkipForward size={19} />
+                  </button>
+                  <button
+                    aria-label={tx('legacy.m374')}
+                    disabled={s.solving}
+                    onClick={() => {
+                      pause();
+                      patch({ player: null });
+                    }}
+                  >
+                    <CircleStop size={18} />
+                  </button>
+                </div>
+                <input
+                  className="pyr-player-range"
+                  aria-label={tx('legacy.m375')}
+                  type="range"
+                  min={0}
+                  max={s.player.moves.length}
+                  step={1}
+                  value={s.player.index}
+                  disabled={locked}
+                  onChange={(e) => void seek(Number(e.target.value))}
+                />
+                {s.player.bodyLength !== undefined && (
+                  <div className="pyr-button-row">
+                    <button disabled={locked} onClick={() => void seek(0)}>
+                      {tx('legacy.m376')}
+                    </button>
+                    <button
+                      disabled={locked}
+                      onClick={() => void seek(s.player!.bodyLength!)}
+                    >
+                      {tx('legacy.m377')}
+                    </button>
+                    <button
+                      disabled={locked}
+                      onClick={() => void seek(s.player!.moves.length)}
+                    >
+                      {tx('legacy.m378')}
+                    </button>
+                  </div>
+                )}
+                <div className="pyr-move-list">
+                  {s.player.moves.map((move, i) => (
+                    <button
+                      key={i}
+                      className={
+                        i < s.player!.index
+                          ? 'done'
+                          : i === s.player!.index
+                            ? 'current'
+                            : ''
+                      }
+                      disabled={locked}
+                      onClick={() => void seek(i + 1)}
+                    >
+                      {move}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+          <section {...section('camera')}>
+            <div className="section-head">
+              <h3>{tx('legacy.m379')}</h3>
+            </div>
+            <div className="camera-grid">
+              {FACE_NAMES.map((name, face) => (
+                <button key={name} onClick={() => cameraActions.face(face)}>
+                  <i style={{ background: FACE_COLORS[face] }} />
+                  {name}
+                </button>
+              ))}
+            </div>
+            <Toggle
+              label={tx('legacy.m380')}
+              value={s.settings.autoRotate}
+              disabled={s.solving}
+              onChange={(autoRotate) => settings({ autoRotate })}
+            />
+            <Range
+              label={tx('legacy.m381')}
+              value={s.settings.roughness}
+              min={0.05}
+              max={1}
+              disabled={s.solving}
+              onChange={(roughness) => settings({ roughness })}
+            />
+            <Choice
+              disabled={s.solving}
+              label={tx('legacy.m131')}
+              value={s.settings.quality}
+              options={[
+                ['auto', tx('legacy.m382')],
+                ['high', tx('legacy.m133')],
+                ['low', tx('legacy.m383')],
+              ]}
+              onChange={(quality) =>
+                settings({ quality: quality as typeof s.settings.quality })
+              }
+            />
+            <section className="panel-section">
+              <h3>{tx('legacy.m125')}</h3>
+              <Toggle
+                label={tx('legacy.m384')}
+                value={s.settings.lightFollowCamera}
+                disabled={s.solving}
+                onChange={(lightFollowCamera) =>
+                  settings({ lightFollowCamera })
+                }
+              />
+              <Range
+                label={tx('legacy.m128')}
+                value={s.settings.lightAzimuth}
+                min={-180}
+                max={180}
+                digits={0}
+                unit="°"
+                disabled={s.solving}
+                onChange={(lightAzimuth) => settings({ lightAzimuth })}
+              />
+              <Range
+                label={tx('legacy.m129')}
+                value={s.settings.lightElevation}
+                min={-10}
+                max={90}
+                digits={0}
+                unit="°"
+                disabled={s.solving}
+                onChange={(lightElevation) => settings({ lightElevation })}
+              />
+              <Range
+                label={tx('legacy.m130')}
+                value={s.settings.lightIntensity}
+                min={0}
+                max={6}
+                disabled={s.solving}
+                onChange={(lightIntensity) => settings({ lightIntensity })}
+              />
+            </section>
+            <button
+              className="wide-button"
+              disabled={s.solving}
+              onClick={() => setPresentation(true)}
+            >
+              {tx('legacy.m139')}
+              <Eye size={16} />
+            </button>
+          </section>
+          <section {...section('inspect')}>
+            <div className="section-head">
+              <h3>{tx('legacy.m385')}</h3>
+              <span className="tag">
+                {solved ? tx('legacy.m055') : tx('legacy.m386')}
+              </span>
+            </div>
+            {selectedTile && (
+              <div className="pyr-piece-info">
+                <strong>{PIECES[selectedTile.piece].id}</strong>
+                <p>
+                  {PIECES[selectedTile.piece].kind === 'tip'
+                    ? tx('legacy.m388')
+                    : PIECES[selectedTile.piece].kind === 'center'
+                      ? tx('legacy.m389')
+                      : tx('legacy.m390')}
+                </p>
+                <p>
+                  {tx('legacy.m391')}
+                  {FACE_NAMES[selectedTile.face]}
+                </p>
+                <button
+                  className="wide-button"
+                  onClick={() => cameraActions.focus()}
+                >
+                  {tx('legacy.m392')}
+                  <Focus size={16} />
+                </button>
+              </div>
+            )}
+            <button
+              className="wide-button"
+              disabled={
+                s.solving ||
+                (!s.cursor && s.player?.title !== tx('legacy.m393'))
+              }
+              onClick={() => {
+                if (s.player?.title === tx('legacy.m393')) {
+                  pause();
+                  patch({ player: null });
+                } else replayHistory();
+              }}
+            >
+              {s.player?.title === tx('legacy.m393')
+                ? tx('legacy.m394', {
+                    p0: s.player.index,
+                    p1: s.player.moves.length,
+                  })
+                : tx('legacy.m151')}
+              {s.player?.title === tx('legacy.m393') ? (
+                <CircleStop size={16} />
+              ) : (
+                <Play size={16} />
+              )}
+            </button>
+            <div className="pyr-move-list">
+              {s.history.map((move, i) => (
+                <span key={i} className={i < s.cursor ? 'done' : ''}>
+                  {move}
+                </span>
+              ))}
+            </div>
+          </section>
+        </WorkspacePanel>
       </div>
-      <footer className="app-footer">
-        <span>
-          <i className="live-dot" />
-          {tx('legacy.m397')}
-        </span>
-        <span>{tx('legacy.m398')}</span>
-        <span>{tx('legacy.m399')}</span>
-      </footer>
+      <WorkspaceFooter mode={s.mode} explode={s.settings.explode} />
       {(s.notice || cubeNotice.notice) && (
         <output className="toast">
           <Check size={16} />

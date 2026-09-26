@@ -817,8 +817,10 @@ export function saveLocal(auto = false) {
       JSON.stringify(captureProject()),
     );
     if (!auto) notify(tx('legacy.m528'));
+    return true;
   } catch {
     notify(tx('legacy.m529'));
+    return false;
   }
 }
 export function setAutoSave(on: boolean) {

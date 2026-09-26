@@ -22,7 +22,11 @@
     "tiles": "{{count}} 片贴片",
     "engine": "运动引擎",
     "local": "本地工作室",
-    "axes": "{{count}} 个轴"
+    "axes": "{{count}} 个轴",
+    "collapsePanel": "收起控制面板",
+    "expandPanel": "展开控制面板",
+    "controls": "魔方控制面板",
+    "steps": "{{count}} 步"
   },
   "puzzle": {
     "cube": "三阶魔方",
@@ -213,7 +217,8 @@
     "adaptive": "自动",
     "hint": "拖动贴片转层；拖动空白处或右键旋转视角；Shift 水平拖动滚转，滚轮缩放。双指可旋转、缩放和滚转。",
     "select": "先选择贴片，再进入部件特写。",
-    "minimal": "极简"
+    "minimal": "极简",
+    "view": "视图"
   },
   "solver": {
     "title": "从当前状态求解",

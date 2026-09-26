@@ -5,15 +5,11 @@
   "description": "AXIS / 03 — interactive magnetic cube studio",
   "scripts": {
     "dev": "node scripts/launch.mjs dev",
-    "build": "npm run setup && node scripts/launch.mjs build",
+    "build": "node scripts/launch.mjs build",
     "start": "node scripts/launch.mjs start",
     "verify": "node scripts/launch.mjs verify",
-    "verify:pyraminx": "node scripts/launch.mjs verify:pyraminx",
     "setup": "npm install --prefix web",
-    "deploy": "wrangler deploy",
-    "verify:solvers": "node scripts/launch.mjs verify:solvers",
-    "verify:views": "node scripts/launch.mjs verify:views",
-    "verify:render-optimization": "node scripts/launch.mjs verify:render-optimization"
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "4.130.0"

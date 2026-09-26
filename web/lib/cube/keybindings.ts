@@ -48,6 +48,26 @@ export function keyboardShortcut(event: KeyboardEvent): string | null {
   if (event.isComposing || !keyCode.test(event.code)) return null;
   return `${event.ctrlKey || event.metaKey ? 'Mod+' : ''}${event.altKey ? 'Alt+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.code}`;
 }
+// Global puzzle shortcuts must leave focused controls and dialogs in charge.
+export function shouldIgnoreShortcut(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.isComposing) return true;
+  const target = event.target;
+  if (!(target instanceof Element)) return false;
+  if (
+    target.closest(
+      'input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="combobox"],[role="listbox"],[role="menu"],[role="dialog"],dialog',
+    )
+  )
+    return true;
+  return (
+    (event.code === 'Space' || event.code === 'Enter') &&
+    Boolean(
+      target.closest(
+        'button,a[href],summary,[role="button"],[role="switch"],[role="checkbox"]',
+      ),
+    )
+  );
+}
 export function formatShortcut(shortcut: string): string {
   if (!shortcut) return tx('legacy.m425');
   const names: Record<string, string> = {
