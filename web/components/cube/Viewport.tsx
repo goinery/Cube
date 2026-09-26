@@ -1,4 +1,5 @@
 'use client';
+import StudioLoading from '../workspace/StudioLoading';
 import { fitDistance, heldAngle, stepMagnet } from '@/lib/cube/interaction';
 import { FACE, moveSpec, type Vec } from '@/lib/cube/model';
 import {
@@ -48,11 +49,13 @@ const v3 = (v: Vec) => new T.Vector3(...v);
 export default memo(function Viewport() {
   useLanguage();
   const host = useRef<HTMLDivElement>(null),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [ready, setReady] = useState(false);
   useEffect(() => {
     const el = host.current!;
     let disposed = false,
       warming = true;
+    let firstFrameReady = false;
     let renderer: T.WebGLRenderer;
     try {
       renderer = createRenderer('cube');
@@ -742,6 +745,10 @@ export default memo(function Viewport() {
       const minimalMoving = minimal.update(s.settings.minimal, dt);
       renderer.shadowMap.needsUpdate ||= minimal.changed;
       renderer.render(scene, camera);
+      if (!firstFrameReady) {
+        firstFrameReady = true;
+        setReady(true);
+      }
       if (s.view === 'hidden' && !s.presentation) {
         renderOverlay(renderer, mappingScene, camera);
       }
@@ -819,6 +826,7 @@ export default memo(function Viewport() {
   }, []);
   return (
     <div ref={host} className="viewport">
+      {!ready && !error && <StudioLoading />}
       {error && (
         <div className="webgl-error">
           <strong>{tx('legacy.m297')}</strong>

@@ -1,0 +1,65 @@
+.studio-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: #191d1e;
+  color: #c7d5ad;
+  font-family: system-ui, sans-serif;
+  text-align: center;
+}
+.studio-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 32px;
+}
+.studio-loading-mark {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.studio-loading strong {
+  font-size: 26px;
+  font-weight: 450;
+  letter-spacing: 6px;
+  padding-left: 6px;
+}
+.studio-loading span {
+  color: #97a18f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.studio-loading-track {
+  width: 144px;
+  height: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+  background: #c7d5ad1a;
+  border-radius: 2px;
+}
+.studio-loading-track i {
+  display: block;
+  width: 50%;
+  height: 100%;
+  background: #c7d5ad;
+  animation: studio-loading-progress 1.2s ease-in-out infinite alternate;
+}
+@keyframes studio-loading-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(200%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-loading-track i {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+}

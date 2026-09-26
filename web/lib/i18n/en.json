@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Puzzle studio",
-    "loading": "Assembling your puzzle…",
+    "loading": "Preparing the cube studio…",
     "error": "The studio encountered a problem",
     "errorHelp": "Your saved projects remain in this browser. Reload to continue.",
     "reload": "Reload",

@@ -27,4 +27,6 @@ npm run dev
 
 `web/components/workspace/WorkspaceHeader.tsx` 和 `WorkspacePanel.tsx` 提供所有魔方共用的工具栏、保存反馈、导航与响应式面板。各魔方的模型、渲染和求解逻辑位于 `web/lib`。
 
+所有加载阶段共用 `web/components/workspace/loading.html` 模板和 `web/app/styles/loading.css`，包括 JavaScript 启动前的页面、魔方切换和模型准备阶段。
+
 临时检查脚本、截图和性能输出放在已忽略的 `.local/` 中。构建产物、依赖目录和本地数据不提交到 Git。

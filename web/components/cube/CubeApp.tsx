@@ -3,7 +3,6 @@ import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx, useLanguage } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
 import {
-  Box,
   Move3D,
   Expand,
   Undo2,
@@ -87,7 +86,6 @@ export default function CubeApp({
       'currentMove',
       'view',
       'settings',
-      'ready',
       'scramble',
       'scrambleCursor',
       'selected',
@@ -282,14 +280,6 @@ export default function CubeApp({
             <span>{tx('app.axes', { count: 6 })}</span>
             <span>{tx('app.tiles', { count: 54 })}</span>
           </div>
-          {!s.ready && (
-            <div className="loading-overlay">
-              <Box size={36} />
-              <strong>AXIS / 03</strong>
-              <span>{tx('legacy.m070')}</span>
-              <div className="loading-bar" />
-            </div>
-          )}
         </section>
         <WorkspacePanel controller={panel}>
           <section {...blockProps('play')}>

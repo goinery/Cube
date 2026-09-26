@@ -1,3 +1,4 @@
+import StudioLoading from './StudioLoading';
 import { fitDistance } from '@/lib/cube/interaction';
 import { i18n, t } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
@@ -27,7 +28,8 @@ import * as T from 'three';
 
 export default function PuzzleViewport({ session }: { session: Session }) {
   const host = useRef<HTMLDivElement>(null),
-    [error, setError] = useState(false);
+    [error, setError] = useState(false),
+    [ready, setReady] = useState(false);
   useEffect(() => {
     const el = host.current!,
       def = session.def;
@@ -61,6 +63,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       material.bumpScale = 0.0006;
     });
     const textures = new Map<string, T.CanvasTexture>();
+    let firstFrameReady = false,
+      initialArtSettled = false;
     const hiddenMaps = new HiddenFaces(def, model.caps);
     const minimal = new MinimalRenderer([scene], model.caps.values());
     scene.traverse((object) => {
@@ -144,10 +148,15 @@ export default function PuzzleViewport({ session }: { session: Session }) {
               });
             previous?.dispose();
           }
+          initialArtSettled = true;
           invalidate();
         })
         .catch(() => {
-          if (!disposed) session.notify('art.failed');
+          if (!disposed) {
+            session.notify('art.failed');
+            initialArtSettled = true;
+            invalidate();
+          }
         });
     }
     function layout(now: number, dt: number) {
@@ -377,6 +386,10 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       renderer.shadowMap.needsUpdate ||= minimal.changed;
       optimizer.prepareCamera(camera);
       renderer.render(scene, camera);
+      if (!firstFrameReady && initialArtSettled) {
+        firstFrameReady = true;
+        setReady(true);
+      }
       hiddenMaps.render(renderer, camera);
       const direction = camera.position.clone().sub(target).normalize(),
         hidden = def.faces
@@ -591,6 +604,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
   }, [session]);
   return (
     <div className="viewport" ref={host}>
+      {!ready && !error && <StudioLoading />}
       {error && <div className="fatal-error">{t('common.error')}</div>}
     </div>
   );

@@ -11,7 +11,6 @@ import {
   MousePointer2,
   Pause,
   Play,
-  Pyramid,
   Redo2,
   RotateCcw,
   Shuffle,
@@ -499,14 +498,6 @@ export default function PyraminxApp({
             <span>{tx('app.axes', { count: 4 })}</span>
             <span>{tx('app.tiles', { count: 36 })}</span>
           </div>
-          {!s.ready && (
-            <div className="loading-overlay">
-              <Pyramid size={36} />
-              <strong>AXIS / 04</strong>
-              <span>{tx('legacy.m322')}</span>
-              <div className="loading-bar" />
-            </div>
-          )}
         </section>
         <WorkspacePanel controller={panel}>
           <section {...section('play')}>

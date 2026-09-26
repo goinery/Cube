@@ -2,6 +2,13 @@ import tailwindcss from '@tailwindcss/postcss';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import zh from './lib/i18n/zh-CN.json';
+
+const loadingTemplate = new URL(
+  './components/workspace/loading.html',
+  import.meta.url,
+);
 export default defineConfig({
   base: './',
   resolve: {
@@ -13,7 +20,20 @@ export default defineConfig({
     },
   },
   css: { postcss: { plugins: [tailwindcss()] } },
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'studio-loading-page',
+      transformIndexHtml: (html) =>
+        html.replace(
+          '<!-- studio-loading -->',
+          readFileSync(loadingTemplate, 'utf8').replace(
+            '__STUDIO_LOADING_LABEL__',
+            zh.app.loading,
+          ),
+        ),
+    },
+  ],
   // Local CommonJS is not converted by Vite's normal source transforms.
   // Include both solvers so module Workers receive browser-loadable ESM in dev.
   optimizeDeps: {

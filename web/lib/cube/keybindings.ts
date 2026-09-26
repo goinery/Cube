@@ -51,6 +51,7 @@ export function keyboardShortcut(event: KeyboardEvent): string | null {
 // Global puzzle shortcuts must leave focused controls and dialogs in charge.
 export function shouldIgnoreShortcut(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing) return true;
+  if (document.querySelector('.studio-loading')) return true;
   const target = event.target;
   if (!(target instanceof Element)) return false;
   if (

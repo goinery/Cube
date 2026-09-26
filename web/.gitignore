@@ -39,7 +39,3 @@ next-env.d.ts
 
 /scripts/*
 /tests/*
-!/scripts/benchmark-rendering.mjs
-!/scripts/verify-viewport-browser.mjs
-!/tests/verify-render-optimization.ts
-!/tests/verify-viewport-core.ts

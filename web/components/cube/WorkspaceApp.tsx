@@ -4,6 +4,7 @@ import { STUDIO_DEFAULTS } from '@/lib/puzzle-config';
 import { stopSessions } from '@/lib/puzzle/session';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import CubeApp from './CubeApp';
+import StudioLoading from '../workspace/StudioLoading';
 import type { PuzzleType } from './PuzzleSwitcher';
 const PyraminxApp = lazy(() => import('../pyraminx/PyraminxApp'));
 const PuzzleApp = lazy(() => import('../workspace/PuzzleApp'));
@@ -42,7 +43,7 @@ export default function WorkspaceApp() {
   return puzzle === 'cube' ? (
     <CubeApp onSwitch={switchPuzzle} />
   ) : (
-    <Suspense fallback={<div className="fatal-error">{t('app.loading')}</div>}>
+    <Suspense fallback={<StudioLoading />}>
       {puzzle === 'pyraminx' ? (
         <PyraminxApp onSwitch={switchPuzzle} />
       ) : (

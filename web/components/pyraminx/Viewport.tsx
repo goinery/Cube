@@ -1,3 +1,4 @@
+import StudioLoading from '../workspace/StudioLoading';
 import { magneticEase, stepMagnet } from '@/lib/cube/interaction';
 import { i18n, tx, useLanguage } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
@@ -61,9 +62,11 @@ import * as T from 'three';
 export default memo(function PyraminxViewport() {
   useLanguage();
   const host = useRef<HTMLDivElement>(null),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [ready, setReady] = useState(false);
   useEffect(() => {
     const el = host.current!;
+    let firstFrameReady = false;
     let renderer: T.WebGLRenderer;
     try {
       renderer = createRenderer('pyraminx');
@@ -481,6 +484,10 @@ export default memo(function PyraminxViewport() {
         viewWeights.six + viewWeights.net > 0 ? 'block' : 'none';
       drawMaps(s, false, viewWeights.six, width, height);
       drawMaps(s, true, viewWeights.net, width, height);
+      if (!firstFrameReady) {
+        firstFrameReady = true;
+        setReady(true);
+      }
       if (alignment?.progress === 1) {
         const completedAlignment = alignment;
         alignment = null;
@@ -707,6 +714,7 @@ export default memo(function PyraminxViewport() {
   }, []);
   return (
     <div className="viewport pyr-viewport" ref={host}>
+      {!ready && !error && <StudioLoading />}
       {error && (
         <div className="webgl-error">
           <strong>{tx('legacy.m297')}</strong>
