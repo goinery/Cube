@@ -70,6 +70,11 @@ export function initialView(
         .normalize();
     }
   }
+  if (preset.initialRollDegrees)
+    up.applyAxisAngle(
+      direction.clone().normalize(),
+      T.MathUtils.degToRad(preset.initialRollDegrees),
+    );
   return { direction, up };
 }
 

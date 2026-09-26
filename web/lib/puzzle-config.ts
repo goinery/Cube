@@ -36,6 +36,7 @@ export interface CameraDefaults {
   target: Vector;
   face?: string;
   horizontalBottomEdge?: boolean;
+  initialRollDegrees?: number;
   fov: number;
   near: number;
   far: number;
@@ -164,6 +165,7 @@ export const PUZZLE_DEFAULTS = {
       distance: 10.4,
       face: 'FL',
       horizontalBottomEdge: true,
+      initialRollDegrees: 2,
     },
     render: { ...render, groundY: -1.98 },
     editFace: 'FL',
