@@ -66,9 +66,6 @@
     height: 65px;
     padding: 0 24px;
   }
-  .app-footer {
-    font-size: 8px;
-  }
 }
 @media (max-width: 760px) {
   .cube-app {
@@ -95,8 +92,7 @@
     margin: 0 3px;
   }
   .brand-divider,
-  .brand-subtitle,
-  .local-badge {
+  .brand-subtitle {
     display: none;
   }
   .header-actions {
@@ -240,9 +236,7 @@
   .panel-collapsed .panel-scroll {
     display: none;
   }
-  .app-footer {
-    display: none;
-  }
+
   .primary-button,
   .secondary-button,
   .wide-button {
@@ -350,9 +344,7 @@
     bottom: 43px;
     transform: scale(0.68);
   }
-  .app-footer {
-    display: none;
-  }
+
   .stage-bottom {
     bottom: 10px;
   }

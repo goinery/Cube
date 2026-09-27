@@ -1,4 +1,5 @@
 import StudioLoading from './StudioLoading';
+import { finishStudioStartup } from '@/lib/rendering/startup';
 import { fitDistance } from '@/lib/cube/interaction';
 import { i18n, t } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
@@ -388,6 +389,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       renderer.render(scene, camera);
       if (!firstFrameReady && initialArtSettled) {
         firstFrameReady = true;
+        finishStudioStartup();
         setReady(true);
       }
       hiddenMaps.render(renderer, camera);
@@ -498,7 +500,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         0.001;
       moveCamera(
         reset ? studio.initial.direction : camera.position.clone().sub(target),
-        reset ? defaults.camera.occupancy : defaults.camera.fitOccupancy,
+        defaults.camera.occupancy,
         reset ? studio.initial.up : camera.up,
         [model.root],
         instant,

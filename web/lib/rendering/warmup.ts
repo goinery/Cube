@@ -1,5 +1,6 @@
 import { Camera, Scene, WebGLRenderer, WebGLRenderTarget } from 'three';
 import type { RenderOptimizer } from '../rendering/render-optimizer';
+import { hasStudioStarted } from './startup';
 
 export async function warmRenderer(
   renderer: WebGLRenderer,
@@ -9,6 +10,9 @@ export async function warmRenderer(
   projections: Scene,
   cancelled: () => boolean,
 ) {
+  // Subsequent puzzles compile visible materials on their first render, just
+  // like the shared puzzle viewport, instead of prewarming every hidden part.
+  if (hasStudioStarted()) return;
   // compileAsync also traverses hidden objects: all material/instancing variants
   // are ready before a drag first reveals a spring, groove or magnet.
   await renderer.compileAsync(scene, camera);

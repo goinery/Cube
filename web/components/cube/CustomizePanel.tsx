@@ -1,4 +1,5 @@
 'use client';
+import PalettePresets from '../workspace/PalettePresets';
 import { tx, useLanguage } from '@/lib/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import {
@@ -452,29 +453,19 @@ export default memo(function CustomizePanel() {
             <Type size={18} />
           </button>
         </div>
-        <div className="palette-presets">
-          {PALETTES.map(({ name: label, colors }) => (
-            <button
-              key={label}
-              onClick={() => {
-                const a = structuredClone(s.appearance);
-                FACES.forEach((f) =>
-                  faceIds(f).forEach((id) => {
-                    a.stickers[id].color = colors[f];
-                  }),
-                );
-                setAppearance(a);
-              }}
-            >
-              <span>
-                {Object.values(colors).map((c) => (
-                  <i key={c} style={{ background: c }} />
-                ))}
-              </span>
-              {label}
-            </button>
-          ))}
-        </div>
+        <PalettePresets
+          palettes={PALETTES}
+          disabled={s.solving}
+          onSelect={({ colors }) => {
+            const a = structuredClone(s.appearance);
+            FACES.forEach((f) =>
+              faceIds(f).forEach((id) => {
+                a.stickers[id].color = colors[f];
+              }),
+            );
+            setAppearance(a);
+          }}
+        />
       </section>
       <section className="panel-section">
         <div className="section-head">

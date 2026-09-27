@@ -1,4 +1,5 @@
 import StudioLoading from '../workspace/StudioLoading';
+import { finishStudioStartup } from '@/lib/rendering/startup';
 import { magneticEase, stepMagnet } from '@/lib/cube/interaction';
 import { i18n, tx, useLanguage } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
@@ -486,6 +487,7 @@ export default memo(function PyraminxViewport() {
       drawMaps(s, true, viewWeights.net, width, height);
       if (!firstFrameReady) {
         firstFrameReady = true;
+        finishStudioStartup();
         setReady(true);
       }
       if (alignment?.progress === 1) {

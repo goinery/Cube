@@ -7,9 +7,7 @@
   background: #202626;
   border-color: #384241;
 }
-.app-footer {
-  background: #171a1b;
-}
+
 .face-moves button {
   background: #252a2b;
   border-color: #3b4343;
@@ -64,7 +62,6 @@
 .choice-control {
   font-size: 13px;
 }
-.app-footer,
 .panel-footer,
 .map-heading {
   font-size: 10px;

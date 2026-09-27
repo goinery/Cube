@@ -2,7 +2,7 @@ import { pause as pauseCube } from '@/lib/cube/store';
 import { useTranslation } from '@/lib/i18n';
 import { STUDIO_DEFAULTS } from '@/lib/puzzle-config';
 import { stopSessions } from '@/lib/puzzle/session';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, startTransition, Suspense, useEffect, useState } from 'react';
 import CubeApp from './CubeApp';
 import StudioLoading from '../workspace/StudioLoading';
 import type { PuzzleType } from './PuzzleSwitcher';
@@ -38,13 +38,13 @@ export default function WorkspaceApp() {
     } catch {
       /* Switching remains available when browser storage is disabled. */
     }
-    setPuzzle(next);
+    startTransition(() => setPuzzle(next));
   }
-  return puzzle === 'cube' ? (
-    <CubeApp onSwitch={switchPuzzle} />
-  ) : (
+  return (
     <Suspense fallback={<StudioLoading />}>
-      {puzzle === 'pyraminx' ? (
+      {puzzle === 'cube' ? (
+        <CubeApp onSwitch={switchPuzzle} />
+      ) : puzzle === 'pyraminx' ? (
         <PyraminxApp onSwitch={switchPuzzle} />
       ) : (
         <PuzzleApp key={puzzle} id={puzzle} onSwitch={switchPuzzle} />

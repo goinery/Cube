@@ -1,31 +1,3 @@
-.app-footer {
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 29px;
-  background: #161a16;
-  border-top: 1px solid #ffffff09;
-  font: 9px var(--font-mono);
-  letter-spacing: 1.3px;
-  color: #697b60;
-  flex-shrink: 0;
-}
-.app-footer > span:nth-child(2) {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  color: #a0b790;
-}
-.app-footer i {
-  width: 4px;
-  height: 4px;
-  background: #a2bc8d;
-  border-radius: 50%;
-}
-.app-footer > span:last-child > span {
-  padding: 0 7px;
-}
 .toast {
   position: fixed;
   bottom: 55px;
@@ -73,8 +45,7 @@
 .presentation .stage-state,
 .presentation .view-controls,
 .presentation .stage-bottom,
-.presentation .object-spec,
-.presentation .app-footer {
+.presentation .object-spec {
   display: none;
 }
 .presentation .app-header {
@@ -84,7 +55,6 @@
 .presentation .header-center,
 .presentation .brand-subtitle,
 .presentation .brand-divider,
-.presentation .autosave-switch,
-.presentation .local-badge {
+.presentation .autosave-switch {
   display: none;
 }

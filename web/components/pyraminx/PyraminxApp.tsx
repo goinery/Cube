@@ -1,3 +1,5 @@
+import PalettePresets from '../workspace/PalettePresets';
+import StageStatus from '../workspace/StageStatus';
 import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx, useLanguage } from '@/lib/i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -22,7 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import type { PuzzleType } from '../cube/PuzzleSwitcher';
-import WorkspaceHeader, { WorkspaceFooter } from '../workspace/WorkspaceHeader';
+import WorkspaceHeader from '../workspace/WorkspaceHeader';
 import WorkspacePanel, { useWorkspacePanel } from '../workspace/WorkspacePanel';
 
 import { Choice, Range, Toggle } from '../cube/Controls';
@@ -421,23 +423,12 @@ export default function PyraminxApp({
       <div className="workspace">
         <section className="stage" inert={s.solving}>
           <Viewport />
-          <div className="stage-state">
-            <i className={solved ? 'solved' : ''} />
-            <span>
-              {s.currentMove
-                ? tx('legacy.m053', { p0: s.currentMove })
-                : s.partials.length
-                  ? tx('legacy.m054')
-                  : solved
-                    ? tx('legacy.m055')
-                    : tx('legacy.m056')}
-            </span>
-            <span className="state-divider" />
-            <span>
-              {s.cursor}
-              {tx('legacy.m057')}
-            </span>
-          </div>
+          <StageStatus
+            solved={solved}
+            partial={s.partials.length > 0}
+            currentMove={s.currentMove}
+            steps={s.cursor}
+          />
           <div className="view-controls">
             <Choice
               disabled={s.solving}
@@ -947,28 +938,17 @@ export default function PyraminxApp({
                 {tx('legacy.m355')}
               </button>
             </div>
-            <div className="palette-presets">
-              {PYRAMINX_PALETTES.map(({ name, colors }) => (
-                <button
-                  key={String(name)}
-                  disabled={s.solving}
-                  onClick={() =>
-                    patch({
-                      colors: Object.fromEntries(
-                        TILES.map((t) => [t.id, colors[t.face]]),
-                      ),
-                    })
-                  }
-                >
-                  <span>
-                    {colors.map((c) => (
-                      <i key={c} style={{ background: c }} />
-                    ))}
-                  </span>
-                  {name}
-                </button>
-              ))}
-            </div>
+            <PalettePresets
+              palettes={PYRAMINX_PALETTES}
+              disabled={s.solving}
+              onSelect={({ colors }) =>
+                patch({
+                  colors: Object.fromEntries(
+                    TILES.map((tile) => [tile.id, colors[tile.face]]),
+                  ),
+                })
+              }
+            />
             <section className="panel-section">
               <h3>{tx('legacy.m356')}</h3>
               <button
@@ -1339,7 +1319,6 @@ export default function PyraminxApp({
           </section>
         </WorkspacePanel>
       </div>
-      <WorkspaceFooter mode={s.mode} explode={s.settings.explode} />
       {(s.notice || cubeNotice.notice) && (
         <output className="toast">
           <Check size={16} />

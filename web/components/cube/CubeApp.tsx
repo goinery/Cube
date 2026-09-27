@@ -1,4 +1,5 @@
 'use client';
+import StageStatus from '../workspace/StageStatus';
 import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx, useLanguage } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 import Viewport from './Viewport';
 import type { PuzzleType } from './PuzzleSwitcher';
-import WorkspaceHeader, { WorkspaceFooter } from '../workspace/WorkspaceHeader';
+import WorkspaceHeader from '../workspace/WorkspaceHeader';
 import WorkspacePanel, { useWorkspacePanel } from '../workspace/WorkspacePanel';
 
 import FaceMaps from './FaceMaps';
@@ -205,23 +206,12 @@ export default function CubeApp({
               {tx('legacy.m052')}
             </div>
           )}
-          <div className="stage-state">
-            <i className={solved ? 'solved' : ''} />
-            <span>
-              {s.currentMove
-                ? tx('legacy.m053', { p0: s.currentMove })
-                : s.partialTurns
-                  ? tx('legacy.m054')
-                  : solved
-                    ? tx('legacy.m055')
-                    : tx('legacy.m056')}
-            </span>
-            <span className="state-divider" />
-            <span>
-              {s.cursor}
-              {tx('legacy.m057')}
-            </span>
-          </div>
+          <StageStatus
+            solved={solved}
+            partial={!!s.partialTurns}
+            currentMove={s.currentMove}
+            steps={s.cursor}
+          />
           <div className="view-controls">
             <Choice
               disabled={s.solving}
@@ -753,7 +743,6 @@ export default function CubeApp({
           </div>
         </WorkspacePanel>
       </div>
-      <WorkspaceFooter mode={s.mode} explode={s.settings.explode} />
       {s.notice && <output className="toast">{s.notice}</output>}
     </main>
   );

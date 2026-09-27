@@ -1,3 +1,4 @@
+import StageStatus from './StageStatus';
 import { assemblyDefaults } from '@/lib/puzzle-config';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -12,12 +13,12 @@ import {
   MousePointer2,
 } from 'lucide-react';
 import type { PuzzleType } from '../cube/PuzzleSwitcher';
-import WorkspaceHeader, { WorkspaceFooter } from './WorkspaceHeader';
+import WorkspaceHeader from './WorkspaceHeader';
 import WorkspacePanel, { useWorkspacePanel } from './WorkspacePanel';
 import { Range, Choice, Toggle } from '../cube/Controls';
 import { useTranslation } from '@/lib/i18n';
 import { getSession, useSession } from '@/lib/puzzle/session';
-import { colorSolved, pictureSolved, scramble } from '@/lib/puzzle/model';
+import { colorSolved, scramble } from '@/lib/puzzle/model';
 import { restore, save, setAutoSave, watch } from '@/lib/puzzle/persistence';
 import { registerPuzzleTools } from '@/lib/puzzle/webmcp';
 import { keyboardShortcut, shouldIgnoreShortcut } from '@/lib/cube/keybindings';
@@ -25,11 +26,7 @@ import type { PuzzleId } from '@/lib/puzzle/types';
 import PuzzleViewport from './PuzzleViewport';
 import { FaceMaps } from './FaceCanvas';
 import CustomizePanel from './CustomizePanel';
-import {
-  AlgorithmPanel,
-  KeybindingsPanel,
-  SolverPanel,
-} from './Panels';
+import { AlgorithmPanel, KeybindingsPanel, SolverPanel } from './Panels';
 
 export default function PuzzleApp({
   id,
@@ -81,7 +78,6 @@ export default function PuzzleApp({
     return () => window.removeEventListener('keydown', onKey);
   }, [session]);
   const resolved = !session.motion.held && colorSolved(session.def, s.puzzle),
-    pictures = !session.motion.held && pictureSolved(session.def, s.puzzle),
     isMinx = id === 'megaminx';
   const range = (
     label: string,
@@ -132,20 +128,15 @@ export default function PuzzleApp({
           data-solving={s.solving || undefined}
         >
           <PuzzleViewport session={session} />
-          <div className="stage-state">
-            <i className={resolved ? 'solved' : ''} />
-            <span>
-              {t(
-                pictures
-                  ? 'app.pictureSolved'
-                  : resolved
-                    ? 'app.solved'
-                    : 'app.working',
-              )}
-            </span>
-            <span className="state-divider" />
-            <span>{t('app.steps', { count: s.cursor })}</span>
-          </div>
+          <StageStatus
+            solved={resolved}
+            partial={session.motion.held}
+            currentMove={session.motion.tracks
+              .filter((track) => track.mode !== 'held')
+              .map((track) => track.key)
+              .join(' · ')}
+            steps={s.cursor}
+          />
           <div className="view-controls">
             <Choice
               disabled={s.solving}
@@ -653,7 +644,6 @@ export default function PuzzleApp({
           )}
         </WorkspacePanel>
       </div>
-      <WorkspaceFooter mode={s.mode} explode={s.settings.explode} />
       {s.notice && (
         <output className="toast">{t(s.notice.key, s.notice.params)}</output>
       )}

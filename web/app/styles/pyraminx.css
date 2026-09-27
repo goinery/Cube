@@ -93,9 +93,7 @@
   width: 12px;
   border-radius: 3px;
 }
-.pyr-app .app-footer {
-  justify-content: space-between;
-}
+
 .pyr-app .autosave-switch .toggle-control {
   font-size: 12px;
   gap: 8px;

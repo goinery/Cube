@@ -1,3 +1,4 @@
+import PalettePresets from './PalettePresets';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ImagePlus,
@@ -476,34 +477,34 @@ export default function CustomizePanel({ session }: { session: Session }) {
             <Type size={18} />
           </button>
         </div>
-        <div className="palette-presets">
-          {['factory', 'neon', 'contrast'].map((name) => (
-            <button
-              key={name}
-              onClick={() => {
-                const appearance = structuredClone(s.appearance);
-                session.def.faces.forEach((face, index) => {
-                  const color =
-                    name === 'factory'
-                      ? face.color
-                      : name === 'neon'
-                        ? `hsl(${(index * 360) / session.def.faces.length}, 95%, 60%)`
-                        : `hsl(${(index * 137.508) % 360}, ${index % 2 ? 65 : 90}%, ${index % 2 ? 40 : 65}%)`;
-                  const canvas = document.createElement('canvas'),
-                    ctx = canvas.getContext('2d')!;
-                  ctx.fillStyle = color;
-                  const hex = ctx.fillStyle;
-                  session.def.tiles
-                    .filter((tile) => tile.face === face.id)
-                    .forEach((tile) => (appearance.tiles[tile.id].color = hex));
-                });
-                session.setAppearance(appearance);
-              }}
-            >
-              {t(`art.${name}`)}
-            </button>
-          ))}
-        </div>
+        <PalettePresets
+          disabled={s.solving}
+          palettes={['factory', 'neon', 'contrast'].map((name) => ({
+            name: t(`art.${name}`),
+            colors: Object.fromEntries(
+              session.def.faces.map((face, index) => [
+                face.id,
+                name === 'factory'
+                  ? face.color
+                  : name === 'neon'
+                    ? `hsl(${(index * 360) / session.def.faces.length}, 95%, 60%)`
+                    : `hsl(${(index * 137.508) % 360}, ${index % 2 ? 65 : 90}%, ${index % 2 ? 40 : 65}%)`,
+              ]),
+            ),
+          }))}
+          onSelect={({ colors }) => {
+            const appearance = structuredClone(s.appearance);
+            const ctx = document.createElement('canvas').getContext('2d')!;
+            session.def.faces.forEach((face) => {
+              ctx.fillStyle = colors[face.id];
+              const hex = ctx.fillStyle;
+              session.def.tiles
+                .filter((tile) => tile.face === face.id)
+                .forEach((tile) => (appearance.tiles[tile.id].color = hex));
+            });
+            session.setAppearance(appearance);
+          }}
+        />
       </section>
       <button
         className="wide-button"

@@ -191,6 +191,7 @@
 }
 .palette-presets button {
   flex: 1;
+  min-width: 0;
   flex-direction: column;
   gap: 9px;
   min-height: 63px;
@@ -200,12 +201,12 @@
   border-radius: 7px;
 }
 .palette-presets button > span {
-  display: flex;
+  display: grid;
   gap: 3px;
 }
 .palette-presets i {
   height: 10px;
-  width: 10px;
+  width: 8px;
   border-radius: 2px;
 }
 .project-actions {

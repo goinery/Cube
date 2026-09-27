@@ -89,10 +89,6 @@ export default function WorkspaceHeader({
       </div>
       <div className="header-actions">
         <LanguageSwitcher />
-        <span className="local-badge">
-          <i />
-          {t('app.local')}
-        </span>
         <div className="autosave-switch">
           <label htmlFor={id}>{t('app.autoSave')}</label>
           <Switch
@@ -136,27 +132,5 @@ export default function WorkspaceHeader({
         </button>
       </div>
     </header>
-  );
-}
-
-export function WorkspaceFooter({
-  mode,
-  explode,
-}: {
-  mode: string;
-  explode: number;
-}) {
-  const { t } = useTranslation();
-  return (
-    <footer className="app-footer">
-      <span>{t('app.name')}</span>
-      <span>
-        <i className="live-dot" />
-        {mode === 'explode'
-          ? `${t('mode.explode')} ${explode.toFixed(2)}`
-          : t('app.ready')}
-      </span>
-      <span>{t('app.local')}</span>
-    </footer>
   );
 }

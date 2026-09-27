@@ -1,5 +1,6 @@
 'use client';
 import StudioLoading from '../workspace/StudioLoading';
+import { finishStudioStartup } from '@/lib/rendering/startup';
 import { fitDistance, heldAngle, stepMagnet } from '@/lib/cube/interaction';
 import { FACE, moveSpec, type Vec } from '@/lib/cube/model';
 import {
@@ -324,7 +325,11 @@ export default memo(function Viewport() {
       invalidate();
     }
     cameraActions.fit = () => {
-      moveCameraToFit(camera.position.clone().sub(controls.target));
+      moveCameraToFit(
+        camera.position.clone().sub(controls.target),
+        undefined,
+        PRODUCT_OCCUPANCY,
+      );
     };
     cameraActions.reset = () => {
       if (getState().solving) return;
@@ -747,6 +752,7 @@ export default memo(function Viewport() {
       renderer.render(scene, camera);
       if (!firstFrameReady) {
         firstFrameReady = true;
+        finishStudioStartup();
         setReady(true);
       }
       if (s.view === 'hidden' && !s.presentation) {
