@@ -42,7 +42,7 @@ export default memo(function SolverPanel() {
       'player',
     ),
     [mode] = useState<SolveMode>('fast'),
-    [pictures, setPictures] = useState<boolean | null>(null),
+    [pictures, setPictures] = useState(true),
     [blocked, setBlocked] = useState<Blocked | null>(null),
     [result, setResult] = useState<Solution | null>(null);
   const solveGeneration = useRef(0);
@@ -64,7 +64,6 @@ export default memo(function SolverPanel() {
     blocked.appearance === s.appearance
       ? blocked.report
       : null;
-  const restorePictures = pictures ?? true;
   function cancel() {
     solveGeneration.current++;
     worker.current?.terminate();
@@ -86,7 +85,7 @@ export default memo(function SolverPanel() {
       current.cursor,
       current.appearance,
     );
-    const usePictures = pictures ?? report.recommendPictures;
+    const usePictures = pictures;
     if (
       !report.valid ||
       !report.needed ||
@@ -102,7 +101,6 @@ export default memo(function SolverPanel() {
       return;
     }
     setBlocked(null);
-    if (pictures === null) setPictures(usePictures);
     pause();
     patch({ solving: true, solveStatus: tx('legacy.m257') });
     setResult(null);
@@ -192,7 +190,7 @@ export default memo(function SolverPanel() {
       )}
       <Toggle
         label={tx('legacy.m276')}
-        value={restorePictures}
+        value={pictures}
         onChange={setPictures}
         disabled={s.solving}
       />

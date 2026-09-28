@@ -203,6 +203,11 @@
   align-items: center;
   color: #8a958d;
   font-size: 12px;
+  min-width: 0;
+}
+.interaction-hint svg,
+.camera-buttons {
+  flex-shrink: 0;
 }
 .camera-buttons {
   display: flex;

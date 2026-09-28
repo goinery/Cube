@@ -8,6 +8,8 @@ import AlgorithmPanel from './AlgorithmPanel';
 import { captureProject,importProject,restoreLocal,saveLocal,setAutoSave,watchAutosave } from '@/lib/pyraminx/persistence';
 import PalettePresets from '../workspace/PalettePresets';
 import StageStatus from '../workspace/StageStatus';
+import QuickActions from '../workspace/QuickActions';
+import InteractionHint from '../workspace/InteractionHint';
 import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx,useLanguage } from '@/lib/i18n';
 import { useEffect,useRef,useState } from 'react';
@@ -15,10 +17,10 @@ import {
 CircleStop,
 Copy,
 Download,Focus,
-MousePointer2,Play,
+Play,
 Redo2,
 RotateCcw,
-Shuffle,Undo2,
+Undo2,
 Upload,
 WandSparkles,
 X
@@ -253,16 +255,7 @@ export default function PyraminxApp({
             </div>
           )}
           <div className="stage-bottom">
-            <div className="interaction-hint">
-              <MousePointer2 size={15} />
-              <span>
-                {s.mode === 'customize'
-                  ? tx('legacy.m063')
-                  : s.mode === 'explode' || s.mode === 'camera'
-                    ? tx('legacy.m320')
-                    : tx('legacy.m321')}
-              </span>
-            </div>
+            <InteractionHint mode={s.mode} magnetStrength={s.settings.magnetStrength} />
             <div className="camera-buttons">
               <button
                 aria-label={tx('legacy.m068')}
@@ -327,24 +320,15 @@ export default function PyraminxApp({
                 onChange={(turnTolerance) => settings({ turnTolerance })}
               />
             </section>
-            <div className="quick-actions">
-              <button
-                className="primary-button"
-                disabled={locked}
-                onClick={newScramble}
-              >
-                <Shuffle size={17} />
-                {tx('legacy.m084')}
-              </button>
-              <button
-                className="secondary-button"
-                disabled={locked}
-                onClick={resetPuzzle}
-              >
-                <RotateCcw size={16} />
-                {tx('legacy.m085')}
-              </button>
-            </div>
+            <QuickActions
+              disabled={locked}
+              onScramble={newScramble}
+              onAlign={() => {
+                pause();
+                void align(true).catch(() => notify(tx('legacy.m487')));
+              }}
+              onReset={resetPuzzle}
+            />
             <div className="history-actions">
               <button
                 disabled={locked || !s.cursor}

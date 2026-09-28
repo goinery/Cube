@@ -97,8 +97,19 @@
   color: #c7d5ad;
 }
 .quick-actions {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.quick-actions > button {
+  min-width: 0;
+  padding-inline: 8px;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.quick-actions svg {
+  flex-shrink: 0;
 }
 .history-actions {
   display: flex;

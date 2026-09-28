@@ -2,6 +2,8 @@ import Notice from '@/components/workspace/Notice';
 import CameraControls from '../workspace/CameraControls';
 import { keyboardShortcut,shouldIgnoreShortcut } from '@/lib/workspace/keybindings';
 import StageStatus from '../workspace/StageStatus';
+import QuickActions from '../workspace/QuickActions';
+import InteractionHint from '../workspace/InteractionHint';
 import { assemblyDefaults } from '@/lib/puzzle-config';
 import { tx,useLanguage } from '@/lib/i18n';
 import { useEffect,useState } from 'react';
@@ -9,9 +11,7 @@ import {
 Undo2,
 Redo2,
 RotateCcw,
-Shuffle,
 ArrowUpRight,
-MousePointer2,
 Copy,
 Focus,
 CircleStop
@@ -47,6 +47,7 @@ perform,
 undo,
 redo,
 resetCube,
+alignCube,
 loadPlayer,
 play,
 applyInstant,
@@ -231,20 +232,7 @@ export default function CubeApp({
           </div>
           <FaceMaps />
           <div className="stage-bottom">
-            <div className="interaction-hint">
-              <MousePointer2 size={15} />
-              <span>
-                {s.mode === 'customize'
-                  ? tx('legacy.m063')
-                  : s.mode === 'explode' || s.mode === 'camera'
-                    ? tx('legacy.m064')
-                    : s.mode === 'inspect'
-                      ? tx('legacy.m065')
-                      : s.settings.magnetStrength === 0
-                        ? tx('legacy.m066')
-                        : tx('legacy.m067')}
-              </span>
-            </div>
+            <InteractionHint mode={s.mode} magnetStrength={s.settings.magnetStrength} />
             <div className="camera-buttons">
               <button
                 title={tx('legacy.m068')}
@@ -318,25 +306,15 @@ export default function CubeApp({
               )}
             </section>
             <>
-              <div className="quick-actions">
-                <button
-                  className="primary-button"
-                  onClick={newScramble}
-                  disabled={locked}
-                >
-                  <Shuffle size={17} />
-                  {tx('legacy.m084')}
-                  <ArrowUpRight size={17} />
-                </button>
-                <button
-                  className="secondary-button"
-                  onClick={resetCube}
-                  disabled={locked}
-                >
-                  <RotateCcw size={16} />
-                  {tx('legacy.m085')}
-                </button>
-              </div>
+              <QuickActions
+                disabled={locked}
+                onScramble={newScramble}
+                onAlign={() => {
+                  pause();
+                  void alignCube().catch(() => notify(tx('legacy.m487')));
+                }}
+                onReset={resetCube}
+              />
               <div className="history-actions">
                 <button
                   disabled={locked || !s.cursor}

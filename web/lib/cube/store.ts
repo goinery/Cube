@@ -234,9 +234,15 @@ export async function alignCube() {
   prepareTurn();
   const partial = state.partialTurns;
   if (!partial) return;
-  const pending = animateAlignment(partial);
-  patch({ partialTurns: null });
-  await pending;
+  const wasBusy = state.busy;
+  patch({ busy: true });
+  try {
+    const pending = animateAlignment(partial);
+    patch({ partialTurns: null });
+    await pending;
+  } finally {
+    patch({ busy: wasBusy });
+  }
 }
 function alignmentFor(token: string) {
   const partial = state.partialTurns;

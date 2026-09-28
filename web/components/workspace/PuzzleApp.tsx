@@ -1,16 +1,16 @@
 import Notice from '@/components/workspace/Notice';
 import CameraControls from './CameraControls';
 import StageStatus from './StageStatus';
+import QuickActions from './QuickActions';
+import InteractionHint from './InteractionHint';
 import { assemblyDefaults } from '@/lib/puzzle-config';
 import { useEffect,useMemo,useState } from 'react';
 import {
 Copy,
 Focus,
 RotateCcw,
-Shuffle,
 Undo2,
-Redo2,
-MousePointer2
+Redo2
 } from 'lucide-react';
 import type { PuzzleType } from '../cube/PuzzleSwitcher';
 import WorkspaceHeader from './WorkspaceHeader';
@@ -158,10 +158,7 @@ export default function PuzzleApp({
           </div>
           <FaceMaps session={session} />
           <div className="stage-bottom">
-            <div className="interaction-hint">
-              <MousePointer2 size={15} />
-              <span>{t(s.mode === 'customize' ? 'camera.customizeHint' : 'camera.hint')}</span>
-            </div>
+            <InteractionHint mode={s.mode} magnetStrength={s.settings.magnetStrength} />
             <div className="camera-buttons">
               <button
                 aria-label={t('camera.reset')}
@@ -220,25 +217,10 @@ export default function PuzzleApp({
                 0,
                 '°',
               )}
-              {session.motion.held && (
-                <button
-                  className="wide-button"
-                  onClick={() => {
-                    if (!session.motion.align())
-                      session.notify('motion.outOfTolerance', {
-                        degrees: s.settings.turnTolerance,
-                      });
-                  }}
-                >
-                  {t('motion.align')}
-                </button>
-              )}
             </section>
-            <div className="quick-actions">
-              <button
-                className="primary-button"
-                disabled={locked}
-                onClick={() => {
+            <QuickActions
+              disabled={locked || session.motion.dragging}
+              onScramble={() => {
                   if (locked) return;
                   const moves = scramble(session.def);
                   session.rememberScramble(moves);
@@ -247,20 +229,13 @@ export default function PuzzleApp({
                     session.loadPlayer(moves, 'scramble');
                     void session.play();
                   } else session.instant(moves);
-                }}
-              >
-                <Shuffle size={17} />
-                {t('motion.scramble')}
-              </button>
-              <button
-                className="secondary-button"
-                disabled={locked}
-                onClick={() => session.reset()}
-              >
-                <RotateCcw size={16} />
-                {t('motion.reset')}
-              </button>
-            </div>
+              }}
+              onAlign={() => {
+                session.pause();
+                session.motion.align(true);
+              }}
+              onReset={() => session.reset()}
+            />
             <div className="history-actions">
               <button
                 disabled={!s.cursor || s.solving || session.motion.moving}

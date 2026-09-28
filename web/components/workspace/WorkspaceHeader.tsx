@@ -84,8 +84,6 @@ export default function WorkspaceHeader({
           AXIS<span>/</span>
           {number}
         </strong>
-        <span className="brand-divider" />
-        <span className="brand-subtitle">{t('app.name')}</span>
       </div>
       <div className="header-actions">
         <LanguageSwitcher />

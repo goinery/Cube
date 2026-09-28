@@ -161,9 +161,7 @@ export function Player({ session }: { session: Session }) {
 export function SolverPanel({ session }: { session: Session }) {
   const s = useSession(session),
     { t } = useTranslation(),
-    [pictures, setPictures] = useState(
-      Object.keys(s.appearance.photos).length > 0,
-    );
+    [pictures, setPictures] = useState(true);
   return (
     <>
       <div className="section-head">
