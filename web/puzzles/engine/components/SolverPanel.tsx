@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useSession, type Session } from '../session';
-import { Toggle } from '@/components/workspace/Controls';
+import SolverControls from '@/components/workspace/SolverPanel';
 import Player from './Player';
 
 export default function SolverPanel({ session }: { session: Session }) {
@@ -9,34 +9,19 @@ export default function SolverPanel({ session }: { session: Session }) {
     { t } = useTranslation(),
     [pictures, setPictures] = useState(true);
   return (
-    <>
-      <div className="section-head">
-        <h3>{t('solver.title')}</h3>
-      </div>
-      <Toggle
-        label={t('solver.pictures')}
-        value={pictures}
-        onChange={setPictures}
-        disabled={s.solving}
-      />
-      <></>
-      <button
-        className="primary-button"
-        onClick={() =>
-          s.solving ? session.cancelSolve() : session.solve(pictures)
-        }
-      >
-        {t(s.solving ? 'solver.cancel' : 'solver.start')}
-      </button>
-      {s.solveStatus && (
-        <output className="solve-progress">
-          {t(s.solveStatus.key, s.solveStatus.params)}
-        </output>
-      )}
-      {s.solveResult && (
-        <p className="help-text">{t('solver.done', s.solveResult)}</p>
-      )}
+    <SolverControls
+      pictures={pictures}
+      onPicturesChange={setPictures}
+      solving={s.solving}
+      status={s.solveStatus ? t(s.solveStatus.key, {
+        ...s.solveStatus.params,
+        kind: s.solveStatus.params?.kindKey ? t(String(s.solveStatus.params.kindKey)) : '',
+      }) : ''}
+      result={s.solveResult}
+      onSolve={() => { void session.solve(pictures); }}
+      onCancel={() => session.cancelSolve()}
+    >
       <Player session={session} />
-    </>
+    </SolverControls>
   );
 }

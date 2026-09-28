@@ -1,22 +1,18 @@
-import { definition } from './model';
-import { solvePuzzle } from './solver';
-self.onmessage = async (event) => {
-  const started = performance.now();
+import { setLanguage } from '@/lib/i18n';
+import { solveRequest } from './solver';
+import type { SolveRequest, SolveResponse } from './solver-types';
+
+const send = (response: SolveResponse) => self.postMessage(response);
+self.onmessage = async (event: MessageEvent<SolveRequest>) => {
   try {
-    const { id, state, pictures } = event.data;
-    const result = await solvePuzzle(
-      definition(id),
-      state,
-      pictures,
-      (message) => self.postMessage({ type: 'progress', message }),
+    if (event.data.locale) setLanguage(event.data.locale);
+    const result = await solveRequest(
+      event.data,
+      (message) => send({ type: 'progress', message }),
     );
-    self.postMessage({
-      type: 'result',
-      ...result,
-      seconds: Math.round((performance.now() - started) / 100) / 10,
-    });
+    send({ type: 'result', result });
   } catch (error) {
-    self.postMessage({
+    send({
       type: 'error',
       key:
         error instanceof Error && error.message.startsWith('solver.')

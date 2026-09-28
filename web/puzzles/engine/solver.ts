@@ -1,15 +1,17 @@
 import { solveMinxCenters } from '../megaminx/centers';
 import {
 apply,
+definition,
 colorSolved,
 pictureSolved
 } from './model';
 import { shortSolution } from './short-search';
 import { solveSmallOrMinx } from './solver-bridge';
-import { solveReduction } from '../nxn/reduction-solver';
+import { solveNxn } from '../nxn/solver';
 import { simplifyMoves } from './orbit-solver';
 import { minxFrame } from '../megaminx/frame';
 import type { Definition,Message,PuzzleState,Stage } from './types';
+import type { SolveRequest, Solution } from './solver-types';
 
 export async function solvePuzzle(
   def: Definition,
@@ -17,13 +19,13 @@ export async function solvePuzzle(
   pictures: boolean,
   progress: (message: Message) => void = () => {},
 ) {
+  if (def.id !== 'megaminx')
+    return solveNxn({ id: def.id, state, pictures, mode: 'standard' }, progress);
   if (pictures ? pictureSolved(def, state) : colorSolved(def, state))
     return { moves: [], stages: [] as Stage[] };
   const short = shortSolution(def, state);
   if (short) return { moves: short, stages: [] as Stage[] };
   let moves: string[];
-  if (def.id === 'cube-4' || def.id === 'cube-5')
-    return solveReduction(def, state, pictures, progress);
   progress({ key: 'solver.searching' });
   const frame = def.id === 'megaminx' ? minxFrame(def, state) : [];
   const normalized = apply(def, state, frame);
@@ -37,4 +39,20 @@ export async function solvePuzzle(
   if (!(pictures ? pictureSolved(def, end) : colorSolved(def, end)))
     throw new Error('solver.failed');
   return { moves, stages: [] as Stage[] };
+}
+
+export async function solveRequest(
+  request: SolveRequest,
+  progress: (message: Message) => void = () => {},
+): Promise<Solution> {
+  const started = performance.now();
+  const result = request.id === 'megaminx'
+    ? await solvePuzzle(definition(request.id), request.state, request.pictures, progress)
+    : await solveNxn(request, progress);
+  return {
+    ...result,
+    count: result.moves.length,
+    seconds: Math.round((performance.now() - started) / 10) / 100,
+    mode: request.mode,
+  };
 }

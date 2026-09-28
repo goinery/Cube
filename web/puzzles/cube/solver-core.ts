@@ -1,4 +1,3 @@
-import { tx } from '@/lib/i18n';
 import Cube from 'cubejs';
 import cfop from 'rubiks-cube-solver/lib/index.common.js';
 import {
@@ -8,37 +7,30 @@ isSolved,
 isPictureSolved,
 toFaceletString,
 parseAlgorithm,
-simplify,
 uprightMoves,
 type CubeState,
 type Face,
 } from './model';
 import { correctCenters } from './centers';
-import type { Stage } from './store';
-export type SolveMode = 'fast' | 'near' | 'cfop';
-export interface Solution {
-  moves: string[];
-  stages: Stage[];
-  colorMoves: number;
-  centerMoves: number;
-  elapsed: number;
-  mode: SolveMode;
-}
+import type { SolveMode, SolveOutput } from '../engine/solver-types';
+import type { Message, Stage } from '../engine/types';
 let initialized = false;
 export function solveState(
   initial: CubeState,
   mode: SolveMode,
   pictures: boolean,
-  onProgress = (_message: string) => {},
-): Solution {
-  const started = performance.now(),
-    setup = uprightMoves(initial),
+  onProgress = (_message: Message) => {},
+): SolveOutput {
+  if (mode !== 'standard' && mode !== 'cfop') throw new Error('solver.unsupportedMode');
+  if (pictures ? isPictureSolved(initial) : isSolved(initial))
+    return { moves: [], stages: [], colorMoves: 0, centerMoves: 0 };
+  const setup = uprightMoves(initial),
     cube = apply(initial, setup),
     stages: Stage[] = [];
   const moves: string[] = [...setup];
   let colorMoves = 0;
-  if (mode === 'cfop') {
-    onProgress(tx('legacy.m466'));
+  if (mode === 'cfop' && !isSolved(cube)) {
+    onProgress({ key: 'legacy.m466' });
     const fs = facelets(cube);
     const input = (['F', 'R', 'U', 'D', 'L', 'B'] as Face[])
       .map((f) => fs[f].map((x) => x.sticker.face.toLowerCase()).join(''))
@@ -48,10 +40,10 @@ export function solveState(
       string | string[]
     >;
     const descriptions: Record<string, [string, string]> = {
-      cross: [tx('legacy.m467'), tx('legacy.m468')],
-      f2l: [tx('legacy.m469'), tx('legacy.m470')],
-      oll: [tx('legacy.m471'), tx('legacy.m472')],
-      pll: [tx('legacy.m473'), tx('legacy.m474')],
+      cross: ['legacy.m467', 'legacy.m468'],
+      f2l: ['legacy.m469', 'legacy.m470'],
+      oll: ['legacy.m471', 'legacy.m472'],
+      pll: ['legacy.m473', 'legacy.m474'],
     };
     const x2: Record<string, string> = {
       U: 'D',
@@ -86,92 +78,54 @@ export function solveState(
       const [label, description] = descriptions[key];
       stages.push({
         name: key === 'cross' ? 'Cross' : key.toUpperCase(),
-        label,
-        description,
+        key: label,
+        descriptionKey: description,
         start: key === 'cross' ? 0 : start,
         end: moves.length,
       });
     }
   } else if (!isSolved(cube)) {
     if (!initialized) {
-      onProgress(tx('legacy.m475'));
+      onProgress({ key: 'legacy.m475' });
       Cube.initSolver();
       initialized = true;
     }
-    onProgress(tx('legacy.m476'));
+    onProgress({ key: 'solver.searching' });
     const c = Cube.fromString(toFaceletString(cube));
-    let best = parseAlgorithm(c.solve());
-    if (mode === 'near') {
-      const cost = (candidate: string[]) =>
-        candidate.length +
-        (pictures ? correctCenters(apply(cube, candidate)).length : 0);
-      let bestCost = cost(best);
-      const prefixes = [
-        'R',
-        "R'",
-        'U',
-        "U'",
-        'F',
-        "F'",
-        'L',
-        "L'",
-        'D',
-        "D'",
-        'B',
-        "B'",
-      ];
-      for (let i = 0; i < prefixes.length; i++) {
-        if (performance.now() - started > 14000) break;
-        const pre = prefixes[i],
-          candidate = Cube.fromString(toFaceletString(cube));
-        candidate.move(pre);
-        const option = simplify([pre, ...parseAlgorithm(candidate.solve())]),
-          optionCost = cost(option);
-        if (optionCost < bestCost) {
-          best = option;
-          bestCost = optionCost;
-        }
-        onProgress(tx('legacy.m477', { p0: i + 1, p1: bestCost }));
-      }
-    }
-    moves.push(...best);
+    moves.push(...parseAlgorithm(c.solve()));
   }
   let result = apply(initial, moves);
-  if (!isSolved(result)) throw new Error(tx('legacy.m478'));
+  if (!isSolved(result)) throw new Error('solver.failed');
   const alignment = uprightMoves(result);
   moves.push(...alignment);
   result = apply(result, alignment);
   colorMoves = moves.length;
   if (mode !== 'cfop' && colorMoves)
     stages.push({
-      name: tx('legacy.m271'),
-      label: tx('legacy.m479'),
-      description: tx('legacy.m480'),
+      key: 'legacy.m479',
+      descriptionKey: 'legacy.m480',
       start: 0,
       end: colorMoves,
     });
   if (pictures) {
-    onProgress(tx('legacy.m481'));
+    onProgress({ key: 'solver.centerPictures' });
     const centerMoves = correctCenters(result),
       start = moves.length;
     moves.push(...centerMoves);
     if (centerMoves.length)
       stages.push({
-        name: tx('legacy.m482'),
-        label: tx('legacy.m483'),
-        description: tx('legacy.m484'),
+        key: 'legacy.m483',
+        descriptionKey: 'legacy.m484',
         start,
         end: moves.length,
       });
     if (!isPictureSolved(apply(initial, moves)))
-      throw new Error(tx('legacy.m485'));
+      throw new Error('solver.failed');
   }
   return {
     moves,
     stages,
     colorMoves,
     centerMoves: moves.length - colorMoves,
-    elapsed: performance.now() - started,
-    mode,
   };
 }

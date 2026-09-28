@@ -1,12 +1,6 @@
-import { i18n,tx,useLanguage } from '@/lib/i18n';
+import { i18n,tx,useLanguage,type Locale } from '@/lib/i18n';
 import { alignCube } from '@/puzzles/cube/store';
 import { memo,useEffect,useRef,useState } from 'react';
-import {
-ArrowUpRight,
-LoaderCircle,
-X,
-CheckCircle2
-} from 'lucide-react';
 import {
 useCube,
 patch,
@@ -19,8 +13,8 @@ getState,
 import { checkBeforeSolve,type Preflight } from '@/puzzles/cube/preflight';
 import type { CubeState } from '@/puzzles/cube/model';
 import type { Appearance } from '@/puzzles/cube/appearance';
-import type { Solution,SolveMode } from '@/puzzles/cube/solver-core';
-import { Toggle } from '@/components/workspace/Controls';
+import type { Solution,SolveMode,SolveRequest,SolveResponse } from '@/puzzles/engine/solver-types';
+import SolverControls from '@/components/workspace/SolverPanel';
 import Player from './Player';
 interface Blocked {
   report: Preflight;
@@ -41,7 +35,7 @@ export default memo(function SolverPanel() {
       'solveStatus',
       'player',
     ),
-    [mode] = useState<SolveMode>('fast'),
+    [mode, setMode] = useState<SolveMode>('standard'),
     [pictures, setPictures] = useState(true),
     [blocked, setBlocked] = useState<Blocked | null>(null),
     [result, setResult] = useState<Solution | null>(null);
@@ -75,7 +69,7 @@ export default memo(function SolverPanel() {
     const request = ++solveGeneration.current;
     if (getState().solving || getState().busy) return;
     pause();
-    patch({ solving: true, solveStatus: tx('legacy.m256') });
+    patch({ solving: true, solveStatus: tx('motion.aligning') });
     await alignCube();
     if (!getState().solving || request !== solveGeneration.current) return;
     const current = getState();
@@ -102,42 +96,50 @@ export default memo(function SolverPanel() {
     }
     setBlocked(null);
     pause();
-    patch({ solving: true, solveStatus: tx('legacy.m257') });
+    patch({ solving: true, solveStatus: tx('solver.initializing') });
     setResult(null);
     let w: Worker;
     try {
       w = new Worker(
-        new URL('../solver.worker.ts', import.meta.url),
+        new URL('../../engine/solver.worker.ts', import.meta.url),
         { type: 'module' },
       );
     } catch {
       cancel();
-      notify(tx('legacy.m258'));
+      notify(tx('solver.failed'));
       return;
     }
     worker.current = w;
     timer.current = setTimeout(() => {
       cancel();
-      notify(tx('legacy.m259'));
+      notify(tx('solver.timeout'));
     }, 60000);
-    w.onmessage = (e) => {
+    w.onmessage = (e: MessageEvent<SolveResponse>) => {
       if (worker.current !== w) return;
-      if (e.data.type === 'progress') patch({ solveStatus: e.data.message });
+      if (e.data.type === 'progress') patch({ solveStatus: tx(e.data.message.key, e.data.message.params) });
       else if (e.data.type === 'error') {
         cancel();
-        notify(e.data.message);
+        notify(tx(e.data.key));
       } else if (e.data.type === 'result') {
-        const r = e.data.result as Solution;
+        const r = e.data.result;
         cancel();
         setResult(r);
+        if (!r.moves.length) {
+          notify(tx('solver.already'));
+          return;
+        }
         loadPlayer(
           r.moves,
-          mode === 'cfop'
+          r.mode === 'cfop'
             ? tx('legacy.m260')
-            : mode === 'near'
-              ? tx('legacy.m261')
-              : tx('legacy.m262'),
-          r.stages,
+            : tx('player.solution'),
+          r.stages.map((stage) => ({
+            name: stage.name ?? tx(stage.key, stage.params),
+            label: tx(stage.key, stage.params),
+            description: stage.descriptionKey ? tx(stage.descriptionKey, stage.params) : '',
+            start: stage.start,
+            end: stage.end,
+          })),
         );
         void play();
         requestAnimationFrame(() =>
@@ -152,19 +154,28 @@ export default memo(function SolverPanel() {
     w.onerror = () => {
       if (worker.current !== w) return;
       cancel();
-      notify(tx('legacy.m258'));
+      notify(tx('solver.failed'));
     };
     w.postMessage({
-      cube: current.cube,
+      id: 'cube',
+      state: current.cube,
       mode,
       pictures: usePictures,
-      locale: i18n.language,
-    });
+      locale: i18n.language as Locale,
+    } satisfies SolveRequest);
   }
   return (
-    <>
-      <></>
-      {block && (
+    <SolverControls
+      pictures={pictures}
+      onPicturesChange={setPictures}
+      solving={s.solving}
+      busy={s.busy}
+      status={s.solveStatus}
+      result={result}
+      onSolve={() => { void solve(); }}
+      onCancel={cancel}
+      cfop={{ mode, onModeChange: setMode }}
+      notice={block && (
         <div
           className={`preflight ${block.valid ? '' : 'invalid'}`}
           aria-live="polite"
@@ -188,64 +199,10 @@ export default memo(function SolverPanel() {
           </small>
         </div>
       )}
-      <Toggle
-        label={tx('legacy.m276')}
-        value={pictures}
-        onChange={setPictures}
-        disabled={s.solving}
-      />
-      <></>
-      <button
-        className="primary-button solve-button"
-        disabled={s.busy || s.solving}
-        onClick={solve}
-      >
-        <span>{tx('legacy.m278')}</span>
-        {s.solving ? (
-          <LoaderCircle className="spin" size={18} />
-        ) : (
-          <ArrowUpRight size={18} />
-        )}
-      </button>
-      {s.solving && (
-        <output className="solver-progress">
-          <LoaderCircle className="spin" size={16} />
-          <span>{s.solveStatus}</span>
-          <button
-            title={tx('legacy.m279')}
-            aria-label={tx('legacy.m279')}
-            onClick={cancel}
-          >
-            <X size={17} />
-            {tx('legacy.m280')}
-          </button>
-        </output>
-      )}
-      {result && (
-        <div className="solver-result">
-          <CheckCircle2 size={17} />
-          <div>
-            <strong>
-              {result.moves.length}
-              {tx('legacy.m281')}
-              {(result.elapsed / 1000).toFixed(2)}
-              {tx('legacy.m282')}
-            </strong>
-            <p>
-              {tx('legacy.m283')}
-              {result.colorMoves}
-              {tx('legacy.m057')}
-              {result.centerMoves > 0
-                ? tx('legacy.m284', { p0: result.centerMoves })
-                : ''}
-            </p>
-          </div>
-        </div>
-      )}
+    >
       <div className="solver-player" ref={playerRef}>
         <Player />
       </div>
-      <></>
-    </>
+    </SolverControls>
   );
 });

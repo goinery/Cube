@@ -46,5 +46,5 @@ export function solveFourColor(def:Definition,state:PuzzleState) {
     return {...piece,pos:rotatePoint(def,r,piece.home).map(Math.round) as Vec,
       basis:([[1,0,0],[0,1,0],[0,0,1]] as Vec[]).map(v=>rotatePoint(def,r,v).map(Math.round)) as Basis};
   });
-  return [...reduction,...solveState(projection,'fast',false).moves];
+  return [...reduction,...solveState(projection,'standard',false).moves];
 }

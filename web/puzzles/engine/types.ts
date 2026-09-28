@@ -69,6 +69,8 @@ export interface Message {
 }
 export interface Stage {
   key: string;
+  name?: string;
+  descriptionKey?: string;
   start: number;
   end: number;
   params?: Record<string, string | number>;

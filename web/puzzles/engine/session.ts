@@ -7,6 +7,8 @@ STUDIO_DEFAULTS,
 type PuzzleSettings,
 } from '@/puzzles/config';
 import { useSyncExternalStore } from 'react';
+import { i18n, type Locale } from '@/lib/i18n';
+import type { SolveRequest, SolveResponse } from './solver-types';
 import { defaultAppearance,type Appearance } from './appearance';
 import {
 apply,
@@ -448,7 +450,7 @@ export class Session {
       this.notify('solver.failed');
       return;
     }
-    worker.onmessage = (event) => {
+    worker.onmessage = (event: MessageEvent<SolveResponse>) => {
       if (this.worker !== worker) return;
       const data = event.data;
       if (data.type === 'progress') {
@@ -461,14 +463,15 @@ export class Session {
         return;
       }
       if (JSON.stringify(this.state.puzzle) !== version) return;
+      const result = data.result;
       this.patch({
-        solveResult: { count: data.moves.length, seconds: data.seconds },
+        solveResult: { count: result.count, seconds: result.seconds },
       });
-      if (!data.moves.length) {
+      if (!result.moves.length) {
         this.notify('solver.already');
         return;
       }
-      this.loadPlayer(data.moves, 'solution', data.stages);
+      this.loadPlayer(result.moves, 'solution', result.stages);
       void this.play();
     };
     worker.onerror = () => {
@@ -477,7 +480,9 @@ export class Session {
         this.notify('solver.failed');
       }
     };
-    worker.postMessage({ id: this.def.id, state: initial, pictures });
+    worker.postMessage({
+      id: this.def.id, state: initial, pictures, mode: 'standard', locale: i18n.language as Locale,
+    } satisfies SolveRequest);
   }
 }
 const sessions = new Map<PuzzleId, Session>();

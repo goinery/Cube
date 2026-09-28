@@ -47,7 +47,7 @@ export async function solveReduction(
   if (def.order === 4) add(solveFourColor(def, state));
   else add(solveFiveSkeleton(def, state));
   if (pictures && def.order === 5)
-    add(solveState(reducedThree(def, state), 'fast', true).moves);
+    add(solveState(reducedThree(def, state), 'standard', true).moves);
   const kinds =
     def.order === 4
       ? pictures
