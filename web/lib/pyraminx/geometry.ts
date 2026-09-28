@@ -1,5 +1,6 @@
 import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
+import { CAP_MITER_CLEARANCE, trimCapVertex } from '../rendering/cap-seams';
 import { createChassisRelief, createPlasticGrain } from '../rendering/studio';
 import { capOutline, TIP_CUT } from './cap-profile';
 import { hollowChassis, sleeve } from './mechanics';
@@ -51,34 +52,43 @@ function capGeometry(tile: Tile) {
   const seams = [
     ...normals
       .filter((_, face) => face !== tile.face)
-      .map((normal) => new T.Plane(normal.clone().sub(faceNormal), 0)),
+      .map(
+        (normal) =>
+          new T.Plane(normal.clone().sub(faceNormal), CAP_MITER_CLEARANCE),
+      ),
     ...pieceBoundaries(PIECES[tile.piece]),
   ].map(({ normal, constant }) => {
-    return {
-      x: normal.dot(tangent),
-      y: normal.dot(up),
-      z: normal.dot(faceNormal),
-      offset: normal.dot(centerPoint) + constant,
-    };
+    return new T.Plane(
+      new T.Vector3(
+        normal.dot(tangent),
+        normal.dot(up),
+        normal.dot(faceNormal),
+      ),
+      normal.dot(centerPoint) + constant,
+    );
   });
   const side = p[0].distanceTo(p[1]),
     height = (side * Math.sqrt(3)) / 2;
   const outline = capOutline(tile);
   const positions: number[] = [],
     uv: number[] = [],
+    seamNormals: number[] = [],
+    colors: number[] = [],
     indices: number[] = [];
+  const point = new T.Vector3(),
+    normal = new T.Vector3();
   const vertex = (x: number, y: number, z: number) => {
     // Mate at each tetrahedral edge and stay inside the actual layer cuts.
     // The latter prevents the flush belt from crossing a neighbour mid-turn.
-    let scale = 1;
-    for (const seam of seams) {
-      const radial = x * seam.x + y * seam.y;
-      if (radial > 0)
-        scale = Math.min(scale, (-seam.offset - z * seam.z) / radial);
-    }
-    x *= scale;
-    y *= scale;
+    point.set(x, y, z);
+    normal.set(0, 0, 0);
+    trimCapVertex(point, seams, normal);
+    x = point.x;
+    y = point.y;
     positions.push(x, y, z);
+    seamNormals.push(...normal.toArray());
+    const shade = z < -0.026 ? 0.82 + ((z + 0.043) / 0.017) * 0.18 : 1;
+    colors.push(shade, shade, shade);
     const a = (y + height / 3) / height,
       b = (1 - a) / 2 - x / side,
       c = 1 - a - b;
@@ -90,14 +100,14 @@ function capGeometry(tile: Tile) {
   // Preserve the reference silhouette through the entire lip; a sharp
   // triangular belt here would fill the rounded junctions and central opening.
   const rings = [
-    [0.97, -0.043],
-    [0.992, -0.029],
-    [1, -0.008],
-    [1, 0],
-    [0.996, 0.012],
-    [0.985, 0.021],
-    [0.965, 0.021],
-    [0.38, 0.021],
+    [0.968, -0.043],
+    [0.99, -0.035],
+    [1, -0.026],
+    [1, -0.015],
+    [0.997, -0.005],
+    [0.989, 0.002],
+    [0.976, 0.005],
+    [0.38, 0.005],
   ];
   for (const [scale, z] of rings)
     for (const p of outline) {
@@ -111,7 +121,7 @@ function capGeometry(tile: Tile) {
       indices.push(a, b, a + n, b, b + n, a + n);
     }
   const center = positions.length / 3;
-  vertex(0, 0, 0.021);
+  vertex(0, 0, 0.005);
   for (let i = 0; i < n; i++)
     indices.push(
       (rings.length - 1) * n + i,
@@ -124,16 +134,22 @@ function capGeometry(tile: Tile) {
   const g = new T.BufferGeometry();
   g.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
   g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  g.setAttribute('color', new T.Float32BufferAttribute(colors, 3));
   g.setIndex(indices);
   g.computeVertexNormals();
   const capNormals = g.getAttribute('normal');
   for (let i = 6 * n; i <= center; i++) capNormals.setXYZ(i, 0, 0, 1);
+  for (let i = 0; i < capNormals.count; i++) {
+    normal.fromArray(seamNormals, i * 3);
+    if (normal.lengthSq() > 0)
+      capNormals.setXYZ(i, normal.x, normal.y, normal.z);
+  }
   g.computeBoundingBox();
   g.computeBoundingSphere();
   g.userData.occluder = outline.map((_, i) => [
-    positions[(4 * n + i) * 3] * 0.995,
-    positions[(4 * n + i) * 3 + 1] * 0.995,
-    0.012,
+    positions[(2 * n + i) * 3] * 0.995,
+    positions[(2 * n + i) * 3 + 1] * 0.995,
+    -0.026,
   ]);
   return g;
 }
@@ -317,6 +333,7 @@ export function createModel(anisotropy: number) {
         bumpMap: grain,
         bumpScale: 0.00022,
         roughnessMap: grain,
+        vertexColors: true,
       });
       const cap = new T.Mesh(capGeometry(tile), material),
         c = tileCenter(tile),

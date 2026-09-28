@@ -6,6 +6,7 @@ import {
 } from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Sticker } from './model';
+import { CAP_INSET, CAP_MITER_CLEARANCE } from '../rendering/cap-seams';
 
 export function tileRadii(row: number, col: number): number[] {
   if (row === 1 && col === 1) return [0.29, 0.29, 0.29, 0.29];
@@ -52,7 +53,7 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
   const vertex = (x: number, y: number, z: number) => {
     // Adjacent caps meet at a mitred underside, not overlapping thick slabs.
     // These are piece-local dimensions, so small cubies retain the same fit.
-    const seam = 0.455 + z - 0.001;
+    const seam = 0.455 + z - CAP_MITER_CLEARANCE;
     miterX = miterY = 0;
     if (sticker.col === 0 && x < -seam) {
       x = -seam;
@@ -149,7 +150,7 @@ export function createTileGeometry(sticker: Pick<Sticker, 'row' | 'col'>) {
 
 export function tileOutline(row: number, col: number) {
   const radii = tileRadii(row, col),
-    h = 0.498;
+    h = 0.5 - CAP_INSET;
   const points: { point: Vector2; outward: Vector2 }[] = [];
   // Counterclockwise quadratic corners, matching the face-map silhouettes.
   for (const [index, x, y] of [

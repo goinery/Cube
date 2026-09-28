@@ -2,6 +2,7 @@ import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CAP_MITER_CLEARANCE, trimCapVertex } from '../rendering/cap-seams';
 import { bounds } from './appearance';
 import type { Definition, FaceDefinition, TileDefinition, V2 } from './types';
 
@@ -15,28 +16,73 @@ export function facePoint(face: FaceDefinition, p: V2, depth = 0) {
 export function capGeometry(def: Definition, tile: TileDefinition) {
   const face = def.faces.find((f) => f.id === tile.face)!,
     home = v(def.pieces[tile.piece].home),
-    rect = bounds(face.outline);
+    rect = bounds(face.outline),
+    extent = bounds(tile.outline),
+    origin = facePoint(face, tile.center),
+    right = v(face.right),
+    up = v(face.up),
+    faceNormal = v(face.normal);
+  const seams = def.faces
+    .filter((other) => other.id !== face.id)
+    .map((other) => {
+      const normal = v(other.normal).sub(faceNormal),
+        constant =
+          faceNormal.dot(v(face.center)) -
+          v(other.normal).dot(v(other.center)) +
+          CAP_MITER_CLEARANCE;
+      return new T.Plane(
+        new T.Vector3(
+          normal.dot(right),
+          normal.dot(up),
+          normal.dot(faceNormal),
+        ),
+        normal.dot(origin) + constant,
+      );
+    });
   const positions: number[] = [],
     uv: number[] = [],
     normals: number[] = [],
+    colors: number[] = [],
     indices: number[] = [],
     count = tile.outline.length;
+  // The exposed lip and shallow crown follow the three-by-three profile.
+  // Keep the original back depth so the cap still seats on its chassis.
   const rings = [
-    [0.96, -0.045],
-    [0.993, -0.032],
-    [1, -0.008],
-    [0.996, 0.007],
-    [0.985, 0.017],
-    [0.96, 0.023],
-    [0.68, 0.03],
-    [0.26, 0.033],
+    [0.968, -0.045],
+    [0.99, -0.041],
+    [1, -0.034],
+    [1, -0.026],
+    [0.997, -0.015],
+    [0.989, -0.005],
+    [0.976, 0.002],
+    [0.958, 0.005],
+    [0.82, 0.009],
+    [0.52, 0.013],
   ];
+  const point = new T.Vector3();
+  const vertex = (x: number, y: number, z: number, normal: T.Vector3) => {
+    point.set(x, y, z);
+    trimCapVertex(point, seams, normal);
+    x = tile.center[0] + point.x;
+    y = tile.center[1] + point.y;
+    positions.push(...facePoint(face, [x, y], z).sub(home).toArray());
+    uv.push((x - rect.x) / rect.w, (y - rect.y) / rect.h);
+    normals.push(
+      ...right
+        .clone()
+        .multiplyScalar(normal.x)
+        .addScaledVector(up, normal.y)
+        .addScaledVector(faceNormal, normal.z)
+        .normalize()
+        .toArray(),
+    );
+    const shade = z < -0.026 ? 0.82 + ((z + 0.045) / 0.019) * 0.18 : 1;
+    colors.push(shade, shade, shade);
+  };
   for (const [ring, [scale, z]] of rings.entries())
     for (const [index, p] of tile.outline.entries()) {
-      const x = tile.center[0] + (p[0] - tile.center[0]) * scale,
-        y = tile.center[1] + (p[1] - tile.center[1]) * scale;
-      positions.push(...facePoint(face, [x, y], z).sub(home).toArray());
-      uv.push((x - rect.x) / rect.w, (y - rect.y) / rect.h);
+      const x = (p[0] - tile.center[0]) * scale,
+        y = (p[1] - tile.center[1]) * scale;
       const previous = tile.outline[(index + count - 1) % count],
         next = tile.outline[(index + 1) % count],
         lower = rings[Math.max(0, ring - 1)],
@@ -52,24 +98,28 @@ export function capGeometry(def: Definition, tile: TileDefinition) {
           upper[1] - lower[1],
         ),
         local = tangent.cross(profile).normalize();
-      if (ring >= 5) {
-        const extent = bounds(tile.outline);
+      let depth = z;
+      if (ring >= 7) {
+        const hx2 =
+            Math.max(
+              tile.center[0] - extent.x,
+              extent.x + extent.w - tile.center[0],
+            ) ** 2,
+          hy2 =
+            Math.max(
+              tile.center[1] - extent.y,
+              extent.y + extent.h - tile.center[1],
+            ) ** 2;
+        depth = 0.005 + 0.01 * (1 - (x * x) / hx2) * (1 - (y * y) / hy2);
         local
           .set(
-            ((x - tile.center[0]) * 0.028) / ((extent.w * extent.w) / 4),
-            ((y - tile.center[1]) * 0.028) / ((extent.h * extent.h) / 4),
+            ((0.02 * x) / hx2) * (1 - (y * y) / hy2),
+            ((0.02 * y) / hy2) * (1 - (x * x) / hx2),
             1,
           )
           .normalize();
       }
-      normals.push(
-        ...v(face.right)
-          .multiplyScalar(local.x)
-          .addScaledVector(v(face.up), local.y)
-          .addScaledVector(v(face.normal), local.z)
-          .normalize()
-          .toArray(),
-      );
+      vertex(x, y, depth, local);
     }
   for (let ring = 0; ring < rings.length - 1; ring++)
     for (let i = 0; i < count; i++) {
@@ -78,12 +128,7 @@ export function capGeometry(def: Definition, tile: TileDefinition) {
       indices.push(a, b, a + count, b, b + count, a + count);
     }
   const center = positions.length / 3;
-  positions.push(...facePoint(face, tile.center, 0.034).sub(home).toArray());
-  normals.push(...face.normal);
-  uv.push(
-    (tile.center[0] - rect.x) / rect.w,
-    (tile.center[1] - rect.y) / rect.h,
-  );
+  vertex(0, 0, 0.015, new T.Vector3(0, 0, 1));
   for (let i = 0; i < count; i++)
     indices.push(
       (rings.length - 1) * count + i,
@@ -91,29 +136,22 @@ export function capGeometry(def: Definition, tile: TileDefinition) {
       center,
     );
   const back = positions.length / 3;
-  positions.push(...facePoint(face, tile.center, -0.045).sub(home).toArray());
-  normals.push(...v(face.normal).negate().toArray());
-  uv.push(
-    (tile.center[0] - rect.x) / rect.w,
-    (tile.center[1] - rect.y) / rect.h,
-  );
+  vertex(0, 0, -0.045, new T.Vector3(0, 0, -1));
   for (let i = 0; i < count; i++) indices.push((i + 1) % count, i, back);
   const geo = new T.BufferGeometry();
   geo.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
   geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
   geo.setIndex(indices);
   geo.setAttribute('normal', new T.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('color', new T.Float32BufferAttribute(colors, 3));
   // Stay inside the raised cap so rounded edges and seams remain uncovered.
-  geo.userData.occluder = tile.outline.map(([x, y]) =>
-    facePoint(
-      face,
-      [
-        tile.center[0] + (x - tile.center[0]) * 0.95,
-        tile.center[1] + (y - tile.center[1]) * 0.95,
-      ],
-      0.023,
-    )
-      .sub(home)
+  const occluderCenter = facePoint(face, tile.center, -0.026).sub(home);
+  geo.userData.occluder = tile.outline.map((_, i) =>
+    new T.Vector3()
+      .fromArray(positions, (3 * count + i) * 3)
+      .sub(occluderCenter)
+      .multiplyScalar(0.995)
+      .add(occluderCenter)
       .toArray(),
   );
   geo.userData.occluderNormal = face.normal;
@@ -125,10 +163,37 @@ export function shellGeometry(def: Definition, pieceIndex: number) {
     points: T.Vector3[] = [],
     normals: T.Vector3[] = [];
   for (const tile of def.tiles.filter((t) => t.piece === pieceIndex)) {
-    const face = def.faces.find((f) => f.id === tile.face)!;
+    const face = def.faces.find((f) => f.id === tile.face)!,
+      origin = facePoint(face, tile.center),
+      right = v(face.right),
+      up = v(face.up),
+      faceNormal = v(face.normal);
+    const backingPlanes = def.faces
+      .filter((other) => other.id !== face.id)
+      .map((other) => {
+        const normal = v(other.normal);
+        return new T.Plane(
+          new T.Vector3(
+            normal.dot(right),
+            normal.dot(up),
+            normal.dot(faceNormal),
+          ),
+          normal.dot(origin) - normal.dot(v(other.center)) + 0.046,
+        );
+      });
     normals.push(v(face.normal));
     for (const p of tile.outline) {
-      const surface = facePoint(face, p, -0.046);
+      const point = new T.Vector3(
+        p[0] - tile.center[0],
+        p[1] - tile.center[1],
+        -0.046,
+      );
+      trimCapVertex(point, backingPlanes, new T.Vector3());
+      const surface = facePoint(
+        face,
+        [tile.center[0] + point.x, tile.center[1] + point.y],
+        point.z,
+      );
       points.push(
         surface.clone().sub(home),
         surface
@@ -164,8 +229,22 @@ export function shellGeometry(def: Definition, pieceIndex: number) {
       world.dot(axis) * 0.8,
     ] as V2;
   };
+  const seats = def.faces.map((face) => ({
+    normal: v(face.normal),
+    distance: v(face.normal).dot(v(face.center)) - 0.046,
+  }));
+  const seatPoint = (point: T.Vector3) => {
+    const world = point.clone().add(home);
+    let scale = 1;
+    for (const { normal, distance } of seats) {
+      const projection = normal.dot(world);
+      if (projection > distance) scale = Math.min(scale, distance / projection);
+    }
+    // Inward wall thickness can cross a neighbouring cap seat at an edge.
+    return world.multiplyScalar(scale).sub(home);
+  };
   const triangle = (a: T.Vector3, b: T.Vector3, c: T.Vector3) => {
-    const vertices = [a, b, c],
+    const vertices = [a, b, c].map(seatPoint),
       texture = vertices.map(coords);
     if (
       Math.max(...texture.map((p) => p[0])) -
@@ -233,7 +312,8 @@ export function honeycombTexture(anisotropy: number) {
         const a = (k * Math.PI) / 3,
           px = cx + Math.cos(a) * 32,
           py = cy + Math.sin(a) * 32;
-        k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        if (k) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
       }
       ctx.stroke();
     }
@@ -427,6 +507,7 @@ export function buildPuzzle(def: Definition, anisotropy: number) {
         clearcoat: 0.22,
         clearcoatRoughness: 0.13,
         ior: 1.48,
+        vertexColors: true,
       });
       materials.add(material);
       const mesh = new T.Mesh(shared(capGeometry(def, tile)), material);

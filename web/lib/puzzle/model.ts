@@ -1,5 +1,6 @@
 import { CUBE_COLORS, MEGAMINX_COLORS } from '@/lib/puzzle-config';
-import { Matrix3, Quaternion, Vector3 } from 'three';
+import { Matrix3, Quaternion, Vector2, Vector3 } from 'three';
+import { CAP_INSET, insetCapOutline } from '../rendering/cap-seams';
 import type {
   Definition,
   FaceDefinition,
@@ -140,7 +141,7 @@ function cubeDefinition(order: number): Definition {
             cy = piece.home[uy] * face.up[uy];
           const w = widths[index[rx]],
             h = widths[index[uy]],
-            gap = 0.009;
+            gap = CAP_INSET;
           const corners: V2[] = [
             [cx - w / 2 + gap, cy - h / 2 + gap],
             [cx + w / 2 - gap, cy - h / 2 + gap],
@@ -310,7 +311,9 @@ function megaminxDefinition(): Definition {
           [0, 0] as V2,
         );
       const outline = roundedPolygon(
-        points.map((p) => lerp(center, p, 0.976)),
+        insetCapOutline(points.map((p) => new Vector2(...p))).map(
+          (p) => p.toArray() as V2,
+        ),
         radii,
       );
       const id = `${face.id}:${tiles.filter((t) => t.face === face.id).length}`;

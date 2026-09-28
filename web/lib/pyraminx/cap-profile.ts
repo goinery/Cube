@@ -1,10 +1,11 @@
 import { Vector2, Vector3 } from 'three';
+import { CAP_INSET, insetCapOutline } from '../rendering/cap-seams';
 import { PIECES, VERTICES, type Tile } from './model';
 
 // Measured against .local/images/正视图.png: the tip seam is slightly
 // above one third; the six centre-facing corners have much larger fillets.
 export const TIP_CUT = 1.37;
-export const CAP_SEAM = 0.0075;
+export const CAP_SEAM = CAP_INSET;
 
 export function capFrame(tile: Tile) {
   const points = tile.points.map((p) => new Vector3(...p)),
@@ -41,14 +42,7 @@ export function capOutline(tile: Tile) {
   });
   // Offset each straight edge by a physical distance, so all seams have the
   // same width even though the three cap types have different proportions.
-  const inset = corners.map((p, i) => {
-    const a = corners[(i + 2) % 3].clone().sub(p).normalize(),
-      b = corners[(i + 1) % 3].clone().sub(p).normalize(),
-      bisector = a.clone().add(b).normalize();
-    return p
-      .clone()
-      .addScaledVector(bisector, CAP_SEAM / Math.sqrt((1 - a.dot(b)) / 2));
-  });
+  const inset = insetCapOutline(corners, CAP_SEAM);
   return inset.flatMap((corner, i) => {
     const start = corner.clone().lerp(inset[(i + 2) % 3], rounding[i]),
       end = corner.clone().lerp(inset[(i + 1) % 3], rounding[i]);
