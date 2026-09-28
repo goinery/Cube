@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/postcss';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import { fileURLToPath, URL } from 'node:url';
+import { fileURLToPath,URL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import zh from './lib/i18n/zh-CN.json';
 

@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { capFrame, capOutline } from './cap-profile';
-import { PIECES, VERTICES, type Tile } from './model';
+import { capFrame,capOutline } from './cap-profile';
+import { PIECES,VERTICES,type Tile } from './model';
 
 export { clipGeometry } from '../rendering/clip-geometry';
 

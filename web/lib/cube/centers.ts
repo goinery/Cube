@@ -1,19 +1,19 @@
 import { tx } from '@/lib/i18n';
 import {
-  solved,
-  apply,
-  facelets,
-  FACES,
-  FACE,
-  equal,
-  transform,
-  identity,
-  rotate,
-  parseAlgorithm,
-  inverse,
-  simplify,
-  type CubeState,
-  type Basis,
+solved,
+apply,
+facelets,
+FACES,
+FACE,
+equal,
+transform,
+identity,
+rotate,
+parseAlgorithm,
+inverse,
+simplify,
+type CubeState,
+type Basis,
 } from './model';
 const encode = (a: number[]) => a.reduce((n, v, i) => n + v * 4 ** i, 0);
 const decode = (n: number) => FACES.map((_, i) => Math.floor(n / 4 ** i) % 4);

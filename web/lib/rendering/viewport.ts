@@ -1,14 +1,14 @@
 import * as T from 'three';
 import {
-  STUDIO_DEFAULTS as DEFAULTS,
-  PUZZLE_DEFAULTS,
-  type CameraDefaults,
-  type Quality,
-  type StudioPuzzleId,
+STUDIO_DEFAULTS as DEFAULTS,
+PUZZLE_DEFAULTS,
+type CameraDefaults,
+type Quality,
+type StudioPuzzleId,
 } from '../puzzle-config';
 import type { FaceDefinition } from '../puzzle/types';
 import { RenderOptimizer } from './render-optimizer';
-import { StudioEnvironment, createContactShadow } from './studio';
+import { StudioEnvironment,createContactShadow } from './studio';
 
 export function pixelRatio(
   quality: Quality,

@@ -1,17 +1,18 @@
+import { watchAutosave as watch,sameFields } from '@/lib/workspace/autosave';
 import { tx } from '@/lib/i18n';
 import {
-  getState,
-  patch,
-  restoreHistory,
-  setAppearance,
-  subscribe,
-  notify,
-  defaultSettings,
-  type Settings,
+getState,
+patch,
+restoreHistory,
+setAppearance,
+subscribe,
+notify,
+defaultSettings,
+type Settings,
 } from './store';
-import { parseAlgorithm, apply, solved, toFaceletString } from './model';
-import { QUARTER, type PartialTurns } from './interaction';
-import { defaultAppearance, type Appearance } from './appearance';
+import { parseAlgorithm,apply,solved,toFaceletString } from './model';
+import { QUARTER,type PartialTurns } from './interaction';
+import { defaultAppearance,type Appearance } from './appearance';
 import { validateKeybindings } from './keybindings';
 import { validateAlgorithmPresets } from './algorithms';
 export interface Project {
@@ -212,8 +213,8 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 export async function saveProject(key = 'saved') {
-  const db = await openDB(),
-    project = captureProject();
+  const project = captureProject(),
+    db = await openDB();
   try {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction('projects', 'readwrite');
@@ -307,27 +308,12 @@ export async function restoreProject(key: 'autosave' | 'saved') {
   }
 }
 export function watchAutosave() {
-  let timer: ReturnType<typeof setTimeout> | null = null,
-    previous = getState();
-  const unsub = subscribe(() => {
-    const s = getState();
-    if (s.busy || s.solving) return;
-    if (
-      s.cursor === previous.cursor &&
-      s.history === previous.history &&
-      s.appearance === previous.appearance &&
-      s.settings === previous.settings &&
-      s.partialTurns === previous.partialTurns &&
-      s.scramble === previous.scramble &&
-      s.scrambleCursor === previous.scrambleCursor
-    )
-      return;
-    previous = s;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => void saveAutosave(), 600);
+  return watch({
+    read: getState, subscribe,
+    equal: (a, b) => sameFields(a, b, ['cursor', 'history', 'appearance', 'settings', 'partialTurns', 'scramble', 'scrambleCursor']),
+    enabled: () => true,
+    ready: () => !getState().busy && !getState().solving,
+    save: () => saveProject('autosave'),
+    onError: autosaveFailed,
   });
-  return () => {
-    unsub();
-    if (timer) clearTimeout(timer);
-  };
 }

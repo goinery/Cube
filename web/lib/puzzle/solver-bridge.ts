@@ -1,8 +1,8 @@
-import { KPattern, type KPuzzle } from 'cubing/kpuzzle';
+import { KPattern,type KPuzzle } from 'cubing/kpuzzle';
 import { puzzles } from 'cubing/puzzles';
-import { experimentalSolve2x2x2, solveMegaminx } from 'cubing/search';
-import { apply, moveSpec, rotatePoint } from './model';
-import type { Definition, PuzzleState } from './types';
+import { experimentalSolve2x2x2,solveMegaminx } from 'cubing/search';
+import { moveSpec,rotatePoint } from './model';
+import type { Definition,PuzzleState } from './types';
 
 type Mapping = { name: string; pieces: number[]; home: number[]; flags: number[]; orientations: number };
 type Bridge = { kp: KPuzzle; mappings: Mapping[]; faces: Record<string,string> };
@@ -45,7 +45,7 @@ async function makeBridge(def: Definition): Promise<Bridge> {
       });
       let flags:number[]|null=null;
       for(let seed=0;seed<count&&!flags;seed++) {
-        const map=new Array<number>(def.group.quaternions.length).fill(-1), queue=[0]; map[0]=seed;
+        const map=Array.from({ length: def.group.quaternions.length }, () => -1), queue=[0]; map[0]=seed;
         let consistent=true;
         for(let q=0;q<queue.length&&consistent;q++) {
           const g=queue[q];

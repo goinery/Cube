@@ -2,10 +2,10 @@ import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { disposeMeshes } from '../rendering/resources';
-import { createChassisRelief, createPlasticGrain } from '../rendering/studio';
+import { createChassisRelief,createPlasticGrain } from '../rendering/studio';
 import { createTileGeometry } from './geometry';
-import { createCenterHousing, createMechanics } from './mechanics';
-import { COLORS, FACE, type Piece, type Vec } from './model';
+import { createCenterHousing,createMechanics } from './mechanics';
+import { COLORS,FACE,type Piece,type Vec } from './model';
 interface ComponentPart {
   object: T.Object3D;
   base: T.Vector3;

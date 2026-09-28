@@ -1,13 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, Box, Check, Pyramid } from 'lucide-react';
+import { useEffect,useRef,useState } from 'react';
+import { ArrowLeftRight,Box,Check,Pyramid } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-export type PuzzleType =
-  | 'cube'
-  | 'pyraminx'
-  | 'cube-2'
-  | 'cube-4'
-  | 'cube-5'
-  | 'megaminx';
+import type { StudioPuzzleId } from '@/lib/puzzle-config';
+export type PuzzleType = StudioPuzzleId;
 export default function PuzzleSwitcher({
   value,
   onChange,

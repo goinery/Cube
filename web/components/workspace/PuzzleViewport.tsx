@@ -1,30 +1,30 @@
 import StudioLoading from './StudioLoading';
 import { finishStudioStartup } from '@/lib/rendering/startup';
 import { fitDistance } from '@/lib/cube/interaction';
-import { i18n, t } from '@/lib/i18n';
-import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
+import { i18n,t } from '@/lib/i18n';
+import { PUZZLE_DEFAULTS,STUDIO_DEFAULTS } from '@/lib/puzzle-config';
 import { paintFace } from '@/lib/puzzle/appearance';
 import { buildPuzzle } from '@/lib/puzzle/geometry';
 import { HiddenFaces } from '@/lib/puzzle/hidden-faces';
 import type { Session } from '@/lib/puzzle/session';
 import { createPuzzleInteraction } from '@/lib/puzzle/viewport-interaction';
 import {
-  lightRotation,
-  rotateView,
-  transitionView,
-  updateDepthRange,
+lightRotation,
+rotateView,
+transitionView,
+updateDepthRange,
 } from '@/lib/rendering/camera';
 import { createFrameLoop } from '@/lib/rendering/frame-loop';
 import { MinimalRenderer } from '@/lib/rendering/minimal';
 import { createPlasticGrain } from '@/lib/rendering/studio';
 import {
-  attachOptimizer,
-  createPuzzleOptimizer,
-  createRenderer,
-  createStudio,
-  pixelRatio,
+attachOptimizer,
+createPuzzleOptimizer,
+createRenderer,
+createStudio,
+pixelRatio,
 } from '@/lib/rendering/viewport';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import * as T from 'three';
 
 export default function PuzzleViewport({ session }: { session: Session }) {
@@ -38,7 +38,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     try {
       renderer = createRenderer(def.id);
     } catch {
-      setError(true);
+      queueMicrotask(() => setError(true));
       return;
     }
     const defaults = PUZZLE_DEFAULTS[def.id];
@@ -506,7 +506,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         instant,
       );
     }
-    session.camera = {
+    session.setCamera({
       fit: () => fit(),
       reset: () => fit(true),
       focus: () => {
@@ -527,7 +527,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
             new T.Vector3(...face.up),
           );
       },
-    };
+    });
     const interactions = createPuzzleInteraction({
       el,
       renderer,
@@ -596,12 +596,12 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       grain.dispose();
       studio.dispose();
       renderer.dispose();
-      session.camera = {
+      session.setCamera({
         fit: () => {},
         reset: () => {},
         focus: () => {},
         face: () => {},
-      };
+      });
     };
   }, [session]);
   return (

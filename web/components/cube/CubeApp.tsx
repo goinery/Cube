@@ -1,25 +1,25 @@
-'use client';
+import Notice from '@/components/workspace/Notice';
+import CameraControls from '../workspace/CameraControls';
+import { keyboardShortcut,shouldIgnoreShortcut } from '@/lib/workspace/keybindings';
 import StageStatus from '../workspace/StageStatus';
 import { assemblyDefaults } from '@/lib/puzzle-config';
-import { tx, useLanguage } from '@/lib/i18n';
-import { useEffect, useState } from 'react';
+import { tx,useLanguage } from '@/lib/i18n';
+import { useEffect,useState } from 'react';
 import {
-  Move3D,
-  Expand,
-  Undo2,
-  Redo2,
-  RotateCcw,
-  Shuffle,
-  ArrowUpRight,
-  MousePointer2,
-  Copy,
-  Focus,
-  CircleStop,
+Undo2,
+Redo2,
+RotateCcw,
+Shuffle,
+ArrowUpRight,
+MousePointer2,
+Copy,
+Focus,
+CircleStop
 } from 'lucide-react';
 import Viewport from './Viewport';
 import type { PuzzleType } from './PuzzleSwitcher';
 import WorkspaceHeader from '../workspace/WorkspaceHeader';
-import WorkspacePanel, { useWorkspacePanel } from '../workspace/WorkspacePanel';
+import WorkspacePanel,{ useWorkspacePanel } from '../workspace/WorkspacePanel';
 
 import FaceMaps from './FaceMaps';
 import CustomizePanel from './CustomizePanel';
@@ -27,45 +27,43 @@ import KeybindingsPanel from './KeybindingsPanel';
 import AlgorithmLab from './AlgorithmLab';
 import SolverPanel from './SolverPanel';
 import {
-  autosavePreference,
-  saveAutosave,
-  saveProject,
-  restoreProject,
-  setAutosavePreference,
-  watchAutosave,
+autosavePreference,
+saveAutosave,
+saveProject,
+restoreProject,
+setAutosavePreference,
+watchAutosave,
 } from '@/lib/cube/persistence';
 import { registerCubeTools } from '@/lib/cube/webmcp';
-import { Range, Choice, Toggle } from './Controls';
+import { Range,Choice,Toggle } from '@/components/workspace/Controls';
 import {
-  useCube,
-  getState,
-  pause,
-  patch,
-  settings,
-  setPresentation,
-  perform,
-  undo,
-  redo,
-  resetCube,
-  loadPlayer,
-  play,
-  applyInstant,
-  allowMoves,
-  replayHistory,
-  stopReplay,
-  HISTORY_REPLAY_TITLE,
-  notify,
-  cameraActions,
-  restoreHistory,
-  type Mode,
-  type View,
+useCube,
+getState,
+pause,
+patch,
+settings,
+setPresentation,
+perform,
+undo,
+redo,
+resetCube,
+loadPlayer,
+play,
+applyInstant,
+allowMoves,
+replayHistory,
+stopReplay,
+HISTORY_REPLAY_TITLE,
+notify,
+cameraActions,
+restoreHistory,
+type Mode,
+type View,
 } from '@/lib/cube/store';
-import { FACES, COLORS, isSolved, scramble, type Face } from '@/lib/cube/model';
-import { canTurn, withinTurnTolerance } from '@/lib/cube/interaction';
+import { FACES,COLORS,isSolved,scramble,type Face } from '@/lib/cube/model';
+import { canTurn,withinTurnTolerance } from '@/lib/cube/interaction';
 import {
-  keyboardShortcut,
-  shouldIgnoreShortcut,
-  shortcutActions,
+shortcutActions,
 } from '@/lib/cube/keybindings';
 let restoredSession = false;
 export default function CubeApp({
@@ -572,109 +570,7 @@ export default function CubeApp({
                   </button>
                 ))}
               </div>
-              <button
-                className="wide-button"
-                onClick={() => cameraActions.reset()}
-              >
-                {tx('legacy.m120')}
-                <Move3D size={18} />
-              </button>
-              <button
-                className="wide-button"
-                onClick={() => cameraActions.focus()}
-              >
-                {tx('legacy.m121')}
-                <Focus size={18} />
-              </button>
-              <button
-                className="wide-button"
-                onClick={() => cameraActions.fit()}
-              >
-                {tx('legacy.m122')}
-                <Focus size={18} />
-              </button>
-              <Toggle
-                label={tx('legacy.m123')}
-                value={s.settings.autoRotate}
-                onChange={(v) => settings({ autoRotate: v })}
-              />
-              <Range
-                label={tx('legacy.m124')}
-                value={s.settings.roughness}
-                min={0.18}
-                max={0.65}
-                onChange={(v) => settings({ roughness: v })}
-              />
-              <section className="panel-section">
-                <h3>{tx('legacy.m125')}</h3>
-                <Toggle
-                  label={tx('legacy.m126')}
-                  value={s.settings.lightFollowCamera}
-                  onChange={(v) => settings({ lightFollowCamera: v })}
-                />
-                <Range
-                  label={tx('legacy.m128')}
-                  value={s.settings.lightAzimuth}
-                  min={-180}
-                  max={180}
-                  step={1}
-                  digits={0}
-                  unit="°"
-                  onChange={(v) => settings({ lightAzimuth: v })}
-                />
-                <Range
-                  label={tx('legacy.m129')}
-                  value={s.settings.lightElevation}
-                  min={-80}
-                  max={80}
-                  step={1}
-                  digits={0}
-                  unit="°"
-                  onChange={(v) => settings({ lightElevation: v })}
-                />
-                <Range
-                  label={tx('legacy.m130')}
-                  value={s.settings.lightIntensity}
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  digits={1}
-                  onChange={(v) => settings({ lightIntensity: v })}
-                />
-              </section>
-              <Choice
-                disabled={s.solving}
-                label={tx('legacy.m131')}
-                value={s.settings.quality}
-                options={[
-                  ['auto', tx('legacy.m132')],
-                  ['high', tx('legacy.m133')],
-                  ['low', tx('legacy.m134')],
-                ]}
-                onChange={(v) =>
-                  settings({ quality: v as 'auto' | 'high' | 'low' })
-                }
-              />
-              <Choice
-                disabled={s.solving}
-                label={tx('legacy.m135')}
-                value={s.settings.easing}
-                options={[
-                  ['magnetic', tx('legacy.m136')],
-                  ['smooth', tx('legacy.m137')],
-                  ['linear', tx('legacy.m138')],
-                ]}
-                onChange={(v) =>
-                  settings({ easing: v as 'magnetic' | 'smooth' | 'linear' })
-                }
-              />
-              <button
-                className="wide-button"
-                onClick={() => setPresentation(true)}
-              >
-                {tx('legacy.m139')}
-                <Expand size={17} />
-              </button>
+              <CameraControls value={s.settings} onChange={settings} actions={cameraActions} onPresentation={() => setPresentation(true)} disabled={s.solving} limits={{roughness:[0.18,0.65],elevation:[-80,80],intensity:5}}/>
             </>
           </section>
           <section {...blockProps('inspect')}>
@@ -743,7 +639,7 @@ export default function CubeApp({
           </div>
         </WorkspacePanel>
       </div>
-      {s.notice && <output className="toast">{s.notice}</output>}
+      <Notice message={s.notice}/>
     </main>
   );
 }

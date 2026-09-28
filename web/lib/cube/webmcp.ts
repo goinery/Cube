@@ -1,11 +1,11 @@
 import { tx } from '../i18n';
-import { getState, loadPlayer, play, settlingTurns } from './store';
+import { getState,loadPlayer,play,settlingTurns } from './store';
 import { canTurnSequence } from './interaction';
 import {
-  isPictureSolved,
-  isSolved,
-  parseAlgorithm,
-  toFaceletString,
+isPictureSolved,
+isSolved,
+parseAlgorithm,
+toFaceletString,
 } from './model';
 
 interface PageTool {

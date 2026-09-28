@@ -2,16 +2,16 @@ import { tx } from '@/lib/i18n';
 import Cube from 'cubejs';
 import cfop from 'rubiks-cube-solver/lib/index.common.js';
 import {
-  apply,
-  facelets,
-  isSolved,
-  isPictureSolved,
-  toFaceletString,
-  parseAlgorithm,
-  simplify,
-  uprightMoves,
-  type CubeState,
-  type Face,
+apply,
+facelets,
+isSolved,
+isPictureSolved,
+toFaceletString,
+parseAlgorithm,
+simplify,
+uprightMoves,
+type CubeState,
+type Face,
 } from './model';
 import { correctCenters } from './centers';
 import type { Stage } from './store';

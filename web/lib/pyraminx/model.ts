@@ -1,4 +1,4 @@
-import { tx, localized } from '@/lib/i18n';
+import { tx,localized } from '@/lib/i18n';
 import { PALETTES } from '../cube/palettes';
 import type { Face } from '../cube/model';
 export type Vec3 = [number, number, number];

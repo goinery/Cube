@@ -1,8 +1,8 @@
 import * as T from 'three';
-import { paintSticker, sameStickerArt, type Appearance } from './appearance';
-import { COLORS, FACE, FACES, type Face, type Vec } from './model';
-import { facesProjection, projectionTransform } from './projection';
-import { getState, patch, type AppState } from './store';
+import { paintSticker,sameStickerArt,type Appearance } from './appearance';
+import { COLORS,FACE,FACES,type Face,type Vec } from './model';
+import { facesProjection,projectionTransform } from './projection';
+import { getState,patch,type AppState } from './store';
 import type { createCubeModel } from './viewport-model';
 const v3 = (v: Vec) => new T.Vector3(...v);
 export function createCubeSurface(

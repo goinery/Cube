@@ -1,5 +1,5 @@
-import { tx, localized } from '@/lib/i18n';
-import { COLORS, FACES } from './model';
+import { tx,localized } from '@/lib/i18n';
+import { COLORS,FACES } from './model';
 // Both puzzles use the same face colours for their previews and materials.
 export const PALETTES = localized(() => [
   { name: tx('legacy.m442'), colors: COLORS },

@@ -1,6 +1,7 @@
+import { validateBindings } from '@/lib/workspace/keybindings';
 import { tx } from '@/lib/i18n';
 import { GENERAL_KEYS } from '@/lib/puzzle-config';
-import { FACES, type Face } from './model';
+import { FACES,type Face } from './model';
 export type ShortcutAction =
   | Face
   | `${Face}'`
@@ -41,80 +42,8 @@ export function defaultKeybindings(): Keybindings {
     ...GENERAL_KEYS,
   };
 }
-const keyCode =
-  /^(Key[A-Z]|Digit[0-9]|Numpad[0-9]|F(?:[1-9]|1[0-2])|Space|Enter|Escape|Arrow(?:Up|Down|Left|Right)|Home|End|PageUp|PageDown|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|Numpad(?:Add|Subtract|Multiply|Divide|Decimal|Enter))$/;
-const shortcutPattern = /^(?:Mod\+)?(?:Alt\+)?(?:Shift\+)?(.+)$/;
-export function keyboardShortcut(event: KeyboardEvent): string | null {
-  if (event.isComposing || !keyCode.test(event.code)) return null;
-  return `${event.ctrlKey || event.metaKey ? 'Mod+' : ''}${event.altKey ? 'Alt+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.code}`;
-}
-// Global puzzle shortcuts must leave focused controls and dialogs in charge.
-export function shouldIgnoreShortcut(event: KeyboardEvent): boolean {
-  if (event.defaultPrevented || event.isComposing) return true;
-  if (document.querySelector('.studio-loading')) return true;
-  const target = event.target;
-  if (!(target instanceof Element)) return false;
-  if (
-    target.closest(
-      'input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="combobox"],[role="listbox"],[role="menu"],[role="dialog"],dialog',
-    )
-  )
-    return true;
-  return (
-    (event.code === 'Space' || event.code === 'Enter') &&
-    Boolean(
-      target.closest(
-        'button,a[href],summary,[role="button"],[role="switch"],[role="checkbox"]',
-      ),
-    )
-  );
-}
-export function formatShortcut(shortcut: string): string {
-  if (!shortcut) return tx('legacy.m425');
-  const names: Record<string, string> = {
-    Mod: 'Ctrl/⌘',
-    Space: tx('legacy.m426'),
-    Escape: 'Esc',
-    ArrowUp: '↑',
-    ArrowDown: '↓',
-    ArrowLeft: '←',
-    ArrowRight: '→',
-    Backquote: '`',
-    Minus: '−',
-    Equal: '=',
-    BracketLeft: '[',
-    BracketRight: ']',
-    Backslash: '\\',
-    Semicolon: ';',
-    Quote: "'",
-    Comma: ',',
-    Period: '.',
-    Slash: '/',
-  };
-  return shortcut
-    .split('+')
-    .map(
-      (part) =>
-        names[part] ||
-        part.replace(/^Key|^Digit/, '').replace(/^Numpad/, tx('legacy.m427')),
-    )
-    .join(' + ');
-}
 export function validateKeybindings(value: unknown): Keybindings {
   const defaults = defaultKeybindings();
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    return defaults;
-  const input = value as Record<string, unknown>;
-  const bindings = { ...defaults };
-  for (const action of shortcutActions) {
-    const shortcut = input[action];
-    if (shortcut === '') bindings[action] = '';
-    else if (typeof shortcut === 'string' && shortcut.length < 60) {
-      const code = shortcut.match(shortcutPattern)?.[1];
-      if (code && keyCode.test(code)) bindings[action] = shortcut;
-      else return defaults;
-    } else if (shortcut !== undefined) return defaults;
-  }
-  const assigned = Object.values(bindings).filter(Boolean);
-  return new Set(assigned).size === assigned.length ? bindings : defaults;
+  try { return validateBindings(value, defaults) as Keybindings; }
+  catch { return defaults; }
 }

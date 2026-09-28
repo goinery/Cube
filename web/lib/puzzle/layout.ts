@@ -1,6 +1,5 @@
-import { Vector3 } from 'three';
 import { facePoint } from './geometry';
-import type { Definition, V2 } from './types';
+import type { Definition,V2 } from './types';
 export interface NetFace {
   face: string;
   x: number;
@@ -8,7 +7,6 @@ export interface NetFace {
   angle: number;
   points: V2[];
 }
-const distance = (a: V2, b: V2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 function interior(poly: V2[], point: V2) {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {

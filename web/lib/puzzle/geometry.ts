@@ -2,9 +2,9 @@ import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CAP_MITER_CLEARANCE, trimCapVertex } from '../rendering/cap-seams';
+import { CAP_MITER_CLEARANCE,trimCapVertex } from '../rendering/cap-seams';
 import { bounds } from './appearance';
-import type { Definition, FaceDefinition, TileDefinition, V2 } from './types';
+import type { Definition,FaceDefinition,TileDefinition,V2 } from './types';
 
 const v = (p: number[]) => new T.Vector3(...p);
 export function facePoint(face: FaceDefinition, p: V2, depth = 0) {

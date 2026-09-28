@@ -1,12 +1,12 @@
 import {
-  BufferGeometry,
-  Float32BufferAttribute,
-  Vector2,
-  Vector3,
+BufferGeometry,
+Float32BufferAttribute,
+Vector2,
+Vector3,
 } from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Sticker } from './model';
-import { CAP_INSET, CAP_MITER_CLEARANCE } from '../rendering/cap-seams';
+import { CAP_INSET,CAP_MITER_CLEARANCE } from '../rendering/cap-seams';
 
 export function tileRadii(row: number, col: number): number[] {
   if (row === 1 && col === 1) return [0.29, 0.29, 0.29, 0.29];

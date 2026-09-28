@@ -1,12 +1,15 @@
-import { apply, moveSpec, parseAlgorithm, solved } from './model';
-import { defaultAppearance, type Appearance, type Photo } from './appearance';
+import { validatePresets } from './presets';
+import { validateBindings } from '@/lib/workspace/keybindings';
+import { watchAutosave,sameFields } from '@/lib/workspace/autosave';
+import { apply,moveSpec,parseAlgorithm,solved } from './model';
+import { defaultAppearance,type Appearance } from './appearance';
 import {
-  defaultKeys,
-  defaultSettings,
-  type Preset,
-  type Session,
+defaultKeys,
+defaultSettings,
+type Preset,
+type Session,
 } from './session';
-import type { PuzzleId, PuzzleState } from './types';
+import type { PuzzleId,PuzzleState } from './types';
 import type { TurnCoordinator } from './motion';
 
 export interface Project {
@@ -242,25 +245,9 @@ export function validate(session: Session, value: unknown): Project {
     return fail();
   settings.quality = p.settings.quality;
   settings.easing = p.settings.easing;
-  const keys = defaultKeys(def);
-  if (p.keys && typeof p.keys === 'object')
-    for (const [key, value] of Object.entries(p.keys)) {
-      if (typeof value !== 'string' || value.length > 80) return fail();
-      if (!['undo', 'redo', 'playPause', 'exitPresentation'].includes(key))
-        parseAlgorithm(def, key);
-      keys[key] = value;
-    }
-  if (!Array.isArray(p.presets) || p.presets.length > 200) return fail();
-  for (const preset of p.presets) {
-    if (
-      typeof preset.id !== 'string' ||
-      typeof preset.name !== 'string' ||
-      preset.name.length > 100 ||
-      typeof preset.algorithm !== 'string'
-    )
-      return fail();
-    parseAlgorithm(def, preset.algorithm);
-  }
+  const keys = validateBindings(p.keys, defaultKeys(def), (action) =>
+    ['undo', 'redo', 'playPause', 'exitPresentation'].includes(action) || parseAlgorithm(def, action).length === 1);
+  const presets = validatePresets(def, p.presets);
   if (!Array.isArray(p.residuals) || p.residuals.length > 100) return fail();
   for (const r of p.residuals) {
     if (
@@ -291,7 +278,7 @@ export function validate(session: Session, value: unknown): Project {
     )
       return fail();
   }
-  return { ...p, state: expected, appearance, settings, keys };
+  return { ...p, state: expected, appearance, settings, keys, presets };
 }
 export function load(session: Session, project: unknown) {
   const p = validate(session, project);
@@ -316,16 +303,7 @@ export function load(session: Session, project: unknown) {
     session.motion.restore(p.residuals);
   });
 }
-export function download(value: unknown, name: string) {
-  const url = URL.createObjectURL(
-      new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
-    ),
-    a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+export { download } from '@/lib/workspace/files';
 const restored = new Set<string>();
 export async function restore(session: Session) {
   if (restored.has(session.def.id)) return;
@@ -347,29 +325,15 @@ export async function restore(session: Session) {
   }
 }
 export function watch(session: Session) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let previous = session.state;
-  const unsubscribe = session.subscribe(() => {
-    const current = session.state;
-    const changed =
-      current.puzzle !== previous.puzzle ||
-      current.appearance !== previous.appearance ||
-      current.settings !== previous.settings ||
-      current.keys !== previous.keys ||
-      current.presets !== previous.presets ||
-      current.motionVersion !== previous.motionVersion;
-    previous = current;
-    if (!changed || !current.autoSave) return;
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      if (!session.motion.moving)
-        void save(session, true).catch(() => session.notify('common.storage'));
-    }, 600);
+  return watchAutosave({
+    read: () => session.state,
+    subscribe: session.subscribe,
+    equal: (a, b) => sameFields(a, b, ['puzzle', 'history', 'cursor', 'appearance', 'settings', 'keys', 'presets', 'motionVersion', 'scramble', 'scrambleState']),
+    enabled: () => session.state.autoSave,
+    ready: () => !session.motion.moving && !session.state.solving,
+    save: () => save(session, true),
+    onError: () => session.notify('common.storage'),
   });
-  return () => {
-    unsubscribe();
-    clearTimeout(timer);
-  };
 }
 export function setAutoSave(session: Session, on: boolean) {
   session.patch({ autoSave: on });

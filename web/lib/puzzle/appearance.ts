@@ -1,4 +1,4 @@
-import type { Definition, TileDefinition, V2 } from './types';
+import type { Definition,TileDefinition,V2 } from './types';
 export interface ImageTransform {
   scale: number;
   rotation: number;
@@ -207,24 +207,7 @@ export function applyPhoto(appearance: Appearance, photo: Photo): Appearance {
     next.tiles[id] = { ...next.tiles[id], photo: photo.id };
   return next;
 }
-export async function importImage(file: File) {
-  if (file.size > 25 * 1024 * 1024) throw new Error('art.tooLarge');
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
-    throw new Error('art.failed');
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await imageFor(url),
-      canvas = document.createElement('canvas'),
-      scale = Math.min(1, 2048 / Math.max(img.width, img.height));
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/webp', 0.94);
-  } finally {
-    cache.delete(url);
-    URL.revokeObjectURL(url);
-  }
-}
+export { importImage } from '@/lib/workspace/images';
 export function hitTile(
   def: Definition,
   faceId: string,

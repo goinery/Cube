@@ -1,10 +1,10 @@
 import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
 import * as T from 'three';
-import { CAP_MITER_CLEARANCE, trimCapVertex } from '../rendering/cap-seams';
-import { createChassisRelief, createPlasticGrain } from '../rendering/studio';
-import { capOutline, TIP_CUT } from './cap-profile';
-import { hollowChassis, sleeve } from './mechanics';
-import { PIECES, ROTATIONS, TILES, VERTICES, type Tile } from './model';
+import { CAP_MITER_CLEARANCE,trimCapVertex } from '../rendering/cap-seams';
+import { createChassisRelief,createPlasticGrain } from '../rendering/studio';
+import { capOutline,TIP_CUT } from './cap-profile';
+import { hollowChassis,sleeve } from './mechanics';
+import { PIECES,ROTATIONS,TILES,VERTICES,type Tile } from './model';
 import type { State } from './store';
 
 export const vertices = VERTICES.map((v) => new T.Vector3(...v));

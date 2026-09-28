@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { heldAngle } from './interaction';
-import { FACE, type Piece, type Vec } from './model';
+import { FACE,type Piece,type Vec } from './model';
 import { getState } from './store';
 import type { createCubeModel } from './viewport-model';
 const v3 = (v: Vec) => new T.Vector3(...v);

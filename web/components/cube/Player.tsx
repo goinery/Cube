@@ -1,27 +1,21 @@
-'use client';
-import { tx, useLanguage } from '@/lib/i18n';
-import { memo, useState } from 'react';
+import PlayerControls,{ MoveTrack } from '../workspace/PlayerControls';
+import { tx,useLanguage } from '@/lib/i18n';
+import { memo,useState } from 'react';
 import {
-  Play,
-  Pause,
-  SkipForward,
-  RotateCcw,
-  StepBack,
-  Copy,
-  Check,
-  ChevronDown,
+Check,
+ChevronDown
 } from 'lucide-react';
 import {
-  useCube,
-  play,
-  pause,
-  playerNext,
-  playerPrevious,
-  seek,
-  settings,
-  notify,
+useCube,
+play,
+pause,
+playerNext,
+playerPrevious,
+seek,
+settings,
+notify,
 } from '@/lib/cube/store';
-import { Range } from './Controls';
+import { Range } from '@/components/workspace/Controls';
 export default memo(function Player() {
   useLanguage();
   const s = useCube('player', 'busy', 'solving', 'settings'),
@@ -89,89 +83,9 @@ export default memo(function Player() {
           </button>
         </div>
       )}
-      <div className="move-track" aria-label={tx('legacy.m245')}>
-        {p.moves.length ? (
-          p.moves.map((m, i) => (
-            <button
-              key={i}
-              className={`${i < p.index ? 'done' : ''} ${i === p.index ? 'active' : ''}`}
-              onClick={() => void seek(i)}
-              disabled={s.busy}
-              title={tx('legacy.m246', { p0: i + 1 })}
-            >
-              {m}
-            </button>
-          ))
-        ) : (
-          <span>{tx('legacy.m247')}</span>
-        )}
-      </div>
-      <div className="progress-line">
-        <span
-          style={{
-            width: `${p.moves.length ? (p.index / p.moves.length) * 100 : 100}%`,
-          }}
-        />
-      </div>
-      <div className="player-buttons">
-        <button
-          className="icon-button"
-          title={tx('legacy.m248')}
-          aria-label={tx('legacy.m248')}
-          disabled={s.busy || p.index === 0}
-          onClick={() => void seek(0)}
-        >
-          <RotateCcw size={17} />
-        </button>
-        <button
-          className="icon-button"
-          title={tx('legacy.m249')}
-          aria-label={tx('legacy.m249')}
-          disabled={s.busy || p.index === 0}
-          onClick={() => void playerPrevious()}
-        >
-          <StepBack size={18} />
-        </button>
-        <button
-          className="play-button"
-          aria-label={p.playing ? tx('legacy.m050') : tx('legacy.m250')}
-          onClick={() =>
-            p.playing
-              ? pause()
-              : p.index === p.moves.length
-                ? void seek(0).then(() => play())
-                : void play()
-          }
-          disabled={s.busy && !p.playing}
-        >
-          {p.playing ? <Pause size={18} /> : <Play size={18} />}
-        </button>
-        <button
-          className="icon-button"
-          title={tx('legacy.m251')}
-          aria-label={tx('legacy.m251')}
-          disabled={s.busy || p.index === p.moves.length}
-          onClick={() => {
-            pause();
-            void playerNext();
-          }}
-        >
-          <SkipForward size={18} />
-        </button>
-        <button
-          className="icon-button"
-          title={tx('legacy.m252')}
-          aria-label={tx('legacy.m252')}
-          onClick={() => {
-            void navigator.clipboard.writeText(p.moves.join(' ')).then(
-              () => notify(tx('legacy.m253')),
-              () => notify(tx('legacy.m254')),
-            );
-          }}
-        >
-          <Copy size={16} />
-        </button>
-      </div>
+      <MoveTrack moves={p.moves} index={p.index} onSeek={(i) => { void seek(i); }} disabled={s.busy || s.solving}/>
+      <PlayerControls index={p.index} length={p.moves.length} playing={p.playing} busy={s.busy} disabled={s.solving} onSeek={(i) => {void seek(i);}} onPrevious={() => {void playerPrevious();}} onNext={() => {pause();void playerNext();}} onPlay={() => {if(p.index === p.moves.length) void seek(0).then(() => play()); else void play();}} onPause={pause}
+        onCopy={() => {void navigator.clipboard.writeText(p.moves.join(' ')).then(() => notify(tx('common.copied')), () => notify(tx('common.error')));}}/>
       <Range
         label={tx('legacy.m255')}
         value={s.settings.speed}

@@ -1,16 +1,14 @@
-'use client';
-import { tx, useLanguage } from '@/lib/i18n';
+import { keyboardShortcut,formatShortcut } from '@/lib/workspace/keybindings';
+import { tx,useLanguage } from '@/lib/i18n';
 import { useState } from 'react';
-import { Keyboard, RotateCcw } from 'lucide-react';
+import { Keyboard,RotateCcw } from 'lucide-react';
 import { FACES } from '@/lib/cube/model';
-import { getState, settings, useCube } from '@/lib/cube/store';
+import { getState,settings,useCube } from '@/lib/cube/store';
 import {
-  defaultKeybindings,
-  formatShortcut,
-  keyboardShortcut,
-  shortcutActions,
-  shortcutLabels,
-  type ShortcutAction,
+defaultKeybindings,
+shortcutActions,
+shortcutLabels,
+type ShortcutAction,
 } from '@/lib/cube/keybindings';
 export default function KeybindingsPanel() {
   useLanguage();
@@ -102,9 +100,9 @@ export default function KeybindingsPanel() {
           ),
         )}
       </div>
-      <p className="keybindings-message" role="status">
+      <output className="keybindings-message">
         {message}
-      </p>
+      </output>
       <button
         className="text-button"
         disabled={s.solving}

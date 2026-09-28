@@ -1,42 +1,35 @@
 import { tx } from '@/lib/i18n';
 import {
-  createPuzzleSettings,
-  PUZZLE_DEFAULTS,
-  STUDIO_DEFAULTS,
-  type PuzzleSettings,
+createPuzzleSettings,
+PUZZLE_DEFAULTS,
+STUDIO_DEFAULTS,
+type PuzzleSettings,
 } from '@/lib/puzzle-config';
-import { useMemo, useSyncExternalStore } from 'react';
-import { defaultAlgorithmPresets, type AlgorithmPreset } from './algorithms';
-import { defaultAppearance, type Appearance } from './appearance';
+import { useMemo,useSyncExternalStore } from 'react';
+import { defaultAlgorithmPresets,type AlgorithmPreset } from './algorithms';
+import { defaultAppearance,type Appearance } from './appearance';
 import {
-  alignedPartialForTurn,
-  canTurnSequence,
-  layerFace,
-  moveForAngle,
-  partialAfterAllowedMove,
-  partialAfterMove,
-  QUARTER,
-  type PartialTurns,
+alignedPartialForTurn,
+canTurnSequence,
+layerFace,
+moveForAngle,
+partialAfterAllowedMove,
+partialAfterMove,
+QUARTER,
+type PartialTurns,
 } from './interaction';
-import { defaultKeybindings, type Keybindings } from './keybindings';
+import { defaultKeybindings,type Keybindings } from './keybindings';
 import {
-  apply,
-  inverseMove,
-  parseAlgorithm,
-  solved,
-  turn,
-  type CubeState,
-  type Face,
+apply,
+inverseMove,
+parseAlgorithm,
+solved,
+turn,
+type CubeState,
+type Face,
 } from './model';
-('use client');
-export type Mode =
-  | 'play'
-  | 'camera'
-  | 'explode'
-  | 'customize'
-  | 'solver'
-  | 'inspect';
-export type View = 'normal' | 'hidden' | 'six' | 'net';
+import type { Mode,View } from '@/lib/workspace/types';
+export type { Mode, View } from '@/lib/workspace/types';
 export interface Settings extends PuzzleSettings {
   algorithmPresets: AlgorithmPreset[];
   keybindings: Keybindings;
@@ -142,14 +135,7 @@ export function subscribe(fn: () => void) {
     listeners.delete(fn);
   };
 }
-export function useCube(): AppState;
-export function useCube<K extends keyof AppState>(
-  ...keys: K[]
-): Pick<AppState, K>;
-export function useCube(...keys: (keyof AppState)[]) {
-  // Keep snapshots stable when only fields outside this component change.
-  const signature = keys.join('|');
-  const snapshots = useMemo(() => {
+function createSnapshots(signature: string) {
     const selected = signature.split('|') as (keyof AppState)[];
     let previous: AppState | undefined;
     let snapshot: Partial<AppState>;
@@ -170,7 +156,15 @@ export function useCube(...keys: (keyof AppState)[]) {
         : getState,
       server: () => server,
     };
-  }, [signature]);
+}
+export function useCube(): AppState;
+export function useCube<K extends keyof AppState>(
+  ...keys: K[]
+): Pick<AppState, K>;
+export function useCube(...keys: (keyof AppState)[]) {
+  // Keep snapshots stable when only fields outside this component change.
+  const signature = keys.join('|');
+  const snapshots = useMemo(() => createSnapshots(signature), [signature]);
   return useSyncExternalStore(subscribe, snapshots.get, snapshots.server);
 }
 let noticeTimer: ReturnType<typeof setTimeout>;

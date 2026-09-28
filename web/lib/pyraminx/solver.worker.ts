@@ -1,4 +1,4 @@
-import { setLanguage, type Locale } from '../i18n';
+import { setLanguage,type Locale } from '../i18n';
 import { tx } from '@/lib/i18n';
 import { solvePuzzle } from './solver';
 import type { PuzzleState } from './model';

@@ -1,42 +1,37 @@
-import { builtinLabel, i18n, tx } from '@/lib/i18n';
+import type { PuzzleSettings as Settings } from '@/lib/puzzle-config';
+import { builtinLabel,i18n,tx } from '@/lib/i18n';
 import {
-  createPuzzleSettings,
-  DEFAULT_PRESETS,
-  GENERAL_KEYS,
-  PUZZLE_DEFAULTS,
-  STUDIO_DEFAULTS,
+createPuzzleSettings,
+DEFAULT_PRESETS,
+GENERAL_KEYS,
+PUZZLE_DEFAULTS,
+STUDIO_DEFAULTS,
 } from '@/lib/puzzle-config';
 import { useSyncExternalStore } from 'react';
 import { magneticTarget } from '../cube/interaction';
+import type { Mode,View } from '@/lib/workspace/types';
 import {
-  defaultSettings,
-  type Mode,
-  type Settings,
-  type View,
-} from '../cube/store';
-import {
-  heldAngle,
-  partialsAfterMove,
-  sameLayer,
-  turnsConflict,
-  visibleTurns,
-  type PartialTurn,
+heldAngle,
+partialsAfterMove,
+sameLayer,
+turnsConflict,
+visibleTurns,
+type PartialTurn,
 } from './interaction';
 import {
-  apply,
-  AXES,
-  FACE_COLORS,
-  inverseMove,
-  isSolved,
-  moveToken,
-  parseAlgorithm,
-  parseMove,
-  solved,
-  TILES,
-  TURN,
-  turn,
-  type Move,
-  type PuzzleState,
+AXES,
+FACE_COLORS,
+inverseMove,
+isSolved,
+moveToken,
+parseAlgorithm,
+parseMove,
+solved,
+TILES,
+TURN,
+turn,
+type Move,
+type PuzzleState
 } from './model';
 export type { PartialTurn } from './interaction';
 export interface Photo {
@@ -112,10 +107,7 @@ export interface State {
 }
 export const defaultColors = () =>
   Object.fromEntries(TILES.map((t) => [t.id, FACE_COLORS[t.face]]));
-export const defaultPyraminxSettings = (): Settings => ({
-  ...defaultSettings(),
-  ...createPuzzleSettings('pyraminx'),
-});
+export const defaultPyraminxSettings = (): Settings => createPuzzleSettings('pyraminx');
 let state: State = {
   puzzle: solved(),
   history: [],
@@ -604,261 +596,4 @@ export function selectTile(id: string) {
       : [...state.selected, id],
     editFace: tile.face,
   });
-}
-export interface Project {
-  version: 1;
-  puzzle: 'pyraminx';
-  history: string[];
-  cursor: number;
-  partials: PartialTurn[];
-  colors: State['colors'];
-  photos: State['photos'];
-  settings: Settings;
-  presets: Preset[];
-  keybindings: Record<string, string>;
-}
-export function captureProject(): Project {
-  const {
-    history,
-    cursor,
-    partials,
-    colors,
-    photos,
-    settings,
-    presets,
-    keybindings,
-  } = state;
-  return {
-    version: 1,
-    puzzle: 'pyraminx',
-    history,
-    cursor,
-    partials,
-    colors,
-    photos,
-    settings,
-    presets,
-    keybindings,
-  };
-}
-const finite = (n: unknown, min: number, max: number): n is number =>
-  typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
-export function validateProject(value: unknown): Project {
-  const p = value as Project;
-  if (!p || p.version !== 1 || p.puzzle !== 'pyraminx')
-    throw new Error(tx('legacy.m517'));
-  if (
-    !Array.isArray(p.history) ||
-    p.history.length > 20000 ||
-    !Number.isInteger(p.cursor) ||
-    p.cursor < 0 ||
-    p.cursor > p.history.length
-  )
-    throw new Error(tx('legacy.m518'));
-  p.history.forEach((m) => {
-    if (typeof m !== 'string') throw new Error(tx('legacy.m519'));
-    parseMove(m);
-  });
-  // Read older saved projects that had room for only one unfinished layer.
-  const legacy = (
-    p as Project & {
-      partial?: PartialTurn | null;
-    }
-  ).partial;
-  const partials = p.partials ?? (legacy ? [legacy] : []);
-  if (
-    !Array.isArray(partials) ||
-    partials.length > 7 ||
-    partials.some(
-      (partial, index) =>
-        !partial ||
-        !Number.isInteger(partial.axis) ||
-        !finite(partial.axis, 0, 3) ||
-        !['tip', 'body', 'base'].includes(partial.layer) ||
-        !finite(partial.angle, -TURN / 2, TURN / 2) ||
-        partials
-          .slice(0, index)
-          .some(
-            (other) =>
-              sameLayer(other, partial) || turnsConflict(other, partial),
-          ),
-    )
-  )
-    throw new Error(tx('legacy.m520'));
-  const colors = defaultColors();
-  for (const id of Object.keys(colors)) {
-    if (!/^#[0-9a-f]{6}$/i.test(p.colors?.[id]))
-      throw new Error(tx('legacy.m521'));
-    colors[id] = p.colors[id];
-  }
-  const photos: State['photos'] = {};
-  for (const [face, photo] of Object.entries(p.photos || {})) {
-    if (
-      !/^[0-3]$/.test(face) ||
-      typeof photo?.src !== 'string' ||
-      photo.src.length > 2000000 ||
-      !/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(photo.src) ||
-      !finite(photo.scale, 0.25, 4) ||
-      !finite(photo.x, -1, 1) ||
-      !finite(photo.y, -1, 1) ||
-      !finite(photo.rotation, -360, 360)
-    )
-      throw new Error(tx('legacy.m522'));
-    photos[face] = { ...photo };
-  }
-  const settings = defaultPyraminxSettings();
-  const ranges: Partial<Record<keyof Settings, [number, number]>> = {
-    explode: [0, 3],
-    gap: [0, 0.3],
-    size: [0.65, 1.08],
-    internal: [0, 1.5],
-    stickerOffset: [0, 0.2],
-    speed: [0.2, 3],
-    roughness: [0.05, 1],
-    magnetStrength: [0, 2],
-    magnetDamping: [0.05, 2],
-    turnTolerance: [0, 120],
-    lightAzimuth: [-180, 180],
-    lightElevation: [-10, 90],
-    lightIntensity: [0, 6],
-  };
-  for (const [key, [min, max]] of Object.entries(ranges)) {
-    const v = p.settings?.[key as keyof Settings];
-    if (v === undefined) continue;
-    if (!finite(v, min, max)) throw new Error(tx('legacy.m523', { p0: key }));
-    Object.assign(settings, { [key]: v });
-  }
-  settings.turnTolerance = Math.min(60, settings.turnTolerance);
-  for (const key of [
-    'minimal',
-    'autoRotate',
-    'lightFollowCamera',
-    'showMagnets',
-  ] as const)
-    if (typeof p.settings?.[key] === 'boolean') settings[key] = p.settings[key];
-  if (['auto', 'high', 'low'].includes(p.settings?.quality))
-    settings.quality = p.settings.quality;
-  if (['smooth', 'magnetic', 'linear'].includes(p.settings?.easing))
-    settings.easing = p.settings.easing;
-  const presets = validatePresets(p.presets ?? defaultPresets());
-  const keybindings = defaultKeys();
-  for (const action of Object.keys(keybindings))
-    if (
-      typeof p.keybindings?.[action] === 'string' &&
-      p.keybindings[action].length < 80
-    )
-      keybindings[action] = p.keybindings[action];
-  const keys = Object.values(keybindings).filter(Boolean);
-  if (new Set(keys).size !== keys.length) throw new Error(tx('legacy.m524'));
-  return {
-    version: 1,
-    puzzle: 'pyraminx',
-    history: [...p.history],
-    cursor: p.cursor,
-    partials: partials.map((p) => ({ ...p })),
-    colors,
-    photos,
-    settings,
-    presets,
-    keybindings,
-  };
-}
-export function validatePresets(value: unknown): Preset[] {
-  if (!Array.isArray(value) || value.length > 100)
-    throw new Error(tx('legacy.m525'));
-  return value.map((p) => {
-    if (
-      typeof p?.name !== 'string' ||
-      !p.name.trim() ||
-      p.name.length > 80 ||
-      typeof p.algorithm !== 'string' ||
-      !parseAlgorithm(p.algorithm).length
-    )
-      throw new Error(tx('legacy.m526'));
-    return {
-      name: p.name.trim(),
-      algorithm: parseAlgorithm(p.algorithm).join(' '),
-    };
-  });
-}
-export function importProject(value: unknown) {
-  interruptSettling();
-  if (state.busy || state.solving) return;
-  const p = validateProject(value);
-  pause();
-  patch({
-    ...p,
-    puzzle: apply(solved(), p.history.slice(0, p.cursor)),
-    player: null,
-    selected: [],
-    scramble: '',
-  });
-}
-const KEY = 'axis-pyraminx-v1';
-let restored = false;
-export function restoreLocal() {
-  if (restored) return;
-  restored = true;
-  try {
-    const autoSave = localStorage.getItem(`${KEY}-auto`) === 'true';
-    const raw = localStorage.getItem(
-      `${KEY}-${autoSave ? 'autosave' : 'saved'}`,
-    );
-    if (raw) importProject(JSON.parse(raw));
-    patch({ autoSave });
-  } catch {
-    notify(tx('legacy.m527'));
-  }
-}
-export function saveLocal(auto = false) {
-  try {
-    localStorage.setItem(
-      `${KEY}-${auto ? 'autosave' : 'saved'}`,
-      JSON.stringify(captureProject()),
-    );
-    if (!auto) notify(tx('legacy.m528'));
-    return true;
-  } catch {
-    notify(tx('legacy.m529'));
-    return false;
-  }
-}
-export function setAutoSave(on: boolean) {
-  try {
-    localStorage.setItem(`${KEY}-auto`, String(on));
-    patch({ autoSave: on });
-    if (on) saveLocal(true);
-  } catch {
-    notify(tx('legacy.m530'));
-  }
-}
-export function watchAutosave() {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let previous = captureProject();
-  let dirty = false;
-  const unsubscribe = subscribe(() => {
-    const next = captureProject();
-    if (
-      !Object.keys(next).every(
-        (k) => next[k as keyof Project] === previous[k as keyof Project],
-      )
-    )
-      dirty = true;
-    previous = next;
-    if (state.autoSave && !state.busy && dirty) {
-      dirty = false;
-      clearTimeout(timer);
-      timer = setTimeout(() => saveLocal(true), 400);
-    }
-  });
-  const flush = () => {
-    if (state.autoSave) saveLocal(true);
-  };
-  window.addEventListener('pagehide', flush);
-  return () => {
-    clearTimeout(timer);
-    flush();
-    unsubscribe();
-    window.removeEventListener('pagehide', flush);
-  };
 }

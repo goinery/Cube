@@ -2,10 +2,10 @@ import { pause as pauseCube } from '@/lib/cube/store';
 import { useTranslation } from '@/lib/i18n';
 import { STUDIO_DEFAULTS } from '@/lib/puzzle-config';
 import { stopSessions } from '@/lib/puzzle/session';
-import { lazy, startTransition, Suspense, useEffect, useState } from 'react';
-import CubeApp from './CubeApp';
+import { lazy,startTransition,Suspense,useEffect,useState } from 'react';
 import StudioLoading from '../workspace/StudioLoading';
 import type { PuzzleType } from './PuzzleSwitcher';
+const CubeApp = lazy(() => import('./CubeApp'));
 const PyraminxApp = lazy(() => import('../pyraminx/PyraminxApp'));
 const PuzzleApp = lazy(() => import('../workspace/PuzzleApp'));
 export default function WorkspaceApp() {

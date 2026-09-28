@@ -1,17 +1,17 @@
-import { CUBE_COLORS, MEGAMINX_COLORS } from '@/lib/puzzle-config';
-import { Matrix3, Quaternion, Vector2, Vector3 } from 'three';
-import { CAP_INSET, insetCapOutline } from '../rendering/cap-seams';
+import { CUBE_COLORS,MEGAMINX_COLORS } from '@/lib/puzzle-config';
+import { Matrix3,Quaternion,Vector2,Vector3 } from 'three';
+import { CAP_INSET,insetCapOutline } from '../rendering/cap-seams';
 import type {
-  Definition,
-  FaceDefinition,
-  Move,
-  PieceDefinition,
-  PuzzleId,
-  PuzzleState,
-  RotationGroup,
-  TileDefinition,
-  V2,
-  V3,
+Definition,
+FaceDefinition,
+Move,
+PieceDefinition,
+PuzzleId,
+PuzzleState,
+RotationGroup,
+TileDefinition,
+V2,
+V3,
 } from './types';
 
 const vec = (p: V3) => new Vector3(...p);

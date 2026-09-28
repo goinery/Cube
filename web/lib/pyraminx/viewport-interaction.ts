@@ -1,29 +1,29 @@
 import { tx } from '@/lib/i18n';
 import * as T from 'three';
 import {
-  rotateView,
-  zoomView,
-  type CameraDestination,
+rotateView,
+zoomView,
+type CameraDestination,
 } from '../rendering/camera';
 import { bindViewportEvents } from '../rendering/events';
 import {
-  isHierarchyVisible,
-  type RenderOptimizer,
+isHierarchyVisible,
+type RenderOptimizer,
 } from '../rendering/render-optimizer';
-import { normals, vertices, type createModel } from './geometry';
-import { heldAngle, turnsConflict } from './interaction';
-import { ROTATIONS, dragCandidates, type Move } from './model';
+import { normals,vertices,type createModel } from './geometry';
+import { heldAngle,turnsConflict } from './interaction';
+import { ROTATIONS,dragCandidates,type Move } from './model';
 import { type DragMotion } from './motion';
 import { type createHiddenProjections } from './projection';
 import {
-  beginDrag,
-  finishDrag,
-  getState,
-  notify,
-  patch,
-  releaseDrag,
-  selectTile,
-  settings,
+beginDrag,
+finishDrag,
+getState,
+notify,
+patch,
+releaseDrag,
+selectTile,
+settings,
 } from './store';
 export interface Drag extends DragMotion {
   pointer: number;

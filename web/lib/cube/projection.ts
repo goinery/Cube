@@ -1,5 +1,5 @@
-import { Matrix4, Vector3 } from 'three';
-import { FACE, type Face } from './model';
+import { Matrix4,Vector3 } from 'three';
+import { FACE,type Face } from './model';
 
 export function projectionTransform(
   face: Face,

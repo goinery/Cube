@@ -1,10 +1,10 @@
-import { solved as cubeSolved, type Basis, type Vec } from '../cube/model';
+import { solved as cubeSolved,type Basis,type Vec } from '../cube/model';
 import { solveState } from '../cube/solver-core';
-import { apply, rotatePoint, pictureSolved, colorSolved } from './model';
+import { apply,rotatePoint,pictureSolved,colorSolved } from './model';
 import { solveFourColor } from './four-phase';
 import { solveFiveSkeleton } from './five-reduction';
-import { solveOrbit, simplifyMoves } from './orbit-solver';
-import type { Definition, Message, PuzzleState, Stage } from './types';
+import { solveOrbit,simplifyMoves } from './orbit-solver';
+import type { Definition,Message,PuzzleState,Stage } from './types';
 export { simplifyMoves } from './orbit-solver';
 const near = (a: number[], b: number[]) =>
   a.every((v, i) => Math.abs(v - b[i]) < 1e-5);

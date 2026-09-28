@@ -1,5 +1,5 @@
-import { apply, inverse, moveSpec, solved } from './model';
-import type { Definition, PuzzleState } from './types';
+import { apply,inverse,moveSpec,solved } from './model';
+import type { Definition,PuzzleState } from './types';
 
 const cache = new WeakMap<Definition, Map<string, string[]>>();
 

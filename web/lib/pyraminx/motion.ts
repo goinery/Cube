@@ -1,8 +1,8 @@
-import { MathUtils, Object3D, Quaternion } from 'three';
-import { affects, type PuzzleState } from './model';
-import { quaternions, vertices } from './geometry';
+import { MathUtils,Object3D,Quaternion } from 'three';
+import { affects,type PuzzleState } from './model';
+import { quaternions,vertices } from './geometry';
 import type { PartialTurn } from './store';
-import type { Settings } from '../cube/store';
+import type { PuzzleSettings as Settings } from '@/lib/puzzle-config';
 
 export const SHAPE_SETTINGS = [
   'explode',

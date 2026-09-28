@@ -1,4 +1,4 @@
-import { Mesh, type BufferGeometry, type Material, type Object3D } from 'three';
+import { Mesh,type BufferGeometry,type Material,type Object3D } from 'three';
 
 export function disposeMeshes(root: Object3D) {
   const geometries = new Set<BufferGeometry>(),

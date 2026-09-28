@@ -1,20 +1,20 @@
 import {
-  useEffect,
-  useEffectEvent,
-  useId,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent,
-  type ReactNode,
+useEffect,
+useEffectEvent,
+useId,
+useRef,
+useState,
+type CSSProperties,
+type PointerEvent,
+type ReactNode,
 } from 'react';
 import {
-  Box,
-  Layers3,
-  Palette,
-  WandSparkles,
-  Move3D,
-  Scan,
+Box,
+Layers3,
+Palette,
+WandSparkles,
+Move3D,
+Scan,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 

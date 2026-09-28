@@ -1,7 +1,7 @@
 import { tx } from '@/lib/i18n';
 import * as T from 'three';
-import { FACE_NAMES, FACE_VERTICES } from './model';
-import { normals, vertices } from './geometry';
+import { FACE_NAMES,FACE_VERTICES } from './model';
+import { normals,vertices } from './geometry';
 import type { State } from './store';
 export const FACE_BASES = FACE_VERTICES.map((ids, face) => {
   const normal = normals[face];

@@ -1,180 +1,28 @@
-import { useRef, useState } from 'react';
+import PlayerControls,{ MoveTrack } from './PlayerControls';
+import AlgorithmEditor from './AlgorithmEditor';
+import { presetPolicy,validatePresets } from '@/lib/puzzle/presets';
+import { useState } from 'react';
 import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  RotateCcw,
-  Copy,
-  Upload,
-  Download,
-  X,
-  Plus,
+Copy
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { useSession, defaultKeys, type Session } from '@/lib/puzzle/session';
-import { parseAlgorithm } from '@/lib/puzzle/model';
+import { useSession,defaultKeys,defaultPresets,type Session } from '@/lib/puzzle/session';
 import { download } from '@/lib/puzzle/persistence';
-import { keyboardShortcut, formatShortcut } from '@/lib/cube/keybindings';
-import { Range, Toggle } from '../cube/Controls';
+import { keyboardShortcut,formatShortcut } from '@/lib/workspace/keybindings';
+import { Range,Toggle } from '@/components/workspace/Controls';
 
 export function AlgorithmPanel({ session }: { session: Session }) {
-  const s = useSession(session),
-    { t } = useTranslation(),
-    [input, setInput] = useState(s.presets[0]?.algorithm || ''),
-    [name, setName] = useState(''),
-    file = useRef<HTMLInputElement>(null);
-  return (
-    <section className="panel-section">
-      <div className="section-head">
-        <h3>{t('algorithm.title')}</h3>
-        <button
-          aria-label={t('common.import')}
-          onClick={() => file.current?.click()}
-        >
-          <Upload size={16} />
-        </button>
-        <button
-          aria-label={t('common.export')}
-          onClick={() =>
-            download(
-              { puzzleId: session.def.id, presets: s.presets },
-              `axis-${session.def.id}-algorithms.json`,
-            )
-          }
-        >
-          <Download size={16} />
-        </button>
-      </div>
-      <div className="algorithm-presets">
-        {s.presets.map((p) => (
-          <div key={p.id} className="puzzle-preset">
-            <button
-              className={input === p.algorithm ? 'active' : ''}
-              onClick={() => setInput(p.algorithm)}
-            >
-              {p.labelKey ? t(p.labelKey) : p.name}
-            </button>
-            <button
-              aria-label={t('common.delete')}
-              onClick={() =>
-                session.patch({
-                  presets: s.presets.filter((x) => x.id !== p.id),
-                })
-              }
-            >
-              <X size={12} />
-            </button>
-          </div>
-        ))}
-      </div>
-      <textarea
-        className="puzzle-algorithm"
-        aria-label={t('algorithm.title')}
-        placeholder={t('algorithm.placeholder')}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        spellCheck={false}
-      />
-      <div className="puzzle-algorithm-add">
-        <input
-          value={name}
-          placeholder={t('algorithm.newName')}
-          aria-label={t('algorithm.newName')}
-          maxLength={80}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <button
-          aria-label={t('common.add')}
-          disabled={!name.trim() || !input.trim()}
-          onClick={() => {
-            try {
-              parseAlgorithm(session.def, input);
-              session.patch({
-                presets: [
-                  ...s.presets,
-                  {
-                    id: crypto.randomUUID(),
-                    name: name.trim(),
-                    algorithm: input.trim(),
-                  },
-                ],
-              });
-              setName('');
-            } catch (e) {
-              session.error(e);
-            }
-          }}
-        >
-          <Plus size={18} />
-        </button>
-      </div>
-      <button
-        className="primary-button"
-        onClick={() => session.run(input)}
-        disabled={s.solving}
-      >
-        <Play size={16} />
-        {t('algorithm.play')}
-      </button>
-      <></>
-      <input
-        type="file"
-        hidden
-        accept=".json"
-        ref={file}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = '';
-          if (!f) return;
-          void f
-            .text()
-            .then((raw) => {
-              const data = JSON.parse(raw);
-              if (
-                data.puzzleId !== session.def.id ||
-                !Array.isArray(data.presets) ||
-                data.presets.length > 200
-              )
-                throw new Error('project.invalid');
-              const presets = [...session.state.presets];
-              let count = 0;
-              for (const p of data.presets) {
-                if (
-                  typeof p.name !== 'string' ||
-                  typeof p.algorithm !== 'string'
-                )
-                  throw new Error('project.invalid');
-                const algorithm = parseAlgorithm(session.def, p.algorithm).join(
-                  ' ',
-                );
-                if (
-                  !algorithm ||
-                  presets.some((p) => p.algorithm === algorithm)
-                )
-                  continue;
-                let name = p.name.slice(0, 80),
-                  suffix = 2;
-                while (presets.some((q) => q.name === name))
-                  name = `${p.name.slice(0, 70)} (${suffix++})`;
-                presets.push({
-                  id: crypto.randomUUID(),
-                  name,
-                  algorithm,
-                  ...(typeof p.labelKey === 'string'
-                    ? { labelKey: p.labelKey }
-                    : {}),
-                });
-                count++;
-              }
-              session.patch({ presets });
-              session.notify('algorithm.imported', { count });
-            })
-            .catch((e) => session.error(e));
-        }}
-      />
-    </section>
-  );
+  const s = useSession(session), { t } = useTranslation();
+  return <AlgorithmEditor presets={s.presets} readPresets={() => session.state.presets} policy={presetPolicy(session.def)} label={(p) => p.labelKey ? t(p.labelKey) : p.name} create={(p) => ({ ...p, id: crypto.randomUUID() })}
+    onChange={(presets) => session.patch({presets})} onPlay={(input) => {  session.run(input); }}
+    onImport={async (file) => {
+      if (file.size > 3 * 1024 * 1024) throw new Error('project.tooLarge');
+      const data = JSON.parse(await file.text());
+      if (data.puzzleId !== session.def.id) throw new Error('project.invalid');
+      return validatePresets(session.def, data.presets).map((p) => ({...p, id: crypto.randomUUID()}));
+    }}
+    onExport={() => download({puzzleId: session.def.id, presets: session.state.presets}, `axis-${session.def.id}-algorithms.json`)}
+    onReset={() => session.patch({presets: defaultPresets(session.def)})} onError={(error) => session.error(error)} disabled={s.solving}/>
 }
 export function KeybindingsPanel({ session }: { session: Session }) {
   const s = useSession(session),
@@ -250,7 +98,6 @@ export function Player({ session }: { session: Session }) {
     { t } = useTranslation(),
     p = s.player;
   if (!p) return null;
-  const start = Math.max(0, Math.min(p.index - 20, p.moves.length - 80));
   return (
     <section className="player">
       <div className="section-head">
@@ -290,59 +137,8 @@ export function Player({ session }: { session: Session }) {
           ))}
         </div>
       )}
-      <div className="move-track">
-        {p.moves.slice(start, start + 80).map((move, i) => (
-          <button
-            key={start + i}
-            className={
-              start + i < p.index
-                ? 'done'
-                : start + i === p.index
-                  ? 'active'
-                  : ''
-            }
-            onClick={() => session.seek(start + i)}
-          >
-            {move}
-          </button>
-        ))}
-      </div>
-      <div className="progress-line">
-        <span
-          style={{
-            width: `${p.moves.length ? (p.index / p.moves.length) * 100 : 0}%`,
-          }}
-        />
-      </div>
-      <div className="player-buttons">
-        <button aria-label={t('player.start')} onClick={() => session.seek(0)}>
-          <RotateCcw size={17} />
-        </button>
-        <button
-          aria-label={t('player.previous')}
-          disabled={!p.index}
-          onClick={() => session.previous()}
-        >
-          <SkipBack size={18} />
-        </button>
-        <button
-          className="play-button"
-          aria-label={t(p.playing ? 'player.pause' : 'player.play')}
-          onClick={() => (p.playing ? session.pause() : void session.play())}
-        >
-          {p.playing ? <Pause size={19} /> : <Play size={19} />}
-        </button>
-        <button
-          aria-label={t('player.next')}
-          disabled={p.index === p.moves.length}
-          onClick={() => void session.next()}
-        >
-          <SkipForward size={18} />
-        </button>
-        <button aria-label={t('player.stop')} onClick={() => session.stop()}>
-          <X size={17} />
-        </button>
-      </div>
+      <MoveTrack moves={p.moves} index={p.index} onSeek={(i) => {void session.seek(i);}} disabled={s.solving}/>
+      <PlayerControls index={p.index} length={p.moves.length} playing={p.playing} disabled={s.solving} onSeek={(i) => {void session.seek(i);}} onPrevious={() => {void session.previous();}} onNext={() => {void session.next();}} onPlay={() => {void session.play();}} onPause={() => session.pause()} onStop={() => session.stop()}/>
       <Range
         label={t('player.jump')}
         value={p.index}

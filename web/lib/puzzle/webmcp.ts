@@ -1,4 +1,4 @@
-import { colorSolved, parseAlgorithm, pictureSolved } from './model';
+import { colorSolved,parseAlgorithm,pictureSolved } from './model';
 import type { Session } from './session';
 import { t } from '../i18n';
 

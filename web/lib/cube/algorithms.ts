@@ -1,4 +1,5 @@
-import { builtinLabel, tx } from '@/lib/i18n';
+import { validatePreset,validatePresets,mergePresets } from '@/lib/workspace/presets';
+import { builtinLabel,tx } from '@/lib/i18n';
 import { DEFAULT_PRESETS } from '@/lib/puzzle-config';
 import { parseAlgorithm } from './model';
 export interface AlgorithmPreset {
@@ -6,7 +7,7 @@ export interface AlgorithmPreset {
   algorithm: string;
 }
 export const MAX_ALGORITHM_PRESETS = 100;
-export const MAX_ALGORITHM_LENGTH = 20000;
+export { MAX_ALGORITHM_LENGTH } from '@/lib/workspace/presets';
 export const MAX_PRESET_NAME_LENGTH = 40;
 export const defaultAlgorithmPresets = (): AlgorithmPreset[] =>
   DEFAULT_PRESETS.cube.map(({ labelKey, algorithm }) => ({
@@ -21,61 +22,10 @@ export function algorithmPresetLabel(preset: AlgorithmPreset) {
     ? preset.name
     : builtinLabel(preset.name, DEFAULT_PRESETS.cube[index].labelKey);
 }
-export function validateAlgorithmPreset(value: unknown): AlgorithmPreset {
-  if (!value || typeof value !== 'object') throw new Error(tx('legacy.m410'));
-  const preset = value as Partial<AlgorithmPreset>;
-  if (
-    typeof preset.name !== 'string' ||
-    !preset.name.trim() ||
-    preset.name.trim().length > MAX_PRESET_NAME_LENGTH
-  )
-    throw new Error(tx('legacy.m411', { p0: MAX_PRESET_NAME_LENGTH }));
-  if (typeof preset.algorithm !== 'string' || !preset.algorithm.trim())
-    throw new Error(tx('legacy.m412'));
-  if (preset.algorithm.length > MAX_ALGORITHM_LENGTH)
-    throw new Error(
-      tx('legacy.m413', { p0: MAX_ALGORITHM_LENGTH.toLocaleString() }),
-    );
-  return {
-    name: preset.name.trim(),
-    algorithm: parseAlgorithm(preset.algorithm).join(' '),
-  };
-}
-export function validateAlgorithmPresets(value: unknown): AlgorithmPreset[] {
-  if (
-    !Array.isArray(value) ||
-    !value.length ||
-    value.length > MAX_ALGORITHM_PRESETS
-  )
-    throw new Error(tx('legacy.m414', { p0: MAX_ALGORITHM_PRESETS }));
-  const presets = value.map(validateAlgorithmPreset);
-  if (new Set(presets.map((preset) => preset.name)).size !== presets.length)
-    throw new Error(tx('legacy.m415'));
-  return presets;
-}
-export function mergeAlgorithmPresets(
-  current: AlgorithmPreset[],
-  incoming: AlgorithmPreset[],
-): AlgorithmPreset[] {
-  const merged = [...current];
-  const algorithms = new Set(current.map((preset) => preset.algorithm));
-  const names = new Set(current.map((preset) => preset.name));
-  for (const preset of incoming) {
-    if (algorithms.has(preset.algorithm)) continue;
-    let name = preset.name;
-    for (let suffix = 2; names.has(name); suffix++) {
-      const ending = ` (${suffix})`;
-      name =
-        preset.name.slice(0, MAX_PRESET_NAME_LENGTH - ending.length) + ending;
-    }
-    merged.push({ ...preset, name });
-    names.add(name);
-    algorithms.add(preset.algorithm);
-  }
-  if (merged.length > MAX_ALGORITHM_PRESETS)
-    throw new Error(tx('legacy.m416', { p0: MAX_ALGORITHM_PRESETS }));
-  return merged;
-}
+export const presetPolicy = { count: MAX_ALGORITHM_PRESETS, nameLength: MAX_PRESET_NAME_LENGTH, parse: parseAlgorithm };
+export const validateAlgorithmPreset = (value: unknown) => validatePreset(value, presetPolicy);
+export const validateAlgorithmPresets = (value: unknown) => validatePresets(value, presetPolicy);
+export const mergeAlgorithmPresets = (current: AlgorithmPreset[], incoming: AlgorithmPreset[]) => mergePresets(current, incoming, presetPolicy);
 export async function readAlgorithmFile(
   file: File,
 ): Promise<AlgorithmPreset[]> {

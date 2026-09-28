@@ -1,36 +1,37 @@
+import ImageControls from './ImageControls';
 import PalettePresets from './PalettePresets';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect,useMemo,useRef,useState } from 'react';
 import {
-  ImagePlus,
-  RotateCcw,
-  Trash2,
-  Type,
-  Upload,
-  Download,
-  Save,
-  FolderOpen,
+ImagePlus,
+RotateCcw,
+Trash2,
+Type,
+Upload,
+Download,
+Save,
+FolderOpen,
 } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle,
 } from '@/components/ui/dialog';
-import { Range, Choice } from '../cube/Controls';
+import { Range,Choice } from '@/components/workspace/Controls';
 import { useTranslation } from '@/lib/i18n';
-import { useSession, type Session } from '@/lib/puzzle/session';
+import { useSession,type Session } from '@/lib/puzzle/session';
 import {
-  applyPhoto,
-  bounds,
-  defaultAppearance,
-  separatePhoto,
-  defaultTransform,
-  importImage,
-  paintFace,
-  photoBounds,
-  type Photo,
+applyPhoto,
+bounds,
+defaultAppearance,
+separatePhoto,
+defaultTransform,
+importImage,
+paintFace,
+photoBounds,
+type Photo,
 } from '@/lib/puzzle/appearance';
-import { capture, download, load, read, save } from '@/lib/puzzle/persistence';
+import { capture,download,load,read,save } from '@/lib/puzzle/persistence';
 import { FaceCanvas } from './FaceCanvas';
 
 function ImagePreview({
@@ -44,7 +45,7 @@ function ImagePreview({
 }) {
   const { t } = useTranslation(),
     [photo, setPhoto] = useState(draft),
-    [ready, setReady] = useState(false),
+    [rendered, setRendered] = useState<Photo | null>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     drag = useRef<{
       x: number;
@@ -60,7 +61,6 @@ function ImagePreview({
   );
   useEffect(() => {
     let active = true;
-    setReady(false);
     const next = document.createElement('canvas');
     void paintFace(
       next,
@@ -75,7 +75,7 @@ function ImagePreview({
         canvas.current.width = next.width;
         canvas.current.height = next.height;
         canvas.current.getContext('2d')!.drawImage(next, 0, 0);
-        setReady(true);
+        setRendered(photo);
       })
       .catch(() => session.notify('art.failed'));
     return () => {
@@ -156,37 +156,7 @@ function ImagePreview({
                 setPhoto((p) => ({ ...p, fit: fit as Photo['fit'] }))
               }
             />
-            <Range
-              label={t('art.scale')}
-              value={photo.scale}
-              min={0.1}
-              max={8}
-              onChange={(v) => change('scale', v)}
-            />
-            <Range
-              label={t('art.rotation')}
-              value={photo.rotation}
-              min={-180}
-              max={180}
-              step={1}
-              digits={0}
-              unit="°"
-              onChange={(v) => change('rotation', v)}
-            />
-            <Range
-              label={t('art.x')}
-              value={photo.x}
-              min={-2}
-              max={2}
-              onChange={(v) => change('x', v)}
-            />
-            <Range
-              label={t('art.y')}
-              value={photo.y}
-              min={-2}
-              max={2}
-              onChange={(v) => change('y', v)}
-            />
+            <ImageControls value={photo} onChange={(update) => setPhoto((p) => ({...p, ...update}))} />
             {photo.fit === 'crop' && (
               <>
                 <Range
@@ -234,7 +204,7 @@ function ImagePreview({
           </button>
           <button
             className="primary-button"
-            disabled={!ready}
+            disabled={rendered !== photo}
             onClick={() => {
               session.setAppearance(
                 applyPhoto(session.state.appearance, photo),

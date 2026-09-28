@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Check, Expand, Eye, Save } from 'lucide-react';
+import { useEffect,useId,useRef,useState } from 'react';
+import { Check,Expand,Eye,Save } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { Switch } from '@/components/ui/switch';
-import PuzzleSwitcher, { type PuzzleType } from '../cube/PuzzleSwitcher';
+import PuzzleSwitcher,{ type PuzzleType } from '../cube/PuzzleSwitcher';
 import LanguageSwitcher from '../cube/LanguageSwitcher';
 
 export default function WorkspaceHeader({

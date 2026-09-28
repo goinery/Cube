@@ -1,4 +1,4 @@
-import { Plane, Vector2, Vector3 } from 'three';
+import { Plane,Vector2,Vector3 } from 'three';
 
 // Match the three-by-three cap's narrow seam and mitred underside.
 export const CAP_INSET = 0.002;

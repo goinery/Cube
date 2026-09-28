@@ -1,10 +1,10 @@
 import { tx } from '@/lib/i18n';
 import {
-  apply,
-  solved,
-  isSolved,
-  isPictureSolved,
-  type CubeState,
+apply,
+solved,
+isSolved,
+isPictureSolved,
+type CubeState,
 } from './model';
 import type { Appearance } from './appearance';
 export interface Preflight {

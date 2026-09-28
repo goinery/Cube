@@ -172,3 +172,6 @@
   line-height: 1.7;
   color: #d5dcb9;
 }
+
+.algorithm-reset { margin-top: 10px; gap: 6px; }
+.algorithm-presets { border: 0; padding: 0; min-width: 0; }

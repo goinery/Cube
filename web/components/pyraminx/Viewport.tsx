@@ -1,64 +1,64 @@
 import StudioLoading from '../workspace/StudioLoading';
 import { finishStudioStartup } from '@/lib/rendering/startup';
-import { magneticEase, stepMagnet } from '@/lib/cube/interaction';
-import { i18n, tx, useLanguage } from '@/lib/i18n';
+import { magneticEase,stepMagnet } from '@/lib/cube/interaction';
+import { i18n,tx,useLanguage } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS } from '@/lib/puzzle-config';
-import { INITIAL_DIRECTION, INITIAL_UP } from '@/lib/pyraminx/camera';
-import { createModel, normals, vertices } from '@/lib/pyraminx/geometry';
+import { INITIAL_DIRECTION,INITIAL_UP } from '@/lib/pyraminx/camera';
+import { createModel,normals,vertices } from '@/lib/pyraminx/geometry';
 import {
-  sameLayer,
-  turnsConflict,
-  visibleTurns,
+sameLayer,
+turnsConflict,
+visibleTurns,
 } from '@/lib/pyraminx/interaction';
-import { ROTATIONS, affects } from '@/lib/pyraminx/model';
+import { ROTATIONS,affects } from '@/lib/pyraminx/model';
 import {
-  SHAPE_SETTINGS,
-  applyAlignment,
-  applyPartialTurn,
-  captureAlignment,
-  rebaseTipAlignment,
-  updateDragTransition,
-  updateShapeTransition,
-  type AlignmentPose,
+SHAPE_SETTINGS,
+applyAlignment,
+applyPartialTurn,
+captureAlignment,
+rebaseTipAlignment,
+updateDragTransition,
+updateShapeTransition,
+type AlignmentPose,
 } from '@/lib/pyraminx/motion';
-import { FACE_BASES, createHiddenProjections } from '@/lib/pyraminx/projection';
+import { FACE_BASES,createHiddenProjections } from '@/lib/pyraminx/projection';
 import {
-  cameraActions,
-  finishDrag,
-  getState,
-  interruptSettling,
-  notify,
-  patch,
-  setAlignmentAnimator,
-  setAnimator,
-  setSettlingReader,
-  subscribe,
-  type Animation,
-  type State,
+cameraActions,
+finishDrag,
+getState,
+interruptSettling,
+notify,
+patch,
+setAlignmentAnimator,
+setAnimator,
+setSettlingReader,
+subscribe,
+type Animation,
+type State,
 } from '@/lib/pyraminx/store';
 import {
-  createPyraminxInteraction,
-  type Drag,
+createPyraminxInteraction,
+type Drag,
 } from '@/lib/pyraminx/viewport-interaction';
 import { createPyraminxSurface } from '@/lib/pyraminx/viewport-surface';
 import {
-  lightRotation,
-  rotateView,
-  transitionView,
-  updateDepthRange,
+lightRotation,
+rotateView,
+transitionView,
+updateDepthRange,
 } from '@/lib/rendering/camera';
 import { createFrameLoop } from '@/lib/rendering/frame-loop';
 import { MinimalRenderer } from '@/lib/rendering/minimal';
 import {
-  attachOptimizer,
-  createPuzzleOptimizer,
-  createRenderer,
-  createStudio,
-  pixelRatio,
-  renderOverlay,
+attachOptimizer,
+createPuzzleOptimizer,
+createRenderer,
+createStudio,
+pixelRatio,
+renderOverlay,
 } from '@/lib/rendering/viewport';
 import { warmRenderer } from '@/lib/rendering/warmup';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo,useEffect,useRef,useState } from 'react';
 import * as T from 'three';
 export default memo(function PyraminxViewport() {
   useLanguage();
@@ -354,6 +354,8 @@ export default memo(function PyraminxViewport() {
         );
       if (drag?.move) updateDragTransition(drag, time);
       let completed: typeof animation = null;
+      // Iterate a snapshot because settling can remove items from the collection.
+      // oxlint-disable-next-line unicorn/no-useless-spread
       for (const a of [...settlements, ...(animation ? [animation] : [])]) {
         a.start ||= time;
         const duration = a.duration ?? 330 / s.settings.speed;
@@ -537,6 +539,8 @@ export default memo(function PyraminxViewport() {
           invalidate();
         }),
       (move) => {
+        // Iterate a snapshot because settling can remove items from the collection.
+        // oxlint-disable-next-line unicorn/no-useless-spread
         for (const a of [...settlements]) {
           if (
             move &&

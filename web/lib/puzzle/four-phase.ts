@@ -1,8 +1,8 @@
-import { generatorPermutations, reduce444 } from '../vendor/tpr444/solver';
-import { apply, solved, rotatePoint } from './model';
-import { solved as cubeSolved, type Basis, type Vec } from '../cube/model';
+import { generatorPermutations,reduce444 } from '../vendor/tpr444/solver';
+import { apply,solved,rotatePoint } from './model';
+import { solved as cubeSolved,type Basis,type Vec } from '../cube/model';
 import { solveState } from '../cube/solver-core';
-import type { Definition, PuzzleState } from './types';
+import type { Definition,PuzzleState } from './types';
 const near=(a:number[],b:number[])=>a.every((v,i)=>Math.abs(v-b[i])<1e-5);
 let maps:Record<string,{pieces:number[];mapping:number[]}>|null=null;
 export function solveFourColor(def:Definition,state:PuzzleState) {
@@ -29,7 +29,7 @@ export function solveFourColor(def:Definition,state:PuzzleState) {
   }
   const input={} as Record<'corner'|'wing'|'center',number[]>;
   for(const kind of ['corner','wing','center'] as const){
-    const {pieces,mapping}=maps[kind];const values=new Array<number>(pieces.length);
+    const {pieces,mapping}=maps[kind];const values=Array.from({ length: pieces.length }, () => 0);
     pieces.forEach((i,home)=>{
       const current=pieces.findIndex(j=>near(rotatePoint(def,state.rotations[i],def.pieces[i].anchor),def.pieces[j].anchor));
       values[mapping[current]]=kind==='center'?Math.floor(mapping[home]/4):mapping[home];

@@ -1,5 +1,5 @@
-import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
-import { Box3, MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
+import { PUZZLE_DEFAULTS,STUDIO_DEFAULTS } from '@/lib/puzzle-config';
+import { Box3,MathUtils,PerspectiveCamera,Quaternion,Vector3 } from 'three';
 
 const depthCenter = new Vector3(),
   depthSize = new Vector3();
@@ -104,4 +104,16 @@ export interface CameraDestination {
   position: Vector3;
   target: Vector3;
   orientation: Quaternion;
+}
+
+/** Preserve zoom relative to a fitted model as the viewport changes shape. */
+export function resizeView(camera: PerspectiveCamera, target: Vector3, aspect: number, fit: () => number) {
+  const before = fit();
+  const offset = camera.position.clone().sub(target);
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
+  const after = fit();
+  if (before > 0 && Number.isFinite(after))
+    camera.position.copy(target).add(offset.multiplyScalar(after / before));
+  camera.updateMatrixWorld();
 }

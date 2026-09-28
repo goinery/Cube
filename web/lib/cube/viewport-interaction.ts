@@ -1,28 +1,28 @@
 import { tx } from '@/lib/i18n';
 import * as T from 'three';
-import { rotateView, zoomView } from '../rendering/camera';
+import { rotateView,zoomView } from '../rendering/camera';
 import { bindViewportEvents } from '../rendering/events';
 import {
-  isHierarchyVisible,
-  type RenderOptimizer,
+isHierarchyVisible,
+type RenderOptimizer,
 } from '../rendering/render-optimizer';
 import {
-  alignedPartialForTurn,
-  heldAngle,
-  layerFace,
-  magneticTarget,
+alignedPartialForTurn,
+heldAngle,
+layerFace,
+magneticTarget,
 } from './interaction';
-import { moveSpec, type Vec } from './model';
+import { moveSpec,type Vec } from './model';
 import {
-  allowMoves,
-  beginAlignedDrag,
-  finishLayerTurn,
-  getState,
-  notify,
-  patch,
-  pause,
-  selectSticker,
-  settings,
+allowMoves,
+beginAlignedDrag,
+finishLayerTurn,
+getState,
+notify,
+patch,
+pause,
+selectSticker,
+settings,
 } from './store';
 export interface Drag {
   face: string;

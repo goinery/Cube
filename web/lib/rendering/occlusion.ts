@@ -1,4 +1,4 @@
-import { Matrix4, Vector3 } from 'three';
+import { Matrix4,Vector3 } from 'three';
 
 /** Conservative low-resolution depth coverage, including unions of caps.
  * A cell is covered only if ALL four corners lie inside an opaque polygon;

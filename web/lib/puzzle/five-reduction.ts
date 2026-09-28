@@ -1,14 +1,14 @@
 import {
-  apply,
-  definition,
-  inverseMove,
-  moveSpec,
-  rotatePoint,
-  solved,
+apply,
+definition,
+inverseMove,
+moveSpec,
+rotatePoint,
+solved,
 } from './model';
 import { solveFourColor } from './four-phase';
 import { simplifyMoves } from './orbit-solver';
-import type { Definition, PuzzleState } from './types';
+import type { Definition,PuzzleState } from './types';
 
 const near = (a: number[], b: number[]) =>
   a.every((v, i) => Math.abs(v - b[i]) < 1e-5);
@@ -64,7 +64,7 @@ function edgeTable(def: Definition): EdgeTable {
     for (let g = 0; g < generators.length; g++) {
       const source = queue[head],
         transform = transitions[g],
-        next = new Array<number>(24);
+        next = Array.from({ length: 24 }, () => 0);
       for (let h = 0; h < 24; h++)
         next[transform[h]] = transform[source.permutation[h]];
       const key = next.join(',');

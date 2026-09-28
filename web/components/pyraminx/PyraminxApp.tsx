@@ -1,231 +1,80 @@
+import PlayerControls,{ MoveTrack } from '../workspace/PlayerControls';
+import Notice from '@/components/workspace/Notice';
+import CameraControls,{ EasingControl } from '../workspace/CameraControls';
+import PhotoDialog from './PhotoDialog';
+import { importImage } from '@/lib/workspace/images';
+import { download } from '@/lib/workspace/files';
+import AlgorithmPanel from './AlgorithmPanel';
+import { captureProject,importProject,restoreLocal,saveLocal,setAutoSave,watchAutosave } from '@/lib/pyraminx/persistence';
 import PalettePresets from '../workspace/PalettePresets';
 import StageStatus from '../workspace/StageStatus';
 import { assemblyDefaults } from '@/lib/puzzle-config';
-import { tx, useLanguage } from '@/lib/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { tx,useLanguage } from '@/lib/i18n';
+import { useEffect,useRef,useState } from 'react';
 import {
-  Check,
-  CircleStop,
-  Copy,
-  Download,
-  Eye,
-  Focus,
-  MousePointer2,
-  Pause,
-  Play,
-  Redo2,
-  RotateCcw,
-  Shuffle,
-  SkipBack,
-  SkipForward,
-  Undo2,
-  Upload,
-  WandSparkles,
-  X,
+CircleStop,
+Copy,
+Download,Focus,
+MousePointer2,Play,
+Redo2,
+RotateCcw,
+Shuffle,Undo2,
+Upload,
+WandSparkles,
+X
 } from 'lucide-react';
 import type { PuzzleType } from '../cube/PuzzleSwitcher';
 import WorkspaceHeader from '../workspace/WorkspaceHeader';
-import WorkspacePanel, { useWorkspacePanel } from '../workspace/WorkspacePanel';
+import WorkspacePanel,{ useWorkspacePanel } from '../workspace/WorkspacePanel';
 
-import { Choice, Range, Toggle } from '../cube/Controls';
-import { useCube, type Mode, type View } from '@/lib/cube/store';
+import { Choice,Range,Toggle } from '@/components/workspace/Controls';
+import type { Mode,View } from '@/lib/workspace/types';
 import {
-  formatShortcut,
-  keyboardShortcut,
-  shouldIgnoreShortcut,
-} from '@/lib/cube/keybindings';
-import { FACE_HEIGHT_RATIO, paintPhoto } from '@/lib/pyraminx/appearance';
+formatShortcut,
+keyboardShortcut,
+shouldIgnoreShortcut,
+} from '@/lib/workspace/keybindings';
+import { FACE_HEIGHT_RATIO } from '@/lib/pyraminx/appearance';
 import {
-  AXES,
-  FACE_COLORS,
-  PYRAMINX_PALETTES,
-  FACE_NAMES,
-  PIECES,
-  TILES,
-  isSolved,
-  moveToken,
-  parseAlgorithm,
-  scramble,
-  type Layer,
+AXES,
+FACE_COLORS,
+PYRAMINX_PALETTES,
+FACE_NAMES,
+PIECES,
+TILES,
+isSolved,
+moveToken,scramble,
+type Layer
 } from '@/lib/pyraminx/model';
 import {
-  align,
-  applyInstant,
-  cameraActions,
-  cancelSolve,
-  captureProject,
-  defaultColors,
-  defaultKeys,
-  defaultPresets,
-  presetLabel,
-  getState,
-  importProject,
-  loadPlayer,
-  next,
-  notify,
-  patch,
-  pause,
-  perform,
-  play,
-  previous,
-  redo,
-  replayHistory,
-  resetPuzzle,
-  restoreLocal,
-  runAlgorithm,
-  saveLocal,
-  seek,
-  setAutoSave,
-  setPresentation,
-  settings,
-  startSolve,
-  undo,
-  usePyraminx,
-  validatePresets,
-  watchAutosave,
-  type Photo,
+align,
+applyInstant,
+cameraActions,
+cancelSolve,
+defaultColors,
+defaultKeys,getState,
+loadPlayer,
+next,
+notify,
+patch,
+pause,
+perform,
+play,
+previous,
+redo,
+replayHistory,
+resetPuzzle,seek,
+setPresentation,
+settings,
+startSolve,
+undo,
+usePyraminx,
+type Photo
 } from '@/lib/pyraminx/store';
 import Viewport from './Viewport';
-function download(value: unknown, filename: string) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
-  );
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 async function readJSON(file: File) {
   if (file.size > 12000000) throw new Error(tx('legacy.m299'));
   return JSON.parse(await file.text());
-}
-function PhotoDialog({
-  photo,
-  face,
-  onClose,
-  onApply,
-}: {
-  photo: Photo;
-  face: number;
-  onClose: () => void;
-  onApply: (photo: Photo) => void;
-}) {
-  useLanguage();
-  const [draft, setDraft] = useState(photo),
-    [photoImage, setPhotoImage] = useState<HTMLImageElement | null>(null),
-    preview = useRef<HTMLCanvasElement>(null),
-    dialog = useRef<HTMLDialogElement>(null);
-  const drag = useRef<{
-    x: number;
-    y: number;
-    base: Photo;
-  } | null>(null);
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
-  useEffect(() => {
-    let active = true;
-    const image = new Image();
-    image.src = draft.src;
-    void image
-      .decode()
-      .then(() => {
-        if (active) setPhotoImage(image);
-      })
-      .catch(() => {
-        if (active) notify(tx('legacy.m300'));
-      });
-    return () => {
-      active = false;
-    };
-  }, [draft.src]);
-  useEffect(() => {
-    if (preview.current && photoImage?.src === draft.src)
-      paintPhoto(preview.current, photoImage, draft);
-  }, [draft, photoImage]);
-  return (
-    <dialog className="pyr-photo-dialog" ref={dialog} onCancel={onClose}>
-      <div className="section-head">
-        <h3>
-          {FACE_NAMES[face]}
-          {tx('legacy.m301')}
-        </h3>
-        <button aria-label={tx('legacy.m302')} onClick={onClose}>
-          <X size={20} />
-        </button>
-      </div>
-      <div
-        className="pyr-photo-preview"
-        style={{ aspectRatio: `1 / ${FACE_HEIGHT_RATIO}` }}
-        aria-label={tx('legacy.m303')}
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          drag.current = { x: e.clientX, y: e.clientY, base: draft };
-        }}
-        onPointerMove={(e) => {
-          const d = drag.current;
-          if (!d) return;
-          const { clientWidth: width, clientHeight: height } = e.currentTarget;
-          setDraft({
-            ...d.base,
-            x: Math.max(-1, Math.min(1, d.base.x + (e.clientX - d.x) / width)),
-            y: Math.max(-1, Math.min(1, d.base.y + (e.clientY - d.y) / height)),
-          });
-        }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
-      >
-        <div className="pyr-photo-clip">
-          <canvas ref={preview} aria-label={tx('legacy.m304')} />
-        </div>
-        <svg
-          viewBox="0 0 300 300"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <path d="M150 0 L0 300 L300 300 Z M100 100 L200 100 M50 200 L250 200 M100 100 L200 300 M200 100 L100 300 M50 200 L100 300 M250 200 L200 300 M50 200 L100 100 M250 200 L200 100" />
-        </svg>
-      </div>
-      <Range
-        label={tx('legacy.m306')}
-        value={draft.scale}
-        min={0.25}
-        max={4}
-        onChange={(scale) => setDraft({ ...draft, scale })}
-      />
-      <Range
-        label={tx('legacy.m224')}
-        value={draft.rotation}
-        min={-180}
-        max={180}
-        digits={0}
-        unit="°"
-        step={1}
-        onChange={(rotation) => setDraft({ ...draft, rotation })}
-      />
-      <div className="pyr-button-row">
-        <button
-          className="secondary-button"
-          onClick={() =>
-            setDraft({ ...draft, scale: 1, x: 0, y: 0, rotation: 0 })
-          }
-        >
-          {tx('legacy.m307')}
-        </button>
-        <button className="secondary-button" onClick={onClose}>
-          {tx('legacy.m024')}
-        </button>
-        <button className="primary-button" onClick={() => onApply(draft)}>
-          {tx('legacy.m308')}
-        </button>
-      </div>
-    </dialog>
-  );
 }
 function TilePicker() {
   useLanguage();
@@ -283,13 +132,10 @@ export default function PyraminxApp({
   onSwitch: (puzzle: PuzzleType) => void;
 }) {
   useLanguage();
-  const s = usePyraminx(),
-    cubeNotice = useCube('notice');
+  const s = usePyraminx();
   const [layer, setLayer] = useState<Layer>('body'),
     [reverse, setReverse] = useState(false),
     [animated, setAnimated] = useState(true);
-  const [algorithm, setAlgorithm] = useState("R U R' U R U R' U"),
-    [presetName, setPresetName] = useState('');
   const [color, setColor] = useState(FACE_COLORS[3]),
     [photo, setPhoto] = useState<{
       face: number;
@@ -297,7 +143,6 @@ export default function PyraminxApp({
     } | null>(null);
   const panel = useWorkspacePanel(s.mode, s.solving, (mode) => patch({ mode }));
   const importInput = useRef<HTMLInputElement>(null),
-    algorithmInput = useRef<HTMLInputElement>(null),
     photoInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     restoreLocal();
@@ -331,38 +176,9 @@ export default function PyraminxApp({
     return () => window.removeEventListener('keydown', key);
   }, []);
   async function uploadPhoto(file: File) {
-    try {
-      if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 20000000)
-        throw new Error(tx('legacy.m310'));
-      const face = getState().editFace,
-        url = URL.createObjectURL(file),
-        img = new Image();
-      try {
-        img.src = url;
-        await img.decode();
-        const canvas = document.createElement('canvas');
-        const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas
-          .getContext('2d')!
-          .drawImage(img, 0, 0, canvas.width, canvas.height);
-        setPhoto({
-          face,
-          photo: {
-            src: canvas.toDataURL('image/jpeg', 0.88),
-            x: 0,
-            y: 0,
-            scale: 1,
-            rotation: 0,
-          },
-        });
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      notify((error as Error).message);
-    }
+    const face = getState().editFace;
+    try { setPhoto({face, photo: {src: await importImage(file), x: 0, y: 0, scale: 1, rotation: 0}}); }
+    catch (error) { notify((error as Error).message); }
   }
   async function newScramble() {
     if (s.busy || s.solving) return;
@@ -373,26 +189,6 @@ export default function PyraminxApp({
       loadPlayer(moves, tx('legacy.m084'));
       void play();
     } else await applyInstant(moves);
-  }
-  function addPreset() {
-    try {
-      const moves = parseAlgorithm(algorithm);
-      if (!moves.length || !presetName.trim())
-        throw new Error(tx('legacy.m311'));
-      if (s.presets.length >= 100) throw new Error(tx('legacy.m312'));
-      if (s.presets.some((p) => p.algorithm === moves.join(' ')))
-        throw new Error(tx('legacy.m313'));
-      patch({
-        presets: [
-          ...s.presets,
-          { name: presetName.trim().slice(0, 80), algorithm: moves.join(' ') },
-        ],
-      });
-      setPresetName('');
-      notify(tx('legacy.m314'));
-    } catch (error) {
-      notify((error as Error).message);
-    }
   }
   const locked = s.busy || s.solving,
     solved = !s.partials.length && isSolved(s.puzzle),
@@ -690,77 +486,7 @@ export default function PyraminxApp({
                 </button>
               </details>
             </section>
-            <section className="panel-section">
-              <div className="section-head">
-                <h3>{tx('legacy.m009')}</h3>
-                <span className="tag">{tx('puzzle.pyraminx')}</span>
-              </div>
-              <div className="algorithm-presets">
-                {s.presets.map((p, i) => (
-                  <button
-                    key={`${presetLabel(p)}-${i}`}
-                    className={algorithm === p.algorithm ? 'active' : ''}
-                    onClick={() => setAlgorithm(p.algorithm)}
-                  >
-                    {presetLabel(p)}
-                  </button>
-                ))}
-              </div>
-              <textarea
-                className="pyr-algorithm"
-                aria-label={tx('legacy.m339')}
-                value={algorithm}
-                onChange={(e) => setAlgorithm(e.target.value)}
-                spellCheck={false}
-              />
-              <button
-                className="wide-button"
-                disabled={locked}
-                onClick={() => runAlgorithm(algorithm)}
-              >
-                {tx('legacy.m018')}
-                <Play size={16} />
-              </button>
-              <div className="pyr-button-row">
-                <input
-                  className="pyr-text-input"
-                  aria-label={tx('legacy.m021')}
-                  placeholder={tx('legacy.m021')}
-                  value={presetName}
-                  onChange={(e) => setPresetName(e.target.value)}
-                />
-                <button
-                  className="secondary-button"
-                  disabled={locked}
-                  onClick={addPreset}
-                >
-                  {tx('legacy.m016')}
-                </button>
-              </div>
-              <div className="pyr-button-row">
-                <button
-                  onClick={() =>
-                    download(s.presets, 'AXIS-pyraminx-algorithms.json')
-                  }
-                >
-                  <Download size={14} />
-                  {tx('legacy.m340')}
-                </button>
-                <button
-                  disabled={locked}
-                  onClick={() => algorithmInput.current?.click()}
-                >
-                  <Upload size={14} />
-                  {tx('legacy.m341')}
-                </button>
-                <button
-                  disabled={locked}
-                  onClick={() => patch({ presets: defaultPresets() })}
-                >
-                  {tx('legacy.m342')}
-                </button>
-              </div>
-            </section>
+            <AlgorithmPanel />
           </section>
           <section {...section('explode')}>
             <Range
@@ -1051,19 +777,7 @@ export default function PyraminxApp({
               disabled={s.solving}
               onChange={(speed) => settings({ speed })}
             />
-            <Choice
-              disabled={s.solving}
-              label={tx('legacy.m370')}
-              value={s.settings.easing}
-              options={[
-                ['magnetic', tx('legacy.m371')],
-                ['smooth', tx('legacy.m137')],
-                ['linear', tx('legacy.m138')],
-              ]}
-              onChange={(value) =>
-                settings({ easing: value as typeof s.settings.easing })
-              }
-            />
+            <EasingControl value={s.settings.easing} onChange={(easing) => settings({easing})} disabled={s.solving}/>
             {s.player && (
               <div className="pyr-player">
                 <div className="section-head">
@@ -1072,61 +786,8 @@ export default function PyraminxApp({
                     {s.player.index} / {s.player.moves.length}
                   </span>
                 </div>
-                <div className="player-buttons">
-                  <button
-                    aria-label={tx('legacy.m249')}
-                    disabled={locked || !s.player.index}
-                    onClick={() => void previous()}
-                  >
-                    <SkipBack size={19} />
-                  </button>
-                  <button
-                    aria-label={
-                      s.player.playing ? tx('legacy.m372') : tx('legacy.m373')
-                    }
-                    disabled={s.solving || (s.busy && !s.player.playing)}
-                    onClick={() => {
-                      if (s.player?.playing) pause();
-                      else void play();
-                    }}
-                  >
-                    {s.player.playing ? (
-                      <Pause size={23} />
-                    ) : (
-                      <Play size={23} />
-                    )}
-                  </button>
-                  <button
-                    aria-label={tx('legacy.m251')}
-                    disabled={
-                      locked || s.player.index === s.player.moves.length
-                    }
-                    onClick={() => void next()}
-                  >
-                    <SkipForward size={19} />
-                  </button>
-                  <button
-                    aria-label={tx('legacy.m374')}
-                    disabled={s.solving}
-                    onClick={() => {
-                      pause();
-                      patch({ player: null });
-                    }}
-                  >
-                    <CircleStop size={18} />
-                  </button>
-                </div>
-                <input
-                  className="pyr-player-range"
-                  aria-label={tx('legacy.m375')}
-                  type="range"
-                  min={0}
-                  max={s.player.moves.length}
-                  step={1}
-                  value={s.player.index}
-                  disabled={locked}
-                  onChange={(e) => void seek(Number(e.target.value))}
-                />
+                <PlayerControls index={s.player.index} length={s.player.moves.length} playing={s.player.playing} busy={s.busy} disabled={s.solving} onSeek={(i) => {void seek(i);}} onPrevious={() => {void previous();}} onNext={() => {void next();}} onPlay={() => {void play();}} onPause={pause} onStop={() => {pause();patch({player:null});}}/>
+                <Range label={tx('player.jump')} value={s.player.index} min={0} max={Math.max(1,s.player.moves.length)} step={1} digits={0} disabled={locked} onChange={(i) => {void seek(i);}}/>
                 {s.player.bodyLength !== undefined && (
                   <div className="pyr-button-row">
                     <button disabled={locked} onClick={() => void seek(0)}>
@@ -1146,24 +807,8 @@ export default function PyraminxApp({
                     </button>
                   </div>
                 )}
-                <div className="pyr-move-list">
-                  {s.player.moves.map((move, i) => (
-                    <button
-                      key={i}
-                      className={
-                        i < s.player!.index
-                          ? 'done'
-                          : i === s.player!.index
-                            ? 'current'
-                            : ''
-                      }
-                      disabled={locked}
-                      onClick={() => void seek(i + 1)}
-                    >
-                      {move}
-                    </button>
-                  ))}
-                </div>
+                <MoveTrack moves={s.player.moves} index={s.player.index} disabled={locked} onSeek={(i) => {void seek(i);}}/>
+
               </div>
             )}
           </section>
@@ -1179,80 +824,7 @@ export default function PyraminxApp({
                 </button>
               ))}
             </div>
-            <Toggle
-              label={tx('legacy.m380')}
-              value={s.settings.autoRotate}
-              disabled={s.solving}
-              onChange={(autoRotate) => settings({ autoRotate })}
-            />
-            <Range
-              label={tx('legacy.m381')}
-              value={s.settings.roughness}
-              min={0.05}
-              max={1}
-              disabled={s.solving}
-              onChange={(roughness) => settings({ roughness })}
-            />
-            <Choice
-              disabled={s.solving}
-              label={tx('legacy.m131')}
-              value={s.settings.quality}
-              options={[
-                ['auto', tx('legacy.m382')],
-                ['high', tx('legacy.m133')],
-                ['low', tx('legacy.m383')],
-              ]}
-              onChange={(quality) =>
-                settings({ quality: quality as typeof s.settings.quality })
-              }
-            />
-            <section className="panel-section">
-              <h3>{tx('legacy.m125')}</h3>
-              <Toggle
-                label={tx('legacy.m384')}
-                value={s.settings.lightFollowCamera}
-                disabled={s.solving}
-                onChange={(lightFollowCamera) =>
-                  settings({ lightFollowCamera })
-                }
-              />
-              <Range
-                label={tx('legacy.m128')}
-                value={s.settings.lightAzimuth}
-                min={-180}
-                max={180}
-                digits={0}
-                unit="°"
-                disabled={s.solving}
-                onChange={(lightAzimuth) => settings({ lightAzimuth })}
-              />
-              <Range
-                label={tx('legacy.m129')}
-                value={s.settings.lightElevation}
-                min={-10}
-                max={90}
-                digits={0}
-                unit="°"
-                disabled={s.solving}
-                onChange={(lightElevation) => settings({ lightElevation })}
-              />
-              <Range
-                label={tx('legacy.m130')}
-                value={s.settings.lightIntensity}
-                min={0}
-                max={6}
-                disabled={s.solving}
-                onChange={(lightIntensity) => settings({ lightIntensity })}
-              />
-            </section>
-            <button
-              className="wide-button"
-              disabled={s.solving}
-              onClick={() => setPresentation(true)}
-            >
-              {tx('legacy.m139')}
-              <Eye size={16} />
-            </button>
+            <CameraControls value={s.settings} onChange={settings} actions={cameraActions} onPresentation={() => setPresentation(true)} disabled={s.solving} limits={{roughness:[0.05,1],elevation:[-10,90],intensity:6}}/>
           </section>
           <section {...section('inspect')}>
             <div className="section-head">
@@ -1319,12 +891,7 @@ export default function PyraminxApp({
           </section>
         </WorkspacePanel>
       </div>
-      {(s.notice || cubeNotice.notice) && (
-        <output className="toast">
-          <Check size={16} />
-          {s.notice || cubeNotice.notice}
-        </output>
-      )}
+      <Notice message={s.notice}/>
       <input
         ref={importInput}
         hidden
@@ -1342,34 +909,6 @@ export default function PyraminxApp({
                 },
                 (error) => notify((error as Error).message),
               )
-              .catch((error) => notify((error as Error).message));
-        }}
-      />
-      <input
-        ref={algorithmInput}
-        hidden
-        type="file"
-        accept=".json,application/json"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = '';
-          if (file)
-            void readJSON(file)
-              .then((value) => {
-                const presets = [...getState().presets];
-                for (const preset of validatePresets(value)) {
-                  if (presets.some((p) => p.algorithm === preset.algorithm))
-                    continue;
-                  let name = preset.name,
-                    index = 2;
-                  while (presets.some((p) => p.name === name))
-                    name = `${preset.name} ${index++}`;
-                  presets.push({ ...preset, name });
-                }
-                if (presets.length > 100) throw new Error(tx('legacy.m401'));
-                patch({ presets });
-                notify(tx('legacy.m402'));
-              })
               .catch((error) => notify((error as Error).message));
         }}
       />

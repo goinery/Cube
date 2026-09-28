@@ -1,5 +1,5 @@
-import { apply, inverseMove, rotatePoint, solved } from './model';
-import type { Definition, PuzzleState } from './types';
+import { apply,inverseMove,rotatePoint,solved } from './model';
+import type { Definition,PuzzleState } from './types';
 const near = (a: number[], b: number[]) =>
   a.every((v, i) => Math.abs(v - b[i]) < 1e-5);
 function permutation(def: Definition, state: PuzzleState, pieces: number[]) {
@@ -146,7 +146,7 @@ export function solveOrbit(
 ) {
   const table = cycleTable(def, kind),
     p = permutation(def, state, table.pieces);
-  const at = new Array<number>(24);
+  const at = Array.from({ length: 24 }, () => 0);
   p.forEach((slot, home) => (at[slot] = home));
   const faces = table.pieces.map(
     (piece) => def.tiles.find((t) => t.piece === piece)!.face,

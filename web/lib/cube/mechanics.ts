@@ -2,8 +2,8 @@ import { tx } from '@/lib/i18n';
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { smoothBevels, tileOutline } from './geometry';
-import { FACE, type Piece } from './model';
+import { smoothBevels,tileOutline } from './geometry';
+import { FACE,type Piece } from './model';
 import { clipGeometry } from '../rendering/clip-geometry';
 type AddPart = (
   object: T.Object3D,

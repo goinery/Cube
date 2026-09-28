@@ -1,6 +1,6 @@
-import { inverseMove, moveSpec } from './model';
+import { inverseMove,moveSpec } from './model';
 import { simplifyMoves } from './orbit-solver';
-import type { Definition, PuzzleState } from './types';
+import type { Definition,PuzzleState } from './types';
 
 const mod = (value: number) => ((value % 5) + 5) % 5;
 const deltas = [
@@ -46,7 +46,7 @@ export function solveMinxCenters(def: Definition, state: PuzzleState) {
   let best: Plan | undefined;
   for (let root = 0; root < 12; root++)
     for (let offset = 0; offset < 12; offset++) {
-      const parent = new Array<number>(12).fill(-1),
+      const parent = Array.from({ length: 12 }, () => -1),
         order = [root];
       parent[root] = root;
       for (let i = 0; i < order.length; i++)
@@ -59,12 +59,12 @@ export function solveMinxCenters(def: Definition, state: PuzzleState) {
         }
       const plans = new Map<number, (Plan | undefined)[]>();
       for (const node of [...order].reverse()) {
-        let dp: (Plan | undefined)[] = new Array(5);
+        let dp: (Plan | undefined)[] = Array.from({ length: 5 }, () => undefined);
         dp[values[node]] = { cost: 0, operations: [] };
         for (const child of order.filter(
           (j) => j !== root && parent[j] === node,
         )) {
-          const next: (Plan | undefined)[] = new Array(5),
+          const next: (Plan | undefined)[] = Array.from({ length: 5 }, () => undefined),
             below = plans.get(child)!;
           for (let a = 0; a < 5; a++)
             for (let b = 0; b < 5; b++)

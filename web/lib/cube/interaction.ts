@@ -1,5 +1,5 @@
-import { Box3, PerspectiveCamera, Vector3 } from 'three';
-import { moveSpec, rotate, type Vec } from './model';
+import { Box3,PerspectiveCamera,Vector3 } from 'three';
+import { moveSpec,rotate,type Vec } from './model';
 export const QUARTER = Math.PI / 2;
 export interface PartialTurns {
   axis: number;

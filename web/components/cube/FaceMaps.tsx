@@ -1,20 +1,19 @@
-'use client';
-import { tx, useLanguage } from '@/lib/i18n';
-import { memo, useEffect, useRef, useMemo } from 'react';
+import { tx,useLanguage } from '@/lib/i18n';
+import { memo,useEffect,useRef,useMemo } from 'react';
 import {
-  FACE,
-  FACES,
-  facelets,
-  solved,
-  type Face,
-  type Facelet,
+FACE,
+FACES,
+facelets,
+solved,
+type Face,
+type Facelet,
 } from '@/lib/cube/model';
 import {
-  paintSticker,
-  sameStickerArt,
-  type Appearance,
+paintSticker,
+sameStickerArt,
+type Appearance,
 } from '@/lib/cube/appearance';
-import { useCube, selectSticker, cameraActions } from '@/lib/cube/store';
+import { useCube,selectSticker,cameraActions } from '@/lib/cube/store';
 import { tileRadii } from '@/lib/cube/geometry';
 export function StickerTile({
   item,

@@ -1,17 +1,17 @@
 import { tx } from '@/lib/i18n';
 import {
-  AXES,
-  COMPOSE,
-  INVERSE,
-  ROTATIONS,
-  affects,
-  apply,
-  isSolved,
-  moveRotation,
-  moveToken,
-  parseMove,
-  turn,
-  type PuzzleState,
+AXES,
+COMPOSE,
+INVERSE,
+ROTATIONS,
+affects,
+apply,
+isSolved,
+moveRotation,
+moveToken,
+parseMove,
+turn,
+type PuzzleState,
 } from './model';
 const MOVES = AXES.flatMap((a) => [a, a + "'"]);
 const specs = MOVES.map(parseMove);

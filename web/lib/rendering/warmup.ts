@@ -1,4 +1,4 @@
-import { Camera, Scene, WebGLRenderer, WebGLRenderTarget } from 'three';
+import { Camera,Scene,WebGLRenderer,WebGLRenderTarget } from 'three';
 import type { RenderOptimizer } from '../rendering/render-optimizer';
 import { hasStudioStarted } from './startup';
 

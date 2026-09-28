@@ -1,10 +1,10 @@
 import { tx } from '@/lib/i18n';
 import * as T from 'three';
 import { paintPhoto } from './appearance';
-import { normals, vertices, type createModel } from './geometry';
-import { FACE_NAMES, FACE_VERTICES, TILES } from './model';
+import { normals,vertices,type createModel } from './geometry';
+import { FACE_NAMES,FACE_VERTICES,TILES } from './model';
 import { FACE_BASES } from './projection';
-import { getState, notify, type Photo, type State } from './store';
+import { getState,notify,type Photo,type State } from './store';
 export function createPyraminxSurface(
   model: ReturnType<typeof createModel>,
   maps: HTMLCanvasElement,

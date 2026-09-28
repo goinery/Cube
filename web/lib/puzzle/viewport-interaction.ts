@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { rotateView, zoomView } from '../rendering/camera';
+import { rotateView,zoomView } from '../rendering/camera';
 import { bindViewportEvents } from '../rendering/events';
 import type { RenderOptimizer } from '../rendering/render-optimizer';
 import { moveSpec } from './model';

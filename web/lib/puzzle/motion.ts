@@ -1,12 +1,12 @@
-import { Quaternion, Vector3 } from 'three';
+import { Quaternion,Vector3 } from 'three';
 import { stepMagnet } from '../cube/interaction';
 import { moveSpec } from './model';
 import type {
-  Definition,
-  MotionSettings,
-  Move,
-  PuzzleState,
-  V3,
+Definition,
+MotionSettings,
+Move,
+PuzzleState,
+V3,
 } from './types';
 
 export interface Track {
@@ -161,6 +161,8 @@ export class TurnCoordinator {
       if (q) pose.multiply(q.clone().slerp(identity, this.progress(a, now)));
     }
     // Independent bearings rotate before the larger layer which carries them.
+    // Iterate a snapshot because settling can remove items from the collection.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const track of [...tracks].sort(
       (a, b) => a.pieces.length - b.pieces.length,
     ))
@@ -379,6 +381,8 @@ export class TurnCoordinator {
       }
       return true;
     });
+    // Iterate a snapshot because settling can remove items from the collection.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const track of [...this.tracks]) {
       if (track.mode === 'drag' && track.dragTransition) {
         const a = track.dragTransition,
@@ -460,6 +464,8 @@ export class TurnCoordinator {
       for (const [piece, offset] of alignment.offsets)
         poses[piece].multiply(rotation.copy(offset).slerp(identity, progress));
     }
+    // Iterate a snapshot because settling can remove items from the collection.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const track of [...this.tracks].sort(
       (a, b) => a.pieces.length - b.pieces.length,
     )) {
@@ -490,6 +496,8 @@ export class TurnCoordinator {
     this.changed();
   }
   freeze() {
+    // Iterate a snapshot because settling can remove items from the collection.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const t of [...this.tracks])
       if (t.mode !== 'held') {
         if (t.mode === 'command') {

@@ -1,21 +1,20 @@
-'use client';
-import { tx, useLanguage } from '@/lib/i18n';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { tx,useLanguage } from '@/lib/i18n';
+import { useEffect,useMemo,useRef,useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  applyImageGroup,
-  faceIds,
-  groupBounds,
-  paintSticker,
-  type Appearance,
-  type ImageGroup,
+applyImageGroup,
+faceIds,
+groupBounds,
+paintSticker,
+type Appearance,
+type ImageGroup,
 } from '@/lib/cube/appearance';
-import { FACE, type Face } from '@/lib/cube/model';
+import { FACE,type Face } from '@/lib/cube/model';
 import ImageTransformControls from './ImageTransformControls';
 export interface ImageDraft {
   group: ImageGroup;
@@ -36,8 +35,8 @@ export default function ImagePreviewDialog({
 }) {
   useLanguage();
   const [group, setGroup] = useState(draft.group);
-  const [error, setError] = useState('');
-  const [ready, setReady] = useState(false);
+  const [failure, setFailure] = useState<{ appearance: Appearance; message: string } | null>(null);
+  const [rendered, setRendered] = useState<Appearance | null>(null);
   const preview = useRef<HTMLCanvasElement>(null);
   const drag = useRef<{
     pointer: number;
@@ -52,11 +51,11 @@ export default function ImagePreviewDialog({
     () => applyImageGroup(appearance, group, !draft.replacing),
     [appearance, group, draft.replacing],
   );
+  const ready = rendered === nextAppearance;
+  const error = failure?.appearance === nextAppearance ? failure.message : '';
   const face = group.members[0][0] as Face;
   useEffect(() => {
     let active = true;
-    setReady(false);
-    setError('');
     const ids = faceIds(face);
     void Promise.all(
       ids.map(async (id) => {
@@ -83,10 +82,10 @@ export default function ImagePreviewDialog({
             ctx.strokeRect(x + 3, y + 3, 174, 174);
           }
         });
-        setReady(true);
+        setRendered(nextAppearance);
       })
       .catch(() => {
-        if (active) setError(tx('legacy.m207'));
+        if (active) setFailure({appearance:nextAppearance, message:tx('legacy.m207')});
       });
     return () => {
       active = false;

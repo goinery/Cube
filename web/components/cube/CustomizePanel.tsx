@@ -1,52 +1,51 @@
-'use client';
 import PalettePresets from '../workspace/PalettePresets';
-import { tx, useLanguage } from '@/lib/i18n';
-import { memo, useEffect, useRef, useState } from 'react';
+import { tx,useLanguage } from '@/lib/i18n';
+import { memo,useEffect,useRef,useState } from 'react';
 import {
-  ImagePlus,
-  Upload,
-  Download,
-  Save,
-  FolderOpen,
-  RotateCcw,
-  Trash2,
-  Unlink,
-  Type,
+ImagePlus,
+Upload,
+Download,
+Save,
+FolderOpen,
+RotateCcw,
+Trash2,
+Unlink,
+Type,
 } from 'lucide-react';
 import { PALETTES } from '@/lib/cube/palettes';
-import { FACES, COLORS, FACE, type Face } from '@/lib/cube/model';
+import { FACES,COLORS,FACE,type Face } from '@/lib/cube/model';
 import {
-  defaultAppearance,
-  defaultTransform,
-  faceIds,
-  groupBounds,
-  importImage,
-  removeFromGroups,
-  paintSticker,
-  loadImage,
-  drawGroup,
-  applyImageGroup,
-  type ImageGroup,
+defaultAppearance,
+defaultTransform,
+faceIds,
+groupBounds,
+importImage,
+removeFromGroups,
+paintSticker,
+loadImage,
+drawGroup,
+applyImageGroup,
+type ImageGroup,
 } from '@/lib/cube/appearance';
 import {
-  useCube,
-  getState,
-  patch,
-  setAppearance,
-  notify,
-  cameraActions,
+useCube,
+getState,
+patch,
+setAppearance,
+notify,
+cameraActions,
 } from '@/lib/cube/store';
 import {
-  saveProject,
-  readProject,
-  loadProject,
-  exportProject,
-  importProject,
+saveProject,
+readProject,
+loadProject,
+exportProject,
+importProject,
 } from '@/lib/cube/persistence';
 import { FaceGrid } from './FaceMaps';
-import { Range } from './Controls';
+import { Range } from '@/components/workspace/Controls';
 import ImageTransformControls from './ImageTransformControls';
-import ImagePreviewDialog, { type ImageDraft } from './ImagePreviewDialog';
+import ImagePreviewDialog,{ type ImageDraft } from './ImagePreviewDialog';
 export default memo(function CustomizePanel() {
   useLanguage();
   const s = useCube(

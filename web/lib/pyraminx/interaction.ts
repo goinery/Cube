@@ -1,4 +1,4 @@
-import { ROTATIONS, moveRotation, type Move } from './model';
+import { ROTATIONS,moveRotation,type Move } from './model';
 
 export interface PartialTurn {
   axis: number;

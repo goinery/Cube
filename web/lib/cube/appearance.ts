@@ -1,5 +1,4 @@
-import { tx } from '@/lib/i18n';
-import { COLORS, FACES, type Face } from './model';
+import { COLORS,FACES,type Face } from './model';
 export interface ArtTransform {
   fit: 'fill' | 'fit' | 'crop';
   scale: number;
@@ -207,25 +206,7 @@ export async function paintSticker(
   } else drawGroup(ctx, image, defaultTransform(), size, size);
   ctx.restore();
 }
-export async function importImage(file: File): Promise<string> {
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
-    throw new Error(tx('legacy.m420'));
-  if (file.size > 25 * 1024 * 1024) throw new Error(tx('legacy.m421'));
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await loadImage(url),
-      canvas = document.createElement('canvas'),
-      ratio = Math.min(1, 1600 / Math.max(img.width, img.height));
-    canvas.width = Math.round(img.width * ratio);
-    canvas.height = Math.round(img.height * ratio);
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    imageCache.delete(url);
-    return canvas.toDataURL('image/webp', 0.92);
-  } finally {
-    imageCache.delete(url);
-    URL.revokeObjectURL(url);
-  }
-}
+export { importImage } from '@/lib/workspace/images';
 export function removeFromGroups(
   appearance: Appearance,
   ids: string[],

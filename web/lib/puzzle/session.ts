@@ -1,28 +1,28 @@
 import {
-  createPuzzleSettings,
-  DEFAULT_PRESETS,
-  GENERAL_KEYS,
-  PUZZLE_DEFAULTS,
-  STUDIO_DEFAULTS,
-  type PuzzleSettings,
+createPuzzleSettings,
+DEFAULT_PRESETS,
+GENERAL_KEYS,
+PUZZLE_DEFAULTS,
+STUDIO_DEFAULTS,
+type PuzzleSettings,
 } from '@/lib/puzzle-config';
 import { useSyncExternalStore } from 'react';
-import { defaultAppearance, type Appearance } from './appearance';
+import { defaultAppearance,type Appearance } from './appearance';
 import {
-  apply,
-  definition,
-  inverseMove,
-  moveSpec,
-  parseAlgorithm,
-  solved,
+apply,
+definition,
+inverseMove,
+moveSpec,
+parseAlgorithm,
+solved,
 } from './model';
 import { TurnCoordinator } from './motion';
 import type {
-  Definition,
-  Message,
-  PuzzleId,
-  PuzzleState,
-  Stage,
+Definition,
+Message,
+PuzzleId,
+PuzzleState,
+Stage,
 } from './types';
 
 export type Settings = PuzzleSettings;
@@ -82,6 +82,12 @@ export function defaultKeys(def: Definition) {
     ...Object.entries(GENERAL_KEYS),
   ]);
 }
+export function defaultPresets(def: Definition): Preset[] {
+  return [
+    ...DEFAULT_PRESETS.workspace.map((preset) => ({ ...preset, name: '' })),
+    { id: 'pattern', name: '', ...DEFAULT_PRESETS.pattern[def.id] },
+  ];
+}
 export class Session {
   readonly def: Definition;
   readonly motion: TurnCoordinator;
@@ -100,6 +106,7 @@ export class Session {
     focus: () => void;
     face: (id: string) => void;
   } = { fit: () => {}, reset: () => {}, focus: () => {}, face: () => {} };
+  setCamera(actions: Session['camera']) { this.camera = actions; }
   constructor(id: PuzzleId) {
     this.def = definition(id);
     this.state = {
@@ -119,10 +126,7 @@ export class Session {
       solveResult: null,
       autoSave: STUDIO_DEFAULTS.autoSave,
       presentation: STUDIO_DEFAULTS.presentation,
-      presets: [
-        ...DEFAULT_PRESETS.workspace.map((preset) => ({ ...preset, name: '' })),
-        { id: 'pattern', name: '', ...DEFAULT_PRESETS.pattern[id] },
-      ],
+      presets: defaultPresets(this.def),
       keys: defaultKeys(this.def),
       motionVersion: 0,
       artVersion: 0,

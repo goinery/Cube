@@ -165,7 +165,7 @@
     "text": "Text on facelets",
     "addText": "Apply text",
     "palettes": "Color presets",
-    "factory": "Reference",
+    "factory": "Factory colors",
     "neon": "Neon",
     "contrast": "Contrast",
     "remove": "Remove selected images",
@@ -218,7 +218,8 @@
     "hint": "Drag a face to turn. Drag the background or right-drag to orbit; Shift-drag to roll. Scroll to zoom. Two fingers orbit, zoom and roll.",
     "select": "Select a sticker before focusing on a piece.",
     "minimal": "Minimal",
-    "view": "View"
+    "view": "View",
+    "customizeHint": "Select stickers · Edit their appearance in the panel"
   },
   "solver": {
     "title": "Solve current state",

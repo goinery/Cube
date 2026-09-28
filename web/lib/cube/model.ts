@@ -1,4 +1,4 @@
-import { localized, tx } from '@/lib/i18n';
+import { localized,tx } from '@/lib/i18n';
 import { CUBE_COLORS } from '@/lib/puzzle-config';
 export type Vec = [number, number, number];
 export type Face = 'U' | 'R' | 'F' | 'D' | 'L' | 'B';

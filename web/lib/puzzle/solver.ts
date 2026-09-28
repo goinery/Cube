@@ -1,16 +1,14 @@
 import { solveMinxCenters } from './minx-centers';
 import {
-  apply,
-  colorSolved,
-  inverseMove,
-  moveSpec,
-  pictureSolved,
-  rotatePoint,
+apply,
+colorSolved,moveSpec,
+pictureSolved,
+rotatePoint
 } from './model';
 import { shortSolution } from './short-search';
 import { solveSmallOrMinx } from './solver-bridge';
-import { simplifyMoves, solveReduction } from './reduction-solver';
-import type { Definition, Message, PuzzleState, Stage } from './types';
+import { simplifyMoves,solveReduction } from './reduction-solver';
+import type { Definition,Message,PuzzleState,Stage } from './types';
 
 function minxFrame(def: Definition, state: PuzzleState) {
   const centers = def.pieces.flatMap((p, i) =>

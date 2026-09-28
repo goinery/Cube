@@ -1,30 +1,26 @@
-'use client';
-import { i18n, tx, useLanguage } from '@/lib/i18n';
+import { i18n,tx,useLanguage } from '@/lib/i18n';
 import { alignCube } from '@/lib/cube/store';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo,useEffect,useRef,useState } from 'react';
 import {
-  Zap,
-  Route,
-  GraduationCap,
-  ArrowUpRight,
-  LoaderCircle,
-  X,
-  CheckCircle2,
+ArrowUpRight,
+LoaderCircle,
+X,
+CheckCircle2
 } from 'lucide-react';
 import {
-  useCube,
-  patch,
-  notify,
-  loadPlayer,
-  play,
-  pause,
-  getState,
+useCube,
+patch,
+notify,
+loadPlayer,
+play,
+pause,
+getState,
 } from '@/lib/cube/store';
-import { checkBeforeSolve, type Preflight } from '@/lib/cube/preflight';
+import { checkBeforeSolve,type Preflight } from '@/lib/cube/preflight';
 import type { CubeState } from '@/lib/cube/model';
 import type { Appearance } from '@/lib/cube/appearance';
-import type { Solution, SolveMode } from '@/lib/cube/solver-core';
-import { Toggle } from './Controls';
+import type { Solution,SolveMode } from '@/lib/cube/solver-core';
+import { Toggle } from '@/components/workspace/Controls';
 import Player from './Player';
 interface Blocked {
   report: Preflight;

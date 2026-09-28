@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect,useRef } from 'react';
 import { Vector3 } from 'three';
-import { bounds, hitTile, paintFace, path } from '@/lib/puzzle/appearance';
-import { facePoint } from '@/lib/puzzle/geometry';
+import { bounds,hitTile,paintFace,path } from '@/lib/puzzle/appearance';
 import { unfoldedNet } from '@/lib/puzzle/layout';
-import { useSession, useFaceAnchors, type Session } from '@/lib/puzzle/session';
+import { useSession,useFaceAnchors,type Session } from '@/lib/puzzle/session';
 import { useTranslation } from '@/lib/i18n';
 
 export function FaceCanvas({

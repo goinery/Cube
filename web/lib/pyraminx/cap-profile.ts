@@ -1,6 +1,6 @@
-import { Vector2, Vector3 } from 'three';
-import { CAP_INSET, insetCapOutline } from '../rendering/cap-seams';
-import { PIECES, VERTICES, type Tile } from './model';
+import { Vector2,Vector3 } from 'three';
+import { CAP_INSET,insetCapOutline } from '../rendering/cap-seams';
+import { PIECES,VERTICES,type Tile } from './model';
 
 // Measured against .local/images/正视图.png: the tip seam is slightly
 // above one third; the six centre-facing corners have much larger fillets.

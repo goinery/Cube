@@ -1,50 +1,50 @@
-'use client';
+import { resizeView } from '@/lib/rendering/camera';
 import StudioLoading from '../workspace/StudioLoading';
 import { finishStudioStartup } from '@/lib/rendering/startup';
-import { fitDistance, heldAngle, stepMagnet } from '@/lib/cube/interaction';
-import { FACE, moveSpec, type Vec } from '@/lib/cube/model';
+import { fitDistance,heldAngle,stepMagnet } from '@/lib/cube/interaction';
+import { FACE,moveSpec,type Vec } from '@/lib/cube/model';
 import {
-  cameraActions,
-  finishLayerTurn,
-  getState,
-  notify,
-  patch,
-  setAlignmentAnimator,
-  setAnimator,
-  setSettlingReader,
-  subscribe,
+cameraActions,
+finishLayerTurn,
+getState,
+notify,
+patch,
+setAlignmentAnimator,
+setAnimator,
+setSettlingReader,
+subscribe,
 } from '@/lib/cube/store';
 import {
-  createCubeInteraction,
-  type Drag,
-  type LayerAnimation,
+createCubeInteraction,
+type Drag,
+type LayerAnimation,
 } from '@/lib/cube/viewport-interaction';
-import { basisQuaternion, createCubeLayout } from '@/lib/cube/viewport-layout';
+import { basisQuaternion,createCubeLayout } from '@/lib/cube/viewport-layout';
 import { createCubeModel } from '@/lib/cube/viewport-model';
 import { createCubeSurface } from '@/lib/cube/viewport-surface';
-import { i18n, tx, useLanguage } from '@/lib/i18n';
-import { PUZZLE_DEFAULTS, STUDIO_DEFAULTS } from '@/lib/puzzle-config';
+import { i18n,tx,useLanguage } from '@/lib/i18n';
+import { PUZZLE_DEFAULTS,STUDIO_DEFAULTS } from '@/lib/puzzle-config';
 import {
-  lightDirection,
-  lightRotation,
-  PRODUCT_DIRECTION,
-  PRODUCT_OCCUPANCY,
-  rotateView,
-  transitionView,
-  updateDepthRange,
+lightDirection,
+lightRotation,
+PRODUCT_DIRECTION,
+PRODUCT_OCCUPANCY,
+rotateView,
+transitionView,
+updateDepthRange,
 } from '@/lib/rendering/camera';
 import { createFrameLoop } from '@/lib/rendering/frame-loop';
 import { MinimalRenderer } from '@/lib/rendering/minimal';
 import {
-  attachOptimizer,
-  createPuzzleOptimizer,
-  createRenderer,
-  createStudio,
-  pixelRatio,
-  renderOverlay,
+attachOptimizer,
+createPuzzleOptimizer,
+createRenderer,
+createStudio,
+pixelRatio,
+renderOverlay,
 } from '@/lib/rendering/viewport';
 import { warmRenderer } from '@/lib/rendering/warmup';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo,useEffect,useRef,useState } from 'react';
 import * as T from 'three';
 const v3 = (v: Vec) => new T.Vector3(...v);
 export default memo(function Viewport() {
@@ -160,6 +160,8 @@ export default memo(function Viewport() {
     );
     function prepareTurn(token?: string) {
       const spec = token ? moveSpec(token) : null;
+      // Iterate a snapshot because settling can remove items from the collection.
+      // oxlint-disable-next-line unicorn/no-useless-spread
       for (const a of [...settlements]) {
         if (
           spec &&
@@ -358,13 +360,24 @@ export default memo(function Viewport() {
       }
       moveCameraToFit(camera.position.clone().sub(controls.target), [mesh]);
     };
+    let sized = false;
     const resize = () => {
       const w = el.clientWidth,
         h = el.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+      if (sized) {
+        const box = boundsOf([...models.values()].map((m) => m.root));
+        const target = targetLookAt ?? controls.target;
+        if (targetCamera) camera.position.copy(targetCamera);
+        resizeView(camera, target, w / h, () => fitDistance(camera, box, camera.position.clone().sub(target), target, PRODUCT_OCCUPANCY));
+        controls.target.copy(target);
+        targetCamera = targetLookAt = null;
+      } else {
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      sized = true;
       invalidate();
     };
     const observer = new ResizeObserver(resize);
@@ -429,6 +442,8 @@ export default memo(function Viewport() {
     const minimal = new MinimalRenderer([scene], stickers.values());
     function render(now: number, dt: number) {
       if (disposed || warming) return;
+      // Iterate a snapshot because settling can remove items from the collection.
+      // oxlint-disable-next-line unicorn/no-useless-spread
       for (const a of [...settlements]) {
         const settings = getState().settings;
         const t = T.MathUtils.smoothstep(now, a.start, a.start + a.duration);

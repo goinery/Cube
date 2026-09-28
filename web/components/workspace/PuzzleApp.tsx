@@ -1,32 +1,32 @@
+import Notice from '@/components/workspace/Notice';
+import CameraControls from './CameraControls';
 import StageStatus from './StageStatus';
 import { assemblyDefaults } from '@/lib/puzzle-config';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect,useMemo,useState } from 'react';
 import {
-  Move3D,
-  Expand,
-  Copy,
-  Focus,
-  RotateCcw,
-  Shuffle,
-  Undo2,
-  Redo2,
-  MousePointer2,
+Copy,
+Focus,
+RotateCcw,
+Shuffle,
+Undo2,
+Redo2,
+MousePointer2
 } from 'lucide-react';
 import type { PuzzleType } from '../cube/PuzzleSwitcher';
 import WorkspaceHeader from './WorkspaceHeader';
-import WorkspacePanel, { useWorkspacePanel } from './WorkspacePanel';
-import { Range, Choice, Toggle } from '../cube/Controls';
+import WorkspacePanel,{ useWorkspacePanel } from './WorkspacePanel';
+import { Range,Choice,Toggle } from '@/components/workspace/Controls';
 import { useTranslation } from '@/lib/i18n';
-import { getSession, useSession } from '@/lib/puzzle/session';
-import { colorSolved, scramble } from '@/lib/puzzle/model';
-import { restore, save, setAutoSave, watch } from '@/lib/puzzle/persistence';
+import { getSession,useSession } from '@/lib/puzzle/session';
+import { colorSolved,scramble } from '@/lib/puzzle/model';
+import { restore,save,setAutoSave,watch } from '@/lib/puzzle/persistence';
 import { registerPuzzleTools } from '@/lib/puzzle/webmcp';
-import { keyboardShortcut, shouldIgnoreShortcut } from '@/lib/cube/keybindings';
+import { keyboardShortcut,shouldIgnoreShortcut } from '@/lib/workspace/keybindings';
 import type { PuzzleId } from '@/lib/puzzle/types';
 import PuzzleViewport from './PuzzleViewport';
 import { FaceMaps } from './FaceCanvas';
 import CustomizePanel from './CustomizePanel';
-import { AlgorithmPanel, KeybindingsPanel, SolverPanel } from './Panels';
+import { AlgorithmPanel,KeybindingsPanel,SolverPanel } from './Panels';
 
 export default function PuzzleApp({
   id,
@@ -160,7 +160,7 @@ export default function PuzzleApp({
           <div className="stage-bottom">
             <div className="interaction-hint">
               <MousePointer2 size={15} />
-              <span>{t('camera.hint')}</span>
+              <span>{t(s.mode === 'customize' ? 'camera.customizeHint' : 'camera.hint')}</span>
             </div>
             <div className="camera-buttons">
               <button
@@ -485,81 +485,7 @@ export default function PuzzleApp({
                 </button>
               ))}
             </div>
-            <button
-              className="wide-button"
-              onClick={() => session.camera.reset()}
-            >
-              {t('camera.reset')}
-              <Move3D size={18} />
-            </button>
-            <button
-              className="wide-button"
-              onClick={() => session.camera.focus()}
-            >
-              {t('camera.focus')}
-              <Focus size={18} />
-            </button>
-            <button
-              className="wide-button"
-              onClick={() => session.camera.fit()}
-            >
-              {t('camera.fit')}
-              <Focus size={18} />
-            </button>
-            <button
-              className="wide-button"
-              onClick={() => session.presentation(true)}
-            >
-              {t('app.presentation')}
-              <Expand size={16} />
-            </button>
-            <Toggle
-              label={t('camera.auto')}
-              value={s.settings.autoRotate}
-              onChange={(autoRotate) => session.settings({ autoRotate })}
-            />
-            {range('camera.roughness', 'roughness', 0.05, 0.9)}
-            <section className="panel-section">
-              <h3>{t('camera.light')}</h3>
-              <Toggle
-                label={t('camera.follow')}
-                value={s.settings.lightFollowCamera}
-                onChange={(lightFollowCamera) =>
-                  session.settings({ lightFollowCamera })
-                }
-              />
-              {range('camera.azimuth', 'lightAzimuth', -180, 180, 1, 0, '°')}
-              {range('camera.elevation', 'lightElevation', -90, 90, 1, 0, '°')}
-              {range('camera.intensity', 'lightIntensity', 0, 6)}
-            </section>
-            <Choice
-              disabled={s.solving}
-              label={t('camera.quality')}
-              value={s.settings.quality}
-              options={['auto', 'high', 'low'].map((q) => [
-                q,
-                t(q === 'auto' ? 'camera.adaptive' : `camera.${q}`),
-              ])}
-              onChange={(quality) =>
-                session.settings({
-                  quality: quality as typeof s.settings.quality,
-                })
-              }
-            />
-            <Choice
-              disabled={s.solving}
-              label={t('motion.easing')}
-              value={s.settings.easing}
-              options={['smooth', 'magnetic', 'linear'].map((q) => [
-                q,
-                t(`motion.${q}`),
-              ])}
-              onChange={(easing) =>
-                session.settings({
-                  easing: easing as typeof s.settings.easing,
-                })
-              }
-            />
+            <CameraControls value={s.settings} onChange={(update) => session.settings(update)} actions={session.camera} onPresentation={() => session.presentation(true)} disabled={s.solving} limits={{roughness:[0.05,0.9],elevation:[-90,90],intensity:6}}/>
           </div>
           <div data-section="inspect" className="panel-block">
             <div className="inspection-state">
@@ -644,9 +570,7 @@ export default function PuzzleApp({
           )}
         </WorkspacePanel>
       </div>
-      {s.notice && (
-        <output className="toast">{t(s.notice.key, s.notice.params)}</output>
-      )}
+      <Notice message={s.notice ? t(s.notice.key, s.notice.params) : null}/>
     </main>
   );
 }
