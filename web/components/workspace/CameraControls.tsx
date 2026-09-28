@@ -1,6 +1,6 @@
 import { Expand,Focus,Move3D } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import type { PuzzleSettings } from '@/lib/puzzle-config';
+import type { PuzzleSettings } from '@/puzzles/config';
 import { Choice,Range,Toggle } from './Controls';
 export function EasingControl({value, onChange, disabled}: {value: PuzzleSettings['easing']; onChange: (easing: PuzzleSettings['easing']) => void; disabled?: boolean}) {
   const {t} = useTranslation();

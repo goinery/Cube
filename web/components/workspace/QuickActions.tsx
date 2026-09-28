@@ -1,4 +1,4 @@
-import { AlignCenter, RotateCcw, Shuffle } from 'lucide-react';
+import { AlignCenter, Redo2, RotateCcw, Shuffle, Undo2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 
 export default function QuickActions({
@@ -27,6 +27,23 @@ export default function QuickActions({
         <RotateCcw size={16} />
         {t('motion.reset')}
       </button>
+    </div>
+  );
+}
+
+export function HistoryActions({ cursor, length, disabled, onUndo, onRedo }: {
+  cursor: number;
+  length: number;
+  disabled: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="history-actions">
+      <button disabled={disabled || !cursor} onClick={onUndo}><Undo2 size={16} />{t('motion.undo')}</button>
+      <button disabled={disabled || cursor === length} onClick={onRedo}><Redo2 size={16} />{t('motion.redo')}</button>
+      <span>{cursor} / {length}</span>
     </div>
   );
 }

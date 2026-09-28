@@ -1,4 +1,4 @@
-import { STUDIO_DEFAULTS } from '../puzzle-config';
+import { STUDIO_DEFAULTS } from '@/puzzles/config';
 
 /** One outstanding frame, no background work, and no idle time added to animation. */
 export function createFrameLoop(render: (now: number, dt: number) => void) {

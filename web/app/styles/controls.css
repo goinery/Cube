@@ -110,6 +110,7 @@
 }
 .quick-actions svg {
   flex-shrink: 0;
+  margin-left: 0;
 }
 .history-actions {
   display: flex;

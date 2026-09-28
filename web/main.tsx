@@ -1,8 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import WorkspaceApp from './components/cube/WorkspaceApp';
+import WorkspaceApp from './app/WorkspaceApp';
 import './app/globals.css';
-import './app/puzzles.css';
+import './puzzles/engine/styles.css';
 import { t } from './lib/i18n';
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },

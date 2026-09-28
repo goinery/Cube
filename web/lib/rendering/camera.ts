@@ -1,4 +1,4 @@
-import { PUZZLE_DEFAULTS,STUDIO_DEFAULTS } from '@/lib/puzzle-config';
+import { PUZZLE_DEFAULTS,STUDIO_DEFAULTS } from '@/puzzles/config';
 import { Box3,MathUtils,PerspectiveCamera,Quaternion,Vector3 } from 'three';
 
 const depthCenter = new Vector3(),
@@ -116,4 +116,41 @@ export function resizeView(camera: PerspectiveCamera, target: Vector3, aspect: n
   if (before > 0 && Number.isFinite(after))
     camera.position.copy(target).add(offset.multiplyScalar(after / before));
   camera.updateMatrixWorld();
+}
+
+export function fitDistance(
+  camera: PerspectiveCamera,
+  box: Box3,
+  direction: Vector3,
+  target: Vector3,
+  occupancy = 0.75,
+): number {
+  const c = camera.clone(),
+    corners: Vector3[] = [];
+  for (const x of [box.min.x, box.max.x])
+    for (const y of [box.min.y, box.max.y])
+      for (const z of [box.min.z, box.max.z])
+        corners.push(new Vector3(x, y, z));
+  const d = direction.clone().normalize();
+  let low = 0.015,
+    high = 150;
+  for (let i = 0; i < 34; i++) {
+    const distance = (low + high) / 2;
+    c.position.copy(target).addScaledVector(d, distance);
+    c.lookAt(target);
+    c.updateMatrixWorld(true);
+    let fill = 0;
+    for (const corner of corners) {
+      const view = corner.clone().applyMatrix4(c.matrixWorldInverse);
+      if (view.z >= -0.01) {
+        fill = Infinity;
+        break;
+      }
+      const p = corner.clone().project(c);
+      fill = Math.max(fill, Math.abs(p.x), Math.abs(p.y));
+    }
+    if (fill > occupancy) low = distance;
+    else high = distance;
+  }
+  return high;
 }

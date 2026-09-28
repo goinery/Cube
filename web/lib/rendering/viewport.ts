@@ -5,8 +5,8 @@ PUZZLE_DEFAULTS,
 type CameraDefaults,
 type Quality,
 type StudioPuzzleId,
-} from '../puzzle-config';
-import type { FaceDefinition } from '../puzzle/types';
+} from '@/puzzles/config';
+import type { FaceDefinition } from '@/puzzles/engine/types';
 import { RenderOptimizer } from './render-optimizer';
 import { StudioEnvironment,createContactShadow } from './studio';
 

@@ -16,12 +16,11 @@
 @import './styles/refinements.css';
 @import './styles/projections.css';
 @import './styles/status.css';
-@import './styles/pyraminx.css';
+@import '../puzzles/pyraminx/styles.css';
 /* Generate utilities for the studio and the UI primitives it actually uses. */
 @source '../main.tsx';
 @source '../index.html';
-@source '../components/cube';
-@source '../components/pyraminx';
+@source '../puzzles';
 @source '../components/workspace';
 @source '../components/ui/select.tsx';
 @source '../components/ui/slider.tsx';

@@ -1,5 +1,5 @@
 import { Camera,Scene,WebGLRenderer,WebGLRenderTarget } from 'three';
-import type { RenderOptimizer } from '../rendering/render-optimizer';
+import type { RenderOptimizer } from './render-optimizer';
 import { hasStudioStarted } from './startup';
 
 export async function warmRenderer(
