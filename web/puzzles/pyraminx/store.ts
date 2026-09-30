@@ -212,6 +212,25 @@ export function pause() {
   generation++;
   if (state.player) patch({ player: { ...state.player, playing: false } });
 }
+export async function runQuickAction(action: () => void | Promise<unknown>) {
+  if (state.solving || state.dragging) return;
+  pause();
+  const token = generation;
+  if (state.busy)
+    await new Promise<void>((resolve) => {
+      const unsubscribe = subscribe(() => {
+        if (state.busy && !state.solving) return;
+        unsubscribe();
+        resolve();
+      });
+    });
+  if (token !== generation || state.solving || state.dragging) return;
+  try {
+    await action();
+  } catch {
+    notify(tx('common.error'));
+  }
+}
 export function canAlign(partials = state.partials) {
   return partials.every(
     (p) =>

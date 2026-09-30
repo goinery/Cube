@@ -313,6 +313,26 @@ export function pause() {
   playGeneration++;
   if (state.player) patch({ player: { ...state.player, playing: false } });
 }
+export async function runQuickAction(action: () => void | Promise<unknown>) {
+  if (state.solving || state.dragging) return;
+  pause();
+  manualQueue.length = 0;
+  const generation = playGeneration;
+  if (state.busy)
+    await new Promise<void>((resolve) => {
+      const unsubscribe = subscribe(() => {
+        if (state.busy && !state.solving) return;
+        unsubscribe();
+        resolve();
+      });
+    });
+  if (generation !== playGeneration || state.solving || state.dragging) return;
+  try {
+    await action();
+  } catch {
+    notify(tx('common.error'));
+  }
+}
 export async function perform(
   token: string,
   source: 'manual' | 'player' | 'undo' | 'redo' = 'manual',

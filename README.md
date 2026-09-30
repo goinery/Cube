@@ -30,3 +30,4 @@ npm run dev
 所有加载阶段共用 `web/components/workspace/loading.html` 模板和 `web/app/styles/loading.css`，包括 JavaScript 启动前的页面、魔方切换和模型准备阶段。
 
 临时检查脚本、截图和性能输出放在已忽略的 `.local/` 中。构建产物、依赖目录和本地数据不提交到 Git。
+.local目录下不能散落文件，必须相应新建文件夹

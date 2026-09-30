@@ -61,6 +61,7 @@ next,
 notify,
 patch,
 pause,
+runQuickAction,
 perform,
 play,
 previous,
@@ -118,8 +119,8 @@ export default function PyraminxApp({
     return () => window.removeEventListener('keydown', key);
   }, []);
   async function newScramble() {
-    if (s.busy || s.solving) return;
-    if (!(await align())) return;
+    if (getState().solving) return;
+    if (!(await align(true))) return;
     const moves = scramble();
     patch({ scramble: moves.join(' ') });
     if (animated) {
@@ -218,13 +219,10 @@ export default function PyraminxApp({
           <section {...section('play')}>
             <MagneticControls value={s.settings} onChange={settings} disabled={s.solving} maxAngle={60} />
             <QuickActions
-              disabled={locked}
-              onScramble={newScramble}
-              onAlign={() => {
-                pause();
-                void align(true).catch(() => notify(tx('legacy.m487')));
-              }}
-              onReset={resetPuzzle}
+              disabled={s.solving || s.dragging}
+              onScramble={() => void runQuickAction(newScramble)}
+              onAlign={() => void runQuickAction(() => align(true))}
+              onReset={() => void runQuickAction(resetPuzzle)}
             />
             <HistoryActions cursor={s.cursor} length={s.history.length} disabled={locked} onUndo={() => { void undo(); }} onRedo={() => { void redo(); }} />
             <Toggle
@@ -303,22 +301,6 @@ export default function PyraminxApp({
           </section>
           <section {...section('explode')}>
             <AssemblyControls puzzle="pyraminx" value={s.settings} onChange={settings} disabled={s.solving} onReset={() => cameraActions.reset()} />
-            <div className="part-legend">
-              <h3>{tx('legacy.m108')}</h3>
-              {[
-                [tx('legacy.m345'), 4],
-                [tx('legacy.m346'), 4],
-                [tx('legacy.m347'), 6],
-                [tx('legacy.m348'), 36],
-                [tx('legacy.m349'), 4],
-              ].map(([label, count]) => (
-                <p key={label}>
-                  <i style={{ background: '#c7d5ad' }} />
-                  {label}
-                  <span>{count}</span>
-                </p>
-              ))}
-            </div>
           </section>
           <section {...section('customize')}>
             <CustomizePanel />

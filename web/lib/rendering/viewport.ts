@@ -50,6 +50,25 @@ export function initialView(
   const preset: CameraDefaults = PUZZLE_DEFAULTS[id].camera;
   const direction = new T.Vector3(...preset.direction).normalize();
   const up = new T.Vector3(...preset.up).normalize();
+  if (preset.corner) {
+    const normals = preset.corner.map((id) => {
+      const face = faces.find((face) => face.id === id);
+      if (!face) throw new Error(`Missing initial camera face: ${id}`);
+      return new T.Vector3(...face.normal);
+    });
+    // Adjacent face normals sum to the shared corner's radial direction.
+    direction.copy(normals[0]).add(normals[1]).add(normals[2]).normalize();
+    if (preset.horizontalEdge) {
+      const [lower, upper] = preset.horizontalEdge.map((id) => {
+        const face = faces.find((face) => face.id === id);
+        if (!face) throw new Error(`Missing initial camera face: ${id}`);
+        return new T.Vector3(...face.normal);
+      });
+      const edge = lower.clone().cross(upper).normalize();
+      up.crossVectors(direction, edge).normalize();
+      if (up.dot(upper) < 0) up.negate();
+    }
+  }
   if (preset.face) {
     const face = faces.find((face) => face.id === preset.face);
     if (!face) throw new Error(`Missing initial camera face: ${preset.face}`);

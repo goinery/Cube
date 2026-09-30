@@ -173,9 +173,11 @@ export default function PuzzleApp({
           <div data-section="play" className="panel-block">
             <MagneticControls value={s.settings} onChange={(patch) => session.settings(patch)} disabled={s.solving} maxAngle={(session.def.step * 90) / Math.PI} />
             <QuickActions
-              disabled={locked || session.motion.dragging}
+              disabled={s.solving || session.motion.dragging}
               onScramble={() => {
-                  if (locked) return;
+                  if (s.solving || session.motion.dragging) return;
+                  session.pause();
+                  session.motion.align(true);
                   const moves = scramble(session.def);
                   session.rememberScramble(moves);
                   session.patch({ scramble: moves.join(' ') });
@@ -301,35 +303,6 @@ export default function PuzzleApp({
           </div>
           <div data-section="explode" className="panel-block">
             <AssemblyControls puzzle={session.def.id} value={s.settings} onChange={(patch) => session.settings(patch)} disabled={s.solving} onExplode={() => session.camera.fit()} onReset={() => setTimeout(() => session.camera.fit(), 350)} limits={{ internal: 3, gap: 0.2, gapStep: 0.002, size: 1.2, stickerOffset: 0.4 }} />
-            <div className="part-legend">
-              <h3>{t('explode.parts')}</h3>
-              <p>
-                {t('explode.shells')}
-                <span>{session.def.tiles.length}</span>
-              </p>
-              {[...new Set(session.def.pieces.map((p) => p.kind))].map(
-                (kind) => (
-                  <p key={kind}>
-                    {t(`puzzle.${kind}`)}
-                    <span>
-                      {session.def.pieces.filter((p) => p.kind === kind).length}
-                    </span>
-                  </p>
-                ),
-              )}
-              <p>
-                {t('explode.honeycomb')}
-                <span>{session.def.pieces.length}</span>
-              </p>
-              <p>
-                {t('explode.tension')}
-                <span>{session.def.faces.length}</span>
-              </p>
-              <p>
-                {t('explode.core')}
-                <span>1</span>
-              </p>
-            </div>
           </div>
           <div
             data-section="customize"

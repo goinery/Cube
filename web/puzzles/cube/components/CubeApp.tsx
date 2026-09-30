@@ -38,6 +38,7 @@ import {
 useCube,
 getState,
 pause,
+runQuickAction,
 patch,
 settings,
 setPresentation,
@@ -75,6 +76,7 @@ export default function CubeApp({
       'cube',
       'partialTurns',
       'busy',
+      'dragging',
       'solving',
       'mode',
       'player',
@@ -144,8 +146,9 @@ export default function CubeApp({
       notify(tx('legacy.m036'));
     } else notify(tx('legacy.m037'));
   }
-  function newScramble() {
-    if (s.busy || s.solving) return;
+  async function newScramble() {
+    if (getState().solving) return;
+    await alignCube();
     const moves = scramble();
     if (!allowMoves(moves)) return;
     patch({
@@ -155,7 +158,7 @@ export default function CubeApp({
     if (animateScramble) {
       loadPlayer(moves, 'Scramble');
       void play();
-    } else applyInstant(moves, 'Scramble');
+    } else await applyInstant(moves, 'Scramble');
   }
   const solved = !s.partialTurns && isSolved(s.cube),
     locked = s.busy || s.solving,
@@ -268,13 +271,10 @@ export default function CubeApp({
 </MagneticControls>
             <>
               <QuickActions
-                disabled={locked}
-                onScramble={newScramble}
-                onAlign={() => {
-                  pause();
-                  void alignCube().catch(() => notify(tx('legacy.m487')));
-                }}
-                onReset={resetCube}
+                disabled={s.solving || s.dragging}
+                onScramble={() => void runQuickAction(newScramble)}
+                onAlign={() => void runQuickAction(alignCube)}
+                onReset={() => void runQuickAction(resetCube)}
               />
               <HistoryActions cursor={s.cursor} length={s.history.length} disabled={locked} onUndo={() => { void undo(); }} onRedo={() => { void redo(); }} />
               <Toggle
@@ -356,34 +356,6 @@ export default function CubeApp({
           <section {...blockProps('explode')}>
             <>
             <AssemblyControls puzzle="cube" value={s.settings} onChange={settings} disabled={s.solving} onExplode={() => setTimeout(() => cameraActions.fit(), 30)} onReset={() => setTimeout(() => cameraActions.reset(), 30)} />
-            <div className="part-legend">
-                <h3>{tx('legacy.m108')}</h3>
-                <p>
-                  <i style={{ background: '#cccfbd' }} />
-                  {tx('legacy.m109')}
-                  <span>54</span>
-                </p>
-                <p>
-                  <i style={{ background: '#5e6870' }} />
-                  {tx('legacy.m110')}
-                  <span>8 / 12</span>
-                </p>
-                <p>
-                  <i style={{ background: '#b7c4cd' }} />
-                  {tx('legacy.m111')}
-                  <span>48 / 16</span>
-                </p>
-                <p>
-                  <i style={{ background: '#b1c5a2' }} />
-                  {tx('legacy.m112')}
-                  <span>6</span>
-                </p>
-                <p>
-                  <i style={{ background: '#333f4a' }} />
-                  {tx('legacy.m113')}
-                  <span>1</span>
-                </p>
-              </div>
             </>
           </section>
           <section {...blockProps('customize')}>
