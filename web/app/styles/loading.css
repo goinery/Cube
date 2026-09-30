@@ -4,8 +4,8 @@
   z-index: 1000;
   display: grid;
   place-items: center;
-  background: #191d1e;
-  color: #c7d5ad;
+  background: #1c1c1c;
+  color: #dedede;
   font-family: system-ui, sans-serif;
   text-align: center;
 }
@@ -29,7 +29,7 @@
   padding-left: 6px;
 }
 .studio-loading span {
-  color: #97a18f;
+  color: #9e9e9e;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -38,14 +38,14 @@
   height: 2px;
   margin-top: 8px;
   overflow: hidden;
-  background: #c7d5ad1a;
+  background: #dedede1a;
   border-radius: 2px;
 }
 .studio-loading-track i {
   display: block;
   width: 50%;
   height: 100%;
-  background: #c7d5ad;
+  background: #dedede;
   animation: studio-loading-progress 1.2s ease-in-out infinite alternate;
 }
 @keyframes studio-loading-progress {

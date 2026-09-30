@@ -132,9 +132,9 @@ export default memo(function PyraminxViewport() {
     el.append(canvas, maps);
     const defaults = PUZZLE_DEFAULTS.pyraminx;
     const studio = createStudio(renderer, 'pyraminx');
-    const { scene, camera, target, rig: lights, key, contact: shadow } = studio;
+    const { scene, camera, target, rig: lights, key } = studio;
     // Model matrices are updated by updateModel; camera-only frames need only
-    // the light rig and contact plane, not another traversal of every piece.
+    // the light rig, not another traversal of every piece.
     scene.matrixWorldAutoUpdate = false;
     const model = createModel(renderer.capabilities.getMaxAnisotropy());
     scene.add(model.root);
@@ -161,8 +161,7 @@ export default memo(function PyraminxViewport() {
       previousTurnLayer = '',
       previousAlignment = -1;
     const surfaceBounds = new T.Box3(),
-      meshBounds = new T.Box3(),
-      surfaceSize = new T.Vector3();
+      meshBounds = new T.Box3();
     const loop = createFrameLoop(render),
       invalidate = loop.invalidate;
     const surface = createPyraminxSurface(
@@ -451,17 +450,8 @@ export default memo(function PyraminxViewport() {
               .copy(mesh.geometry.boundingBox!)
               .applyMatrix4(mesh.matrixWorld),
           );
-        surfaceBounds.getSize(surfaceSize);
-        shadow.position.y = surfaceBounds.min.y - 0.08;
-        shadow.scale.set(
-          (surfaceSize.x * 1.5) / defaults.render.contactSize,
-          (surfaceSize.z * 1.5) / defaults.render.contactSize,
-          1,
-        );
         surfaceBoundsDirty = false;
       }
-      shadow.material.opacity =
-        defaults.render.contactOpacity / (1 + displayedSettings.explode);
       updateDepthRange(camera, surfaceBounds);
       canvas.style.opacity = String(1 - viewWeights.net);
       canvas.style.visibility = viewWeights.net === 1 ? 'hidden' : 'visible';
@@ -475,7 +465,6 @@ export default memo(function PyraminxViewport() {
       const minimalMoving = minimal.update(s.settings.minimal, dt);
       if (canvas.style.visibility !== 'hidden') {
         lights.updateMatrixWorld();
-        shadow.updateMatrixWorld();
         optimizer.prepareCamera(camera);
         renderer.render(scene, camera);
         if (viewWeights.hidden > 0) {

@@ -179,7 +179,7 @@ export async function paintSticker(
       ctx.translate(size / 2, size / 2);
       ctx.rotate((art.rotation * Math.PI) / 180);
       ctx.scale(size / 256, size / 256);
-      ctx.strokeStyle = '#536054';
+      ctx.strokeStyle = '#5c5c5c';
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.moveTo(-26, 22);

@@ -69,14 +69,14 @@ export default function ImagePreviewDialog({
         if (!active || !canvas) return;
         canvas.width = canvas.height = 540;
         const ctx = canvas.getContext('2d')!;
-        ctx.fillStyle = '#15191a';
+        ctx.fillStyle = '#181818';
         ctx.fillRect(0, 0, 540, 540);
         tiles.forEach((tile, i) => {
           const x = (i % 3) * 180,
             y = Math.floor(i / 3) * 180;
           ctx.drawImage(tile, x + 3, y + 3, 174, 174);
           if (group.members.includes(ids[i])) {
-            ctx.strokeStyle = '#e4f3c6';
+            ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2;
             ctx.setLineDash([8, 6]);
             ctx.strokeRect(x + 3, y + 3, 174, 174);

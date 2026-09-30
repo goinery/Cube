@@ -140,7 +140,7 @@ export async function paintFace(
     ((rect.y + rect.h) * resolution) / rect.w,
   );
   path(ctx, face.outline);
-  ctx.fillStyle = '#101214';
+  ctx.fillStyle = '#121212';
   ctx.fill();
   for (const tile of tiles) {
     const art = appearance.tiles[tile.id];
@@ -159,7 +159,7 @@ export async function paintFace(
     ctx.restore();
     if (selected.includes(tile.id)) {
       path(ctx, tile.outline);
-      ctx.strokeStyle = '#e7fac3';
+      ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = (rect.w / resolution) * 2;
       ctx.setLineDash([rect.w * 0.02, rect.w * 0.01]);
       ctx.stroke();

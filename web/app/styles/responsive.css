@@ -178,7 +178,7 @@
     height: var(--sheet-h, 43dvh);
     max-height: calc(100dvh - 58px - var(--stage-reserve, 300px));
     flex-shrink: 0;
-    border-top: 1px solid #48553d;
+    border-top: 1px solid #515151;
     border-radius: 19px 19px 0 0;
     margin-top: -8px;
     box-shadow: 0 -8px 35px #0002;
@@ -202,11 +202,11 @@
   .mobile-handle .handle-bar {
     width: 34px;
     height: 3px;
-    background: #5c7150;
+    background: #6a6a6a;
     border-radius: 3px;
   }
   .mobile-handle:active .handle-bar {
-    background: #7d9867;
+    background: #8f8f8f;
   }
   .panel-nav {
     padding: 0 13px 8px;
@@ -322,11 +322,11 @@
   .mobile-handle .handle-bar {
     width: 30px;
     height: 3px;
-    background: #5c7150;
+    background: #6a6a6a;
     border-radius: 3px;
   }
   .mobile-handle:active .handle-bar {
-    background: #7d9867;
+    background: #8f8f8f;
   }
   .stage {
     min-height: 0;

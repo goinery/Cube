@@ -25,7 +25,7 @@ export class MinimalRenderer {
     );
     roots.forEach((root) =>
       root.traverse((object) => {
-        if (!(object instanceof T.Mesh) || keep.has(object)) return;
+        if (!(object instanceof T.Mesh) || keep.has(object) || object.userData.selectionOutline) return;
         this.meshes.set(object, object.castShadow);
         for (const material of Array.isArray(object.material)
           ? object.material

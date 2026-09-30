@@ -1,53 +1,53 @@
 .panel-section textarea,
 .text-design input {
-  background: #15191a;
-  border-color: #3c4444;
+  background: #181818;
+  border-color: #424242;
 }
 .scramble-record {
-  background: #202626;
-  border-color: #384241;
+  background: #252525;
+  border-color: #404040;
 }
 
 .face-moves button {
-  background: #252a2b;
-  border-color: #3b4343;
+  background: #292929;
+  border-color: #414141;
 }
 .face-moves button:hover:not(:disabled) {
-  background: #313839;
+  background: #373737;
 }
 .scramble-record p,
 .help-text {
-  color: #a7b3aa;
+  color: #b0b0b0;
 }
 .microcopy {
-  color: #839189;
+  color: #8d8d8d;
 }
 .control-label,
 .toggle-control,
 .choice-control,
 .color-control {
-  color: #aeb8b0;
+  color: #b5b5b5;
 }
 .palette-presets button,
 .project-actions button,
 .camera-grid button {
-  border-color: #3e4845;
+  border-color: #464646;
 }
 .solver-options small,
 .stage-description p {
-  color: #95a296;
+  color: #9e9e9e;
 }
 .cfop-guide p {
-  color: #8d9b91;
+  color: #979797;
 }
 .panel-footer {
-  color: #748078;
+  color: #7d7d7d;
 }
 .source-image {
-  background: #24292a;
+  background: #282828;
 }
 .image-previews canvas {
-  background: #24292a;
+  background: #282828;
 }
 .panel-nav button {
   font-size: 12px;

@@ -81,7 +81,7 @@ export function FaceCanvas({
         (rect.y + rect.h) * scale,
       );
       path(ctx, targetFace.outline);
-      ctx.fillStyle = '#101315';
+      ctx.fillStyle = '#121212';
       ctx.fill();
       const right = new Vector3(...targetFace.right),
         up = new Vector3(...targetFace.up),
@@ -154,7 +154,7 @@ export function FaceCanvas({
         ctx.drawImage(source, box.x, -box.y - box.h, box.w, box.h);
         ctx.restore();
         if (session.state.selected.includes(tile.id)) {
-          ctx.strokeStyle = '#e7fac3';
+          ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 0.025;
           ctx.stroke(outline);
         }

@@ -99,19 +99,6 @@ export class StudioEnvironment extends Scene {
   }
 }
 
-export function createContactShadow() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext('2d')!;
-  const gradient = ctx.createRadialGradient(64, 64, 12, 64, 64, 64);
-  gradient.addColorStop(0, 'rgba(0,0,0,0.5)');
-  gradient.addColorStop(0.45, 'rgba(0,0,0,0.3)');
-  gradient.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 128, 128);
-  return new CanvasTexture(canvas);
-}
-
 export function createPlasticGrain(anisotropy: number) {
   const size = 128,
     noise = new Float32Array(size * size);

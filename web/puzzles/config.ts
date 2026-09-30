@@ -68,7 +68,6 @@ export const STUDIO_DEFAULTS = {
   fill: { color: 0xfffbf5, intensity: 1.2, position: [6, 1, 5] as Vector },
   rim: { color: 0xd6e5ff, intensity: 1.15, position: [4, 3, -5] as Vector },
   shadow: { normalBias: 0.008, bias: -0.00008, radius: 2.5, lowRadius: 1.5 },
-  ground: { color: '#101720', opacity: 0.1 },
   pixelRatio: { low: 1, high: 2, mobile: 1.5, desktop: 2 },
   mobileWidth: 760,
   frame: { initialDelta: 1 / 60, maxDelta: 0.05 },
@@ -114,10 +113,6 @@ const render = {
   mobileShadowResolution: 1024,
   lowShadowResolution: 512,
   shadowRadius: 1,
-  groundSize: 80,
-  groundY: -1.57,
-  contactSize: 5,
-  contactOpacity: 0.55,
   occlusion: 'coverage' as 'coverage' | 'hybrid',
 };
 export const PUZZLE_DEFAULTS = {
@@ -135,9 +130,6 @@ export const PUZZLE_DEFAULTS = {
       shadowExtent: 9,
       shadowResolution: 2048,
       shadowRadius: STUDIO_DEFAULTS.shadow.radius,
-      groundSize: 100,
-      groundY: -1.65,
-      contactSize: 1,
       occlusion: 'hybrid' as const,
     },
     editFace: 'F' as const,
@@ -168,7 +160,7 @@ export const PUZZLE_DEFAULTS = {
       corner: ['L', 'BL', 'FL'],
       horizontalEdge: ['L', 'BL'],
     },
-    render: { ...render, groundY: -1.98 },
+    render: { ...render },
     editFace: 'FL',
   },
   pyraminx: {
@@ -187,9 +179,6 @@ export const PUZZLE_DEFAULTS = {
     render: {
       ...render,
       shadows: false,
-      groundY: -0.89,
-      contactSize: 8,
-      contactOpacity: 0.22,
       occlusion: 'hybrid' as const,
     },
     editFace: 3,

@@ -25,19 +25,19 @@
 :root,
 .dark {
   color-scheme: dark;
-  --background: #151719;
-  --foreground: #e8e9e3;
-  --card: #1c1f21;
-  --popover: #25292b;
-  --primary: #c7d5ad;
-  --primary-foreground: #20271d;
-  --secondary: #292e30;
-  --muted: #33383a;
-  --muted-foreground: #969d9c;
-  --accent: #363f36;
-  --border: #34383a;
-  --input: #373c3e;
-  --ring: #b9c8a2;
+  --background: #171717;
+  --foreground: #e8e8e8;
+  --card: #1f1f1f;
+  --popover: #282828;
+  --primary: #dedede;
+  --primary-foreground: #252525;
+  --secondary: #2d2d2d;
+  --muted: #373737;
+  --muted-foreground: #9b9b9b;
+  --accent: #3c3c3c;
+  --border: #373737;
+  --input: #3b3b3b;
+  --ring: #c2c2c2;
   --radius: 10px;
 }
 * {

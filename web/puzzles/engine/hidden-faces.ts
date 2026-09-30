@@ -26,7 +26,7 @@ export class HiddenFaces {
       worldNormal: T.Vector3;
     }
   >();
-  private readonly selectionColor = new T.Color('#d5e6ae');
+  private readonly selectionColor = new T.Color('#f0f0f0');
   constructor(
     private def: Definition,
     private caps: Map<string, T.Mesh>,

@@ -296,9 +296,9 @@ export default function CustomizePanel({ session }: { session: Session }) {
     const c = document.createElement('canvas');
     c.width = c.height = 900;
     const ctx = c.getContext('2d')!;
-    ctx.fillStyle = first?.color || '#d7e0c1';
+    ctx.fillStyle = first?.color || '#dddddd';
     ctx.fillRect(0, 0, 900, 900);
-    ctx.fillStyle = '#252b27';
+    ctx.fillStyle = '#292929';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `600 ${Math.min(170, 700 / Math.max(1, text.length))}px sans-serif`;

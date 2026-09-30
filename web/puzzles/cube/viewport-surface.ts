@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { createSelectionOutlines } from '@/lib/rendering/selection';
 import { paintSticker,sameStickerArt,type Appearance } from './appearance';
 import { COLORS,FACE,FACES,type Face,type Vec } from './model';
 import { facesProjection,projectionTransform } from './projection';
@@ -96,21 +97,8 @@ export function createCubeSurface(
       }),
     );
   }
-  const outlineMaterial = new T.MeshBasicMaterial({
-    color: '#d5e6ae',
-    side: T.BackSide,
-    transparent: true,
-    opacity: 0.88,
-  });
-  const selectedOutlines = new Map<string, T.Mesh>();
-  for (const [id, mesh] of stickers) {
-    const outline = new T.Mesh(mesh.geometry, outlineMaterial);
-    outline.userData.ignoreBounds = true;
-    outline.scale.set(1.07, 1.07, 1.08);
-    outline.visible = false;
-    mesh.add(outline);
-    selectedOutlines.set(id, outline);
-  }
+  const selection = createSelectionOutlines(stickers);
+  const selectedOutlines = selection.outlines;
 
   function updateProjections(
     s: AppState,
@@ -219,6 +207,7 @@ export function createCubeSurface(
       return artVersion;
     },
     dispose() {
+      selection.dispose();
       textures.forEach((texture) => texture.dispose());
       ghostMaterials.forEach((material) => material.dispose());
     },

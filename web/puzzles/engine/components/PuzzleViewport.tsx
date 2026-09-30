@@ -4,7 +4,8 @@ import { fitDistance } from '@/lib/rendering/camera';
 import { i18n,t } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS,STUDIO_DEFAULTS } from '@/puzzles/config';
 import { paintFace } from '@/puzzles/engine/appearance';
-import { buildPuzzle } from '@/puzzles/engine/geometry';
+import { buildPuzzle, facePoint } from '@/puzzles/engine/geometry';
+import { createSelectionOutlines } from '@/lib/rendering/selection';
 import { HiddenFaces } from '@/puzzles/engine/hidden-faces';
 import type { Session } from '@/puzzles/engine/session';
 import { createPuzzleInteraction } from '@/puzzles/engine/viewport-interaction';
@@ -44,7 +45,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     const defaults = PUZZLE_DEFAULTS[def.id];
     el.appendChild(renderer.domElement);
     const studio = createStudio(renderer, def.id, def.faces);
-    const { scene, camera, target, rig, key, fill, rim, ground, contact } =
+    const { scene, camera, target, rig, key, fill, rim } =
       studio;
     const model = buildPuzzle(def, renderer.capabilities.getMaxAnisotropy());
     scene.add(model.root);
@@ -67,6 +68,13 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     let firstFrameReady = false,
       initialArtSettled = false;
     const hiddenMaps = new HiddenFaces(def, model.caps);
+    const tilesById = new Map(def.tiles.map((tile) => [tile.id, tile]));
+    const facesById = new Map(def.faces.map((face) => [face.id, face]));
+    const selection = createSelectionOutlines(model.caps, (id) => {
+      const tile = tilesById.get(id)!;
+      return facePoint(facesById.get(tile.face)!, tile.center)
+        .sub(new T.Vector3(...def.pieces[tile.piece].home));
+    });
     const minimal = new MinimalRenderer([scene], model.caps.values());
     scene.traverse((object) => {
       object.updateMatrix();
@@ -231,12 +239,8 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         const mat = mesh.material as T.MeshPhysicalMaterial;
         mat.roughness = damp(mat.roughness, settings.roughness, 10, dt);
         mat.clearcoatRoughness = 0.07 + mat.roughness * 0.25;
-        if (state.selected !== previousLayout?.selected)
-          mat.emissive.set(state.selected.includes(id) ? '#3b4724' : '#000000');
-        mat.emissiveIntensity = 0.2;
       });
-      contact.material.opacity =
-        defaults.render.contactOpacity / (1 + explode * 2);
+      if (state.selected !== previousLayout?.selected) selection.update(state.selected);
       previousLayout = state;
       wasMoving = session.motion.moving;
       return (
@@ -338,8 +342,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       camera.lookAt(target);
       camera.updateMatrixWorld();
       updateBounds();
-      const box = modelBounds,
-        floor = box.min.y - 0.065;
+      const box = modelBounds;
       const shadowRadius = Math.max(3, surface.length() / 2 + 0.5);
       if (shadowRadius !== previousShadowRadius) {
         previousShadowRadius = shadowRadius;
@@ -352,22 +355,6 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         key.shadow.camera.updateProjectionMatrix();
         renderer.shadowMap.needsUpdate = true;
       }
-      ground.position.y = Math.min(
-        floor,
-        T.MathUtils.damp(ground.position.y, floor, 10, dt),
-      );
-      contact.position.set(
-        (box.min.x + box.max.x) / 2,
-        ground.position.y + 0.002,
-        (box.min.z + box.max.z) / 2,
-      );
-      contact.scale.set(
-        (surface.x * 1.65) / defaults.render.contactSize,
-        (surface.z * 1.65) / defaults.render.contactSize,
-        1,
-      );
-      ground.updateMatrix();
-      contact.updateMatrix();
       scene.updateMatrixWorld();
       if (optimizerDirty) {
         optimizer.updateBounds();
@@ -406,7 +393,6 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         transitioning ||
         minimalMoving ||
         maps.moving ||
-        Math.abs(ground.position.y - floor) > 0.0001 ||
         Math.abs(key.intensity - settings.lightIntensity) > 0.001 ||
         rig.quaternion.angleTo(
           lightRotation(
@@ -590,6 +576,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
       canvas.removeEventListener('webglcontextlost', contextLost);
       canvas.remove();
       hiddenMaps.dispose();
+      selection.dispose();
       optimizer.dispose();
       model.dispose();
       textures.forEach((texture) => texture.dispose());

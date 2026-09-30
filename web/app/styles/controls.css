@@ -3,7 +3,7 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: #1b1e20;
+  background: #1e1e1e;
   z-index: 10;
 }
 .panel-nav {
@@ -20,12 +20,12 @@
   flex-direction: column;
   min-height: 53px;
   padding: 7px 2px;
-  color: #8b938e;
+  color: #919191;
   border-radius: 8px;
 }
 .panel-nav button.active {
   color: var(--primary);
-  background: #c7d5ad0c;
+  background: #dedede0c;
 }
 .panel-nav button:hover {
   background: #ffffff05;
@@ -37,7 +37,7 @@
   overscroll-behavior: contain;
   padding: 25px 25px 14px;
   scrollbar-width: thin;
-  scrollbar-color: #414742 transparent;
+  scrollbar-color: #454545 transparent;
 }
 .panel-block {
   padding-bottom: 26px;
@@ -65,26 +65,26 @@
 }
 .primary-button {
   background: var(--primary);
-  color: #263022;
+  color: #2d2d2d;
   flex: 1;
   font-weight: 550;
 }
 .primary-button:hover:not(:disabled) {
-  background: #d8e3c3;
-  color: #17210f;
+  background: #dedede;
+  color: #1e1e1e;
 }
 .primary-button svg:last-child {
   margin-left: auto;
 }
 .secondary-button {
-  border: 1px solid #454c43;
-  color: #bec7b8;
+  border: 1px solid #4a4a4a;
+  color: #c4c4c4;
 }
 .wide-button {
-  border: 1px solid #414941;
+  border: 1px solid #474747;
   justify-content: space-between;
   width: 100%;
-  color: #c3cbbd;
+  color: #c8c8c8;
   margin: 9px 0;
 }
 .wide-button:hover:not(:disabled),
@@ -92,9 +92,9 @@
   background: #ffffff06;
 }
 .wide-button.replay-stop {
-  border-color: #7f9a68;
-  background: #c7d5ad0f;
-  color: #c7d5ad;
+  border-color: #919191;
+  background: #dedede0f;
+  color: #dedede;
 }
 .quick-actions {
   display: grid;
@@ -120,14 +120,14 @@
   gap: 20px;
 }
 .history-actions button {
-  color: #a2ad9f;
+  color: #aaaaaa;
   font-size: 12px;
 }
 .history-actions span {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: #758272;
+  color: #7e7e7e;
 }
 .toggle-control {
   display: flex;
@@ -135,7 +135,7 @@
   justify-content: space-between;
   gap: 18px;
   font-size: 13px;
-  color: #aeb8a8;
+  color: #b5b5b5;
   min-height: 43px;
 }
 .toggle-control [data-slot='switch'] {
@@ -163,23 +163,23 @@
 h3 {
   font-size: 14px;
   font-weight: 500;
-  color: #d6ded1;
+  color: #dbdbdb;
 }
 .modifier-buttons {
   display: flex;
   gap: 2px;
-  border: 1px solid #3b4439;
+  border: 1px solid #414141;
   border-radius: 6px;
   padding: 2px;
 }
 .modifier-buttons button {
   padding: 3px 6px;
   font-size: 11px;
-  color: #879780;
+  color: #929292;
 }
 .modifier-buttons button.active {
-  background: #354130;
-  color: #d7e5cd;
+  background: #3d3d3d;
+  color: #e0e0e0;
   border-radius: 3px;
 }
 .face-moves {
@@ -190,15 +190,15 @@ h3 {
 .face-moves button {
   position: relative;
   height: 51px;
-  border: 1px solid #3c433a;
-  background: #252b25;
+  border: 1px solid #414141;
+  background: #292929;
   border-radius: 7px;
   flex-direction: column;
   gap: 7px;
 }
 .face-moves button:hover:not(:disabled) {
-  border-color: #909b87;
-  background: #303a2b;
+  border-color: #979797;
+  background: #373737;
 }
 .face-moves i {
   height: 3px;
@@ -212,7 +212,7 @@ h3 {
 }
 .microcopy {
   font-size: 11px;
-  color: #85927f;
+  color: #8e8e8e;
   line-height: 1.8;
   margin-top: 12px;
   display: flex;
@@ -222,13 +222,13 @@ h3 {
 .tag {
   font-size: 9px;
   letter-spacing: 1.1px;
-  color: #8b987f;
-  border: 1px solid #424e3b;
+  color: #939393;
+  border: 1px solid #4a4a4a;
   padding: 3px 5px;
   border-radius: 4px;
   white-space: nowrap;
 }
 .tag.off {
-  color: #7d8580;
-  border-color: #383e3c;
+  color: #838383;
+  border-color: #3d3d3d;
 }

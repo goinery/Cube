@@ -78,7 +78,7 @@ export default memo(function CustomizePanel() {
     c.width = b.cols * 200;
     c.height = b.rows * 200;
     const ctx = c.getContext('2d')!;
-    ctx.fillStyle = '#343b34';
+    ctx.fillStyle = '#383838';
     ctx.fillRect(0, 0, c.width, c.height);
     void loadImage(group.image).then((img) => {
       if (!active) return;
@@ -209,9 +209,9 @@ export default memo(function CustomizePanel() {
     c.width = 900;
     c.height = 900;
     const ctx = c.getContext('2d')!;
-    ctx.fillStyle = firstArt?.color || '#d7e0c1';
+    ctx.fillStyle = firstArt?.color || '#dddddd';
     ctx.fillRect(0, 0, 900, 900);
-    ctx.fillStyle = '#263027';
+    ctx.fillStyle = '#2d2d2d';
     ctx.font = `600 ${Math.min(170, 700 / Math.max(1, text.length))}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

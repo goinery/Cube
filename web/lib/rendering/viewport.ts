@@ -8,7 +8,7 @@ type StudioPuzzleId,
 } from '@/puzzles/config';
 import type { FaceDefinition } from '@/puzzles/engine/types';
 import { RenderOptimizer } from './render-optimizer';
-import { StudioEnvironment,createContactShadow } from './studio';
+import { StudioEnvironment } from './studio';
 
 export function pixelRatio(
   quality: Quality,
@@ -165,28 +165,6 @@ export function createStudio(
     rig.add(key, fill, rim);
     scene.add(rig);
   }
-  const ground = new T.Mesh(
-    new T.PlaneGeometry(profile.groundSize, profile.groundSize),
-    new T.ShadowMaterial({ ...DEFAULTS.ground, depthWrite: false }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = profile.groundY;
-  ground.receiveShadow = true;
-  if (profile.shadows) scene.add(ground);
-  const contactMap = createContactShadow();
-  const contact = new T.Mesh(
-    new T.PlaneGeometry(profile.contactSize, profile.contactSize),
-    new T.MeshBasicMaterial({
-      map: contactMap,
-      transparent: true,
-      opacity: profile.contactOpacity,
-      toneMapped: false,
-      depthWrite: false,
-    }),
-  );
-  contact.rotation.x = -Math.PI / 2;
-  contact.position.y = profile.groundY + 0.004;
-  scene.add(contact);
   return {
     scene,
     camera,
@@ -196,14 +174,7 @@ export function createStudio(
     fill,
     rim,
     rig,
-    ground,
-    contact,
     dispose() {
-      ground.geometry.dispose();
-      ground.material.dispose();
-      contact.geometry.dispose();
-      contact.material.dispose();
-      contactMap.dispose();
       key.shadow.dispose();
       env.dispose();
     },

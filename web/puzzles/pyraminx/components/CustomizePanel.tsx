@@ -52,7 +52,7 @@ function TilePicker() {
               <polygon
                 points={points}
                 fill={s.colors[tile.id]}
-                stroke={s.selected.includes(tile.id) ? '#ffffff' : '#1b1e20'}
+                stroke={s.selected.includes(tile.id) ? '#ffffff' : '#1e1e1e'}
                 strokeWidth={s.selected.includes(tile.id) ? 5 : 3}
                 strokeLinejoin="round"
               />

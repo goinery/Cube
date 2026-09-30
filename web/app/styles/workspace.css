@@ -13,7 +13,7 @@
   justify-content: space-between;
   padding: 0 30px;
   border-bottom: 1px solid #ffffff0c;
-  background: #181b1c;
+  background: #1a1a1a;
   z-index: 20;
   gap: 20px;
 }
@@ -24,7 +24,7 @@
 }
 .brand-symbol {
   display: flex;
-  color: #c7d5ad;
+  color: #dedede;
 }
 .brand strong {
   font-size: 24px;
@@ -34,18 +34,18 @@
 }
 .brand strong span {
   font-size: 21px;
-  color: #777f76;
+  color: #7d7d7d;
   margin: 0 7px;
   font-weight: 300;
 }
 .brand-divider {
   height: 18px;
   width: 1px;
-  background: #424749;
+  background: #464646;
   margin: 0 6px;
 }
 .brand-subtitle {
-  color: #a5ada7;
+  color: #ababab;
   font-size: 14px;
   letter-spacing: 2px;
 }
@@ -53,7 +53,7 @@
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 1.9px;
-  color: #89908d;
+  color: #8e8e8e;
 }
 .header-center span {
   padding: 0 12px;
@@ -66,7 +66,7 @@
 .live-dot {
   width: 5px;
   height: 5px;
-  background: #bbd0a2;
+  background: #c8c8c8;
   border-radius: 50%;
   display: inline-block;
 }
@@ -74,7 +74,7 @@
   height: 36px;
   width: 36px;
   border-radius: 8px;
-  color: #aab0ac;
+  color: #aeaeae;
 }
 .icon-button:hover {
   background: #ffffff09;
@@ -83,7 +83,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #b2b8b1;
+  color: #b6b6b6;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -111,9 +111,9 @@
   overflow: hidden;
   background: radial-gradient(
     ellipse at 46% 44%,
-    #303438 0,
-    #222629 44%,
-    #1b1e20 77%
+    #333333 0,
+    #252525 44%,
+    #1e1e1e 77%
   );
 }
 .stage:after {
@@ -139,10 +139,10 @@
   font-size: 11px;
   letter-spacing: 1.8px;
   font-weight: 450;
-  color: #9ba49c;
+  color: #a2a2a2;
 }
 .eyebrow span {
-  color: #6c7870;
+  color: #757575;
   padding-left: 9px;
 }
 .stage-state {
@@ -153,21 +153,21 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #a6afa5;
+  color: #acacac;
 }
 .stage-state i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #d8b87a;
+  background: #bababa;
 }
 .stage-state i.solved {
-  background: #bbd0a2;
+  background: #c8c8c8;
 }
 .state-divider {
   height: 10px;
   width: 1px;
-  background: #536050;
+  background: #5c5c5c;
   margin: 0 3px;
 }
 .view-controls {
@@ -180,10 +180,10 @@
 }
 .view-controls [data-slot='select-trigger'] {
   height: 34px;
-  border-color: #535c5555;
-  background: #1b211c66;
+  border-color: #5a5a5a55;
+  background: #1f1f1f66;
   padding: 0 12px;
-  color: #b9c0b7;
+  color: #bebebe;
   font-size: 12px;
   backdrop-filter: blur(10px);
 }
@@ -201,7 +201,7 @@
   display: flex;
   gap: 7px;
   align-items: center;
-  color: #8a958d;
+  color: #929292;
   font-size: 12px;
   min-width: 0;
 }
@@ -216,13 +216,13 @@
 }
 .camera-buttons button {
   height: 33px;
-  border: 1px solid #62695e44;
+  border: 1px solid #67676744;
   border-radius: 7px;
-  color: #b2bdae;
+  color: #bababa;
   padding: 0 10px;
   font-size: 12px;
   backdrop-filter: blur(12px);
-  background: #20262066;
+  background: #24242466;
 }
 .object-spec {
   position: absolute;
@@ -232,7 +232,7 @@
   gap: 14px;
   font-size: 10px;
   letter-spacing: 1.5px;
-  color: #6d7872;
+  color: #757575;
   font-family: var(--font-mono);
 }
 
@@ -244,15 +244,15 @@
   min-height: 36px;
   padding: 0 11px;
   gap: 8px;
-  border: 1px solid #55604c;
-  background: #c7d5ad09;
+  border: 1px solid #5c5c5c;
+  background: #dedede09;
   border-radius: 7px;
-  color: #c7d5ad;
+  color: #dedede;
   font-size: 12px;
   white-space: nowrap;
 }
 .puzzle-switch-trigger:hover {
-  background: #c7d5ad15;
+  background: #dedede15;
 }
 .puzzle-switch-menu {
   position: absolute;
@@ -260,8 +260,8 @@
   left: 0;
   width: 235px;
   padding: 6px;
-  background: #23292a;
-  border: 1px solid #465040;
+  background: #282828;
+  border: 1px solid #4d4d4d;
   border-radius: 12px;
   box-shadow: 0 14px 40px #0006;
   z-index: 70;
@@ -276,8 +276,8 @@
 }
 .puzzle-switch-menu button:hover,
 .puzzle-switch-menu button[aria-pressed='true'] {
-  background: #c7d5ad12;
-  color: #dbe6cd;
+  background: #dedede12;
+  color: #e2e2e2;
 }
 .puzzle-switch-menu button span {
   flex: 1;
@@ -289,7 +289,7 @@
 }
 .puzzle-switch-menu small {
   display: block;
-  color: #86937e;
+  color: #8f8f8f;
   font-size: 10px;
   letter-spacing: 1px;
   margin-top: 4px;

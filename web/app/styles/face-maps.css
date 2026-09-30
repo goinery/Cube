@@ -8,18 +8,18 @@
   min-height: 70px;
   flex-direction: column;
   font-size: 11px;
-  color: #a9c297;
-  border: 1px solid #3b4c32;
+  color: #bababa;
+  border: 1px solid #474747;
   border-radius: 8px;
 }
 .camera-grid span {
   font: 20px var(--font-mono);
-  color: #d0e3c0;
+  color: #dcdcdc;
 }
 .help-text {
   font-size: 13px;
   line-height: 1.9;
-  color: #9fb48e;
+  color: #adadad;
   margin: 16px 0;
 }
 .inspection-state {
@@ -32,7 +32,7 @@
 .inspection-state strong {
   margin-left: auto;
   font: 12px var(--font-mono);
-  color: #c7d5ad;
+  color: #dedede;
 }
 .inspection-list {
   max-height: 220px;
@@ -49,7 +49,7 @@
 .inspection-list code {
   margin-left: auto;
   font-size: 10px;
-  color: #92ac7f;
+  color: #a3a3a3;
 }
 .face-maps {
   position: absolute;
@@ -60,7 +60,7 @@
 }
 .map-heading {
   font: 9px var(--font-mono);
-  color: #8c9e80;
+  color: #989898;
   letter-spacing: 1.2px;
   display: flex;
   gap: 7px;
@@ -70,12 +70,12 @@
 .map-heading span:last-child {
   font-size: 9px;
   letter-spacing: 0.5px;
-  color: #6f875f;
+  color: #7f7f7f;
 }
 .map-heading i {
   width: 3px;
   height: 3px;
-  background: #9fbd8a;
+  background: #b3b3b3;
   border-radius: 50%;
 }
 .maps-grid {
@@ -96,17 +96,17 @@
   gap: 5px;
   margin-bottom: 6px;
   font-size: 9px;
-  color: #a2b194;
+  color: #acacac;
   padding: 0;
 }
 .face-label b {
   font: 12px var(--font-mono);
-  color: #c5d5b7;
+  color: #cfcfcf;
   font-weight: 400;
 }
 .face-direction {
   margin-left: auto;
-  color: #5e7652;
+  color: #6e6e6e;
 }
 .face-grid {
   display: grid;
@@ -121,7 +121,7 @@
   overflow: hidden;
   border-radius: 2px;
   padding: 0;
-  background: #303a2c;
+  background: #373737;
   outline: 1px solid #0002;
 }
 .sticker-tile canvas {
@@ -130,7 +130,7 @@
   display: block;
 }
 .sticker-tile.selected {
-  outline: 2px solid #efffd3;
+  outline: 2px solid #ffffff;
   outline-offset: 1px;
   z-index: 1;
 }

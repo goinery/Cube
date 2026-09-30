@@ -9,14 +9,14 @@
   justify-content: flex-start;
   gap: 13px;
   padding: 15px 13px;
-  border: 1px solid #444b43;
+  border: 1px solid #494949;
   border-radius: 9px;
-  color: #8e9b87;
+  color: #979797;
 }
 .solver-options > button.active {
-  border-color: #a1b58a;
-  background: #c7d5ad0a;
-  color: #c7d5ad;
+  border-color: #aeaeae;
+  background: #dedede0a;
+  color: #dedede;
 }
 .solver-options > button > span {
   flex: 1;
@@ -28,7 +28,7 @@
 }
 .solver-options small {
   font-size: 11px;
-  color: #8c9d81;
+  color: #979797;
   line-height: 1.8;
   display: block;
   margin-top: 5px;
@@ -37,11 +37,11 @@
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  border: 1px solid #5d7150;
+  border: 1px solid #6a6a6a;
 }
 .solver-options .active i {
-  background: #c7d5ad;
-  box-shadow: inset 0 0 0 3px #303c26;
+  background: #dedede;
+  box-shadow: inset 0 0 0 3px #383838;
 }
 .solve-button {
   width: 100%;
@@ -52,12 +52,12 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  background: #303829;
+  background: #353535;
   border-radius: 8px;
   padding: 13px;
   font-size: 12px;
   line-height: 1.7;
-  color: #b6caa4;
+  color: #c3c3c3;
 }
 .solver-progress span {
   flex: 1;
@@ -67,7 +67,7 @@
   gap: 10px;
   padding: 15px 0;
   align-items: center;
-  color: #baccaa;
+  color: #c6c6c6;
 }
 .solver-result strong {
   font-weight: 500;
@@ -75,7 +75,7 @@
 }
 .solver-result p {
   font-size: 11px;
-  color: #93a584;
+  color: #9f9f9f;
   margin-top: 5px;
 }
 .cfop-guide {
@@ -91,17 +91,17 @@
 }
 .cfop-guide > div > span {
   font: 10px var(--font-mono);
-  color: #6f855e;
+  color: #7e7e7e;
 }
 .cfop-guide strong {
   font: 13px var(--font-mono);
   min-width: 45px;
   font-weight: 400;
-  color: #c0d0af;
+  color: #cacaca;
 }
 .cfop-guide p {
   font-size: 11px;
-  color: #899f7c;
+  color: #989898;
 }
 .spin {
   animation: spin 1.2s linear infinite;

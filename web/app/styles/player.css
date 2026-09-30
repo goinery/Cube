@@ -3,7 +3,7 @@
   padding: 15px;
   border: 1px solid #ffffff14;
   border-radius: 12px;
-  background: #171a1c;
+  background: #1a1a1a;
 }
 .player .section-head {
   margin-bottom: 10px;
@@ -16,7 +16,7 @@
   height: 28px;
   flex: none;
   border-radius: 7px;
-  color: #8b9d7c;
+  color: #979797;
 }
 .player-collapse:hover {
   background: #ffffff08;
@@ -41,7 +41,7 @@
 }
 .player .eyebrow {
   font-size: 9px;
-  color: #8a9d7b;
+  color: #979797;
   margin-bottom: 6px;
 }
 .player h3 {
@@ -49,11 +49,11 @@
 }
 .counter {
   font: 17px var(--font-mono);
-  color: #d2e1c3;
+  color: #dcdcdc;
 }
 .counter span {
   font-size: 11px;
-  color: #80986f;
+  color: #909090;
 }
 .move-track {
   display: flex;
@@ -69,24 +69,24 @@
   min-width: 26px;
   min-height: 27px;
   border-radius: 4px;
-  color: #7f966e;
+  color: #8e8e8e;
 }
 .move-track button.done {
-  color: #c4d8b2;
+  color: #d1d1d1;
 }
 .move-track button.active {
-  background: #c7d5ad;
-  color: #1f2b17;
+  background: #dedede;
+  color: #272727;
 }
 .progress-line {
   height: 2px;
-  background: #35442c;
+  background: #3f3f3f;
   margin-top: 12px;
 }
 .progress-line span {
   display: block;
   height: 100%;
-  background: #c7d5ad;
+  background: #dedede;
   transition: width 0.2s;
 }
 .player-buttons {
@@ -99,12 +99,12 @@
   height: 41px;
   width: 58px;
   border-radius: 7px;
-  background: #c7d5ad;
-  color: #27351e;
+  background: #dedede;
+  color: #303030;
 }
 .play-button:hover:not(:disabled) {
-  color: #101b08;
-  background: #d5e7c6;
+  color: #171717;
+  background: #e1e1e1;
 }
 .stage-list {
   display: flex;
@@ -116,42 +116,42 @@
   flex-direction: column;
   gap: 5px;
   font-size: 10px;
-  color: #6c835a;
+  color: #7b7b7b;
   padding: 7px 2px;
-  border-bottom: 2px solid #33442a;
+  border-bottom: 2px solid #3f3f3f;
 }
 .stage-list button span {
   height: 17px;
   font: 10px var(--font-mono);
 }
 .stage-list button.current {
-  border-color: #c7d5ad;
-  color: #c7d5ad;
+  border-color: #dedede;
+  color: #dedede;
 }
 .stage-list button.complete {
-  color: #9ebb84;
-  border-color: #779265;
+  color: #b1b1b1;
+  border-color: #898989;
 }
 .stage-description {
-  border-left: 2px solid #9fbf88;
-  background: #c7d5ad06;
+  border-left: 2px solid #b4b4b4;
+  background: #dedede06;
   padding: 10px 12px;
   margin-bottom: 12px;
 }
 .stage-description strong {
   font-size: 12px;
-  color: #c7d5ad;
+  color: #dedede;
   font-weight: 500;
 }
 .stage-description p {
   font-size: 12px;
-  color: #91a97e;
+  color: #a1a1a1;
   line-height: 1.8;
   margin-top: 5px;
 }
 .text-button {
   font-size: 11px;
-  color: #b2cb9e;
+  color: #c2c2c2;
   padding: 7px 0 0;
 }
 .panel-footer {
@@ -162,7 +162,7 @@
   border-top: 1px solid #ffffff0b;
   font: 9px var(--font-mono);
   letter-spacing: 1px;
-  color: #697e59;
+  color: #777777;
 }
 .panel-footer span:last-child {
   display: flex;
@@ -172,6 +172,6 @@
 .panel-footer i {
   height: 4px;
   width: 4px;
-  background: #91b478;
+  background: #a8a8a8;
   border-radius: 50%;
 }

@@ -1,5 +1,6 @@
 import { tx } from '@/lib/i18n';
 import * as T from 'three';
+import { createSelectionOutlines } from '@/lib/rendering/selection';
 import { paintPhoto } from './appearance';
 import { normals,vertices,type createModel } from './geometry';
 import { FACE_NAMES,FACE_VERTICES,TILES } from './model';
@@ -11,6 +12,7 @@ export function createPyraminxSurface(
   invalidate: () => void,
   isDisposed: () => boolean,
 ) {
+  const selection = createSelectionOutlines(model.tiles);
   const textures = new Map<
       string,
       {
@@ -22,14 +24,11 @@ export function createPyraminxSurface(
     >(),
     pendingPhotos = new Map<string, string>();
   function updateAppearance(s: State) {
+    selection.update(s.selected);
     for (const tile of TILES) {
       const mesh = model.tiles.get(tile.id)!,
         photo = s.photos[tile.face];
       mesh.material.roughness = s.settings.roughness;
-      mesh.material.emissive.set(
-        s.selected.includes(tile.id) ? '#566c38' : '#000000',
-      );
-      mesh.material.emissiveIntensity = 0.28;
       mesh.material.color.set(photo ? '#ffffff' : s.colors[tile.id]);
       const entry = textures.get(String(tile.face));
       const map = photo && entry?.src === photo.src ? entry.texture : null;
@@ -152,9 +151,9 @@ export function createPyraminxSurface(
       ctx.lineTo(-side / 2, h / 3);
       ctx.lineTo(side / 2, h / 3);
       ctx.closePath();
-      ctx.fillStyle = '#11171bd9';
+      ctx.fillStyle = '#161616d9';
       ctx.fill();
-      ctx.strokeStyle = '#a9ba9a40';
+      ctx.strokeStyle = '#b4b4b440';
       ctx.stroke();
       for (const tile of TILES) {
         const mesh = model.tiles.get(tile.id)!;
@@ -217,13 +216,13 @@ export function createPyraminxSurface(
             ctx.restore();
           }
         }
-        ctx.strokeStyle = '#13191f';
+        ctx.strokeStyle = '#181818';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
       ctx.restore();
       if (!net) {
-        ctx.fillStyle = '#aab4ab';
+        ctx.fillStyle = '#b1b1b1';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(FACE_NAMES[face], cx, cy + h / 3 + 20);
@@ -236,6 +235,7 @@ export function createPyraminxSurface(
     updateAppearance,
     drawMaps,
     dispose() {
+      selection.dispose();
       textures.forEach((entry) => entry.texture.dispose());
     },
   };

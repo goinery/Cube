@@ -7,26 +7,26 @@
   bottom: 72px;
   transform: translateX(-50%);
   z-index: 8;
-  background: #18201de6;
-  border: 1px solid #9ab38866;
+  background: #1e1e1ee6;
+  border: 1px solid #ababab66;
   border-radius: 8px;
   padding: 12px 18px;
   display: flex;
   gap: 10px;
   align-items: center;
-  color: #c7d5ad;
+  color: #dedede;
   font-size: 13px;
   backdrop-filter: blur(12px);
   white-space: nowrap;
 }
 .solve-lock span {
-  color: #92a488;
+  color: #9e9e9e;
   font-size: 12px;
 }
 .preflight {
   padding: 16px;
-  background: #c7d5ad08;
-  border: 1px solid #9cad8455;
+  background: #dedede08;
+  border: 1px solid #a6a6a655;
   border-radius: 9px;
   margin-top: 12px;
 }
@@ -34,12 +34,12 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #c7d5ad;
+  color: #dedede;
 }
 .preflight p {
   font-size: 13px;
   line-height: 1.85;
-  color: #a9b5a2;
+  color: #b1b1b1;
   margin-top: 9px;
 }
 .preflight-stats {
@@ -49,11 +49,11 @@
   margin: 12px 0;
 }
 .preflight-stats span {
-  border: 1px solid #66705b55;
+  border: 1px solid #6c6c6c55;
   padding: 4px 7px;
   border-radius: 4px;
   font-size: 11px;
-  color: #afbf9e;
+  color: #b9b9b9;
 }
 .preflight .primary-button {
   width: 100%;
@@ -78,7 +78,7 @@
 }
 .fatal-error button {
   padding: 12px 20px;
-  border: 1px solid #879675;
+  border: 1px solid #909090;
   border-radius: 6px;
 }
 @media (max-width: 760px) {
@@ -102,17 +102,17 @@
 
 .preflight > strong {
   font-size: 13px;
-  color: #c7d5ad;
+  color: #dedede;
 }
 .preflight > small {
   display: block;
   margin-top: 10px;
   font-size: 11px;
   line-height: 1.7;
-  color: #83947e;
+  color: #8f8f8f;
 }
 .preflight.invalid {
-  border-color: #c87969;
+  border-color: #898989;
 }
 .stage[data-solving='true'] .camera-buttons {
   opacity: 0.4;

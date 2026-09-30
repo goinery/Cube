@@ -1,6 +1,6 @@
 .scramble-record {
-  background: #20291e;
-  border: 1px solid #3a4833;
+  background: #262626;
+  border: 1px solid #444444;
   border-radius: 7px;
   padding: 12px;
   margin-top: 14px;
@@ -8,12 +8,12 @@
 .scramble-record p {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #a7bc96;
+  color: #b5b5b5;
   line-height: 1.8;
   margin-top: 5px;
 }
 .scramble-record button {
-  color: #91a681;
+  color: #9f9f9f;
 }
 .control-label {
   display: flex;
@@ -21,7 +21,7 @@
   justify-content: space-between;
   margin-bottom: 15px;
   font-size: 13px;
-  color: #adb9a4;
+  color: #b5b5b5;
   gap: 12px;
 }
 .control-label .value-input {
@@ -30,7 +30,7 @@
   gap: 3px;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #c7d5ad;
+  color: #dedede;
 }
 .value-input input {
   width: 64px;
@@ -48,7 +48,7 @@
   border-color: #ffffff16;
 }
 .value-input input:focus {
-  border-color: #94aa80;
+  border-color: #a2a2a2;
   background: #ffffff12;
 }
 .value-input input:disabled {
@@ -56,7 +56,7 @@
 }
 .value-input i {
   font-style: normal;
-  color: #8b9c7f;
+  color: #969696;
 }
 .range-control {
   padding: 12px 0 17px;
@@ -70,8 +70,8 @@
 .range-control [data-slot='slider-thumb'] {
   height: 11px;
   width: 11px;
-  background: #d6e1c6;
-  border-color: #d6e1c6;
+  background: #dddddd;
+  border-color: #dddddd;
 }
 .choice-control {
   display: flex;
@@ -80,7 +80,7 @@
   gap: 12px;
   min-height: 46px;
   font-size: 13px;
-  color: #a9b6a0;
+  color: #b2b2b2;
 }
 .choice-control [data-slot='select-trigger'] {
   font-size: 12px;
@@ -89,12 +89,12 @@
   display: flex;
   align-items: center;
   gap: 13px;
-  border: 1px solid #48503e;
-  background: #c7d5ad08;
+  border: 1px solid #4d4d4d;
+  background: #dedede08;
   border-radius: 9px;
   padding: 16px 12px;
   margin-bottom: 17px;
-  color: #b4c7a4;
+  color: #c0c0c0;
 }
 .engineering-card strong {
   font-size: 13px;
@@ -103,13 +103,13 @@
 .engineering-card p {
   font-size: 11px;
   margin-top: 5px;
-  color: #86967b;
+  color: #919191;
 }
 .engineering-card > span {
   font-size: 26px;
   font-family: var(--font-mono);
   font-weight: 200;
-  color: #606e55;
+  color: #696969;
   margin-left: auto;
 }
 .explode-presets {
@@ -121,11 +121,11 @@
   font-size: 11px;
   padding: 7px 9px;
   border-radius: 5px;
-  color: #8a9c7c;
+  color: #969696;
 }
 .explode-presets button.active {
-  color: #dae7ce;
-  background: #c7d5ad12;
+  color: #e2e2e2;
+  background: #dedede12;
 }
 .part-legend {
   border-top: 1px solid #ffffff0d;
@@ -141,7 +141,7 @@
   gap: 9px;
   line-height: 2.7;
   font-size: 12px;
-  color: #9cad8f;
+  color: #a7a7a7;
 }
 .part-legend i {
   width: 6px;
@@ -151,5 +151,5 @@
 .part-legend p span {
   margin-left: auto;
   font: 10px var(--font-mono);
-  color: #657d54;
+  color: #757575;
 }

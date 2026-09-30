@@ -85,8 +85,6 @@ export default memo(function Viewport() {
       key,
       fill,
       rim,
-      ground,
-      contact: contactShadow,
     } = studio;
     const controls = {
       target: studio.target,
@@ -696,25 +694,8 @@ export default memo(function Viewport() {
           );
         boundsDirty = false;
       }
-      const floorHeight = surfaceBounds.min.y - 0.065;
       updateDepthRange(camera, surfaceBounds);
-      ground.position.y = Math.min(
-        floorHeight,
-        T.MathUtils.damp(ground.position.y, floorHeight, 10, dt),
-      );
-      if (Math.abs(ground.position.y - floorHeight) < 0.000001)
-        ground.position.y = floorHeight;
-      ground.updateMatrix();
       surfaceBounds.getSize(surfaceSize);
-      contactShadow.position.set(
-        (surfaceBounds.min.x + surfaceBounds.max.x) / 2,
-        ground.position.y + 0.002,
-        (surfaceBounds.min.z + surfaceBounds.max.z) / 2,
-      );
-      contactShadow.scale.set(surfaceSize.x * 1.65, surfaceSize.z * 1.65, 1);
-      contactShadow.material.opacity =
-        defaults.render.contactOpacity / (1 + currentExplode * 2);
-      contactShadow.updateMatrix();
       const shadowExtent = Math.max(2, surfaceSize.length() * 0.62);
       studioRotation.copy(
         lightRotation(
@@ -809,7 +790,6 @@ export default memo(function Viewport() {
         targetCamera ||
         minimalMoving ||
         currentExplode !== s.settings.explode ||
-        ground.position.y !== floorHeight ||
         (s.settings.autoRotate && !drag && !interactions.active && !s.solving)
       )
         invalidate();
