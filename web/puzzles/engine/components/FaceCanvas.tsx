@@ -4,6 +4,7 @@ import { bounds,hitTile,paintFace,path } from '@/puzzles/engine/appearance';
 import { unfoldedNet } from '@/puzzles/engine/layout';
 import { useSession,useFaceAnchors,type Session } from '@/puzzles/engine/session';
 import { useTranslation } from '@/lib/i18n';
+import { createFrameLoop } from '@/lib/rendering/frame-loop';
 
 export function FaceCanvas({
   session,
@@ -24,8 +25,7 @@ export function FaceCanvas({
     const target = canvas.current!,
       def = session.def,
       targetFace = def.faces.find((f) => f.id === face)!;
-    let disposed = false,
-      frame = 0;
+    let disposed = false;
     if (!live) {
       const next = document.createElement('canvas');
       void paintFace(next, def, face, s.appearance, s.selected, 640)
@@ -40,7 +40,8 @@ export function FaceCanvas({
         disposed = true;
       };
     }
-    const sources = new Map<string, HTMLCanvasElement>();
+    const sources = new Map<string, HTMLCanvasElement>(),
+      loop = createFrameLoop(draw, { measureFps: false });
     void Promise.all(
       def.faces.map(async (f) => {
         const source = document.createElement('canvas');
@@ -49,12 +50,11 @@ export function FaceCanvas({
       }),
     )
       .then(() => {
-        if (!disposed) draw();
+        if (!disposed) loop.invalidate();
       })
       .catch(() => {});
     function draw() {
-      frame = 0;
-      if (disposed) return;
+      if (disposed) return false;
       const settings = session.state.settings,
         outer = bounds(targetFace.outline),
         factor = 1 + settings.explode * 0.48,
@@ -160,15 +160,14 @@ export function FaceCanvas({
         }
         ctx.restore();
       }
-      if (session.motion.moving) frame = requestAnimationFrame(draw);
+      if (session.motion.moving) loop.invalidate();
     }
     const unsubscribe = session.subscribe(() => {
-      if (!frame && sources.size === def.faces.length)
-        frame = requestAnimationFrame(draw);
+      if (sources.size === def.faces.length) loop.invalidate();
     });
     return () => {
       disposed = true;
-      cancelAnimationFrame(frame);
+      loop.dispose();
       unsubscribe();
     };
   }, [session, face, live, s.appearance, s.selected]);

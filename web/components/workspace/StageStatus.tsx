@@ -1,4 +1,5 @@
 import { useTranslation } from '@/lib/i18n';
+import FrameRateControl from './FrameRateControl';
 
 export default function StageStatus({
   solved,
@@ -22,6 +23,8 @@ export default function StageStatus({
       </span>
       <span className="state-divider" />
       <span>{t('app.steps', { count: steps })}</span>
+      <span className="state-divider stage-fps-divider" />
+      <FrameRateControl />
     </div>
   );
 }

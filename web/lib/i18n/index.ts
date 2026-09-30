@@ -24,6 +24,14 @@ void i18n
     interpolation: { escapeValue: false },
     initAsync: false,
   });
+if (import.meta.hot) {
+  // JSON updates must replace the singleton's resources during fast refresh.
+  import.meta.hot.accept(['./en.json', './zh-CN.json'], (modules) => {
+    if (modules[0]) i18n.addResourceBundle('en', 'translation', modules[0].default, true, true);
+    if (modules[1]) i18n.addResourceBundle('zh-CN', 'translation', modules[1].default, true, true);
+    void i18n.changeLanguage(i18n.language);
+  });
+}
 export function setLanguage(locale: Locale) {
   void i18n.changeLanguage(locale);
   try {

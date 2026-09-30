@@ -467,7 +467,7 @@ export default memo(function Viewport() {
       coreMagnets: boolean | undefined;
     const minimal = new MinimalRenderer([scene], stickers.values());
     function render(now: number, dt: number) {
-      if (disposed || warming) return;
+      if (disposed || warming) return false;
       // Iterate a snapshot because settling can remove items from the collection.
       // oxlint-disable-next-line unicorn/no-useless-spread
       for (const a of [...settlements]) {

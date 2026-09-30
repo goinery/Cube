@@ -275,7 +275,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     const previousLightRotation = new T.Quaternion(0, 0, 0, 0);
     let previousShadowRadius = -1;
     function render(now: number, dt: number) {
-      if (disposed) return;
+      if (disposed) return false;
       session.motion.tick(now);
       updateArt();
       const transitioning = layout(now, dt),

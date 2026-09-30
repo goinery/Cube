@@ -332,7 +332,7 @@ export default memo(function PyraminxViewport() {
     }
     const minimal = new MinimalRenderer([scene], model.tiles.values());
     function render(time: number, dt: number) {
-      if (disposed || warming) return;
+      if (disposed || warming) return false;
       const s = getState();
       const shapeMoving = updateShapeTransition(
         displayedSettings,

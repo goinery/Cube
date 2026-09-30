@@ -154,6 +154,7 @@
   gap: 8px;
   font-size: 12px;
   color: #acacac;
+  z-index: 10;
 }
 .stage-state i {
   width: 5px;
@@ -169,6 +170,109 @@
   width: 1px;
   background: #5c5c5c;
   margin: 0 3px;
+}
+.stage-fps-control {
+  position: relative;
+}
+.stage-fps {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.stage-fps:hover,
+.stage-fps[aria-expanded='true'] {
+  background: var(--secondary);
+}
+.fps-value {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+.fps-settings {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 248px;
+  max-width: calc(100vw - 40px);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--popover);
+  color: var(--foreground);
+  box-shadow: 0 10px 30px #0006;
+  font-size: 12px;
+}
+.fps-settings-title {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.fps-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.fps-presets button,
+.fps-custom button {
+  padding: 8px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 11px;
+}
+.fps-presets button:hover,
+.fps-custom button:hover {
+  background: var(--secondary);
+}
+.fps-presets button[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.fps-custom {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.fps-custom label {
+  display: block;
+  margin-bottom: 7px;
+}
+.fps-custom > div {
+  display: flex;
+  gap: 7px;
+}
+.fps-custom input {
+  width: 0;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--input);
+  border-radius: 5px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.fps-custom > span {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted-foreground);
+}
+@media (max-width: 480px) {
+  .stage-state {
+    flex-wrap: wrap;
+    max-width: calc(100% - 180px);
+    row-gap: 5px;
+  }
+  .stage-fps-divider {
+    display: none;
+  }
+  .stage-fps-control {
+    flex-basis: 100%;
+  }
 }
 .view-controls {
   position: absolute;

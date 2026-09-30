@@ -26,7 +26,15 @@
     "collapsePanel": "Collapse control panel",
     "expandPanel": "Expand control panel",
     "controls": "Puzzle controls",
-    "steps": "{{count}} moves"
+    "steps": "{{count}} moves",
+    "fps": "Live frame rate: {{count}} FPS. Click to set a frame rate limit.",
+    "fpsHint": "Click to set a frame rate limit. FPS updates every half second; rendering pauses when idle, showing 0.",
+    "fpsLimit": "Frame rate limit",
+    "fpsUnlimited": "Unlimited",
+    "fpsCustom": "Custom",
+    "fpsCustomLimit": "Custom limit (FPS)",
+    "fpsApply": "Apply",
+    "fpsInvalid": "Enter a positive whole number."
   },
   "puzzle": {
     "cube": "3 × 3 cube",

@@ -26,7 +26,15 @@
     "collapsePanel": "收起控制面板",
     "expandPanel": "展开控制面板",
     "controls": "魔方控制面板",
-    "steps": "{{count}} 步"
+    "steps": "{{count}} 步",
+    "fps": "实时帧率：{{count}} FPS，点击设置帧率上限",
+    "fpsHint": "点击设置帧率上限；每半秒更新；静止时暂停渲染",
+    "fpsLimit": "帧率上限",
+    "fpsUnlimited": "无限制",
+    "fpsCustom": "自定义",
+    "fpsCustomLimit": "自定义上限（FPS）",
+    "fpsApply": "应用",
+    "fpsInvalid": "请输入大于 0 的整数。"
   },
   "puzzle": {
     "cube": "三阶魔方",
