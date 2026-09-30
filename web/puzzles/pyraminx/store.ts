@@ -20,6 +20,7 @@ type PartialTurn,
 } from './interaction';
 import {
 AXES,
+apply,
 FACE_COLORS,
 inverseMove,
 isSolved,
@@ -171,6 +172,10 @@ export interface Animation {
   layerTurn?: boolean;
 }
 let animator: (a: Animation) => Promise<number> = async (a) => a.to;
+let animateTransition: (change: () => void) => Promise<void> = async (change) => change();
+export function setTransitionAnimator(fn: typeof animateTransition) {
+  animateTransition = fn;
+}
 let alignmentAnimator: (
   partial: PartialTurn,
   duration: number,
@@ -431,19 +436,24 @@ export async function redo() {
     await perform(state.history[state.cursor], 'redo');
   }
 }
-export function resetPuzzle() {
+export async function resetPuzzle() {
   interruptSettling();
   if (state.busy || state.solving) return;
   pause();
-  patch({
-    puzzle: solved(),
-    history: [],
-    cursor: 0,
-    partials: [],
-    player: null,
-    scramble: '',
-    selected: [],
-  });
+  patch({ busy: true });
+  try {
+    await animateTransition(() => patch({
+      puzzle: solved(),
+      history: [],
+      cursor: 0,
+      partials: [],
+      player: null,
+      scramble: '',
+      selected: [],
+    }));
+  } finally {
+    patch({ busy: false });
+  }
 }
 export function loadPlayer(
   moves: string[],
@@ -526,14 +536,27 @@ export async function applyInstant(moves: string[]) {
   if (state.busy || state.solving) return;
   pause();
   if (!canPerformSequence(moves)) return;
-  patch({ player: null });
-  for (const token of moves)
-    if (!(await perform(token, 'player', true))) return;
+  await align(true);
+  patch({ busy: true });
+  try {
+    await animateTransition(() => {
+      const history = [...state.history.slice(0, state.cursor), ...moves];
+      patch({
+        puzzle: apply(state.puzzle, moves),
+        partials: [],
+        player: null,
+        history,
+        cursor: history.length,
+      });
+    });
+  } finally {
+    patch({ busy: false });
+  }
 }
-export function replayHistory() {
+export async function replayHistory() {
   if (state.busy || state.solving) return;
   const moves = state.history.slice(0, state.cursor);
-  resetPuzzle();
+  await resetPuzzle();
   loadPlayer(moves, tx('legacy.m393'));
   void play();
 }

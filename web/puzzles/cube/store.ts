@@ -211,6 +211,10 @@ export function setSettlingReader(read: typeof readSettling) {
 }
 export const settlingTurns = () => readSettling();
 let animateAlignment: (partial: PartialTurns) => Promise<void> = async () => {};
+let animateTransition: (change: () => void) => Promise<void> = async (change) => change();
+export function setTransitionAnimator(fn: typeof animateTransition) {
+  animateTransition = fn;
+}
 export function setAnimator(
   fn: Animator,
   prepare: typeof prepareTurn = () => {},
@@ -401,19 +405,27 @@ export async function redo() {
   patch({ player: null });
   await perform(state.history[state.cursor], 'redo');
 }
-export function resetCube() {
+export async function resetCube() {
   prepareTurn();
   if (state.busy || state.solving) return;
   pause();
-  patch({
-    cube: solved(),
-    history: [],
-    cursor: 0,
-    player: null,
-    scramble: '',
-    scrambleCursor: 0,
-    partialTurns: null,
-  });
+  manualQueue.length = 0;
+  patch({ busy: true });
+  try {
+    await animateTransition(() => patch({
+      cube: solved(),
+      history: [],
+      cursor: 0,
+      player: null,
+      scramble: '',
+      scrambleCursor: 0,
+      partialTurns: null,
+    }));
+  } finally {
+    patch({ busy: false });
+    const next = manualQueue.shift();
+    if (next) queueMicrotask(() => void perform(next));
+  }
   notify(tx('legacy.m489'));
 }
 export function loadPlayer(
@@ -507,26 +519,33 @@ export async function seek(index: number) {
     });
   }
 }
-export function applyInstant(moves: string[], title?: string) {
+export async function applyInstant(moves: string[], title?: string) {
   prepareTurn();
   if (state.busy || state.solving) return;
   if (!allowMoves(moves)) return;
   pause();
   const base = state.cursor,
     history = [...state.history.slice(0, state.cursor), ...moves];
-  patch({
-    cube: apply(state.cube, moves),
-    partialTurns: moves.reduce(
-      (partial, token) =>
-        partialAfterAllowedMove(partial, token, state.settings.turnTolerance),
-      state.partialTurns,
-    ),
-    history,
-    cursor: history.length,
-    player: title
-      ? { moves, title, index: moves.length, playing: false, stages: [], base }
-      : null,
-  });
+  patch({ busy: true });
+  try {
+    await animateTransition(() => patch({
+      cube: apply(state.cube, moves),
+      partialTurns: moves.reduce(
+        (partial, token) =>
+          partialAfterAllowedMove(partial, token, state.settings.turnTolerance),
+        state.partialTurns,
+      ),
+      history,
+      cursor: history.length,
+      player: title
+        ? { moves, title, index: moves.length, playing: false, stages: [], base }
+        : null,
+    }));
+  } finally {
+    patch({ busy: false });
+    const next = manualQueue.shift();
+    if (next) queueMicrotask(() => void perform(next));
+  }
 }
 export function restoreHistory(history: string[], cursor: number) {
   prepareTurn();

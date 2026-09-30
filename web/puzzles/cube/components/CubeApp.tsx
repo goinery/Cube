@@ -153,7 +153,7 @@ export default function CubeApp({
     if (!allowMoves(moves)) return;
     patch({
       scramble: moves.join(' '),
-      scrambleCursor: s.cursor + moves.length,
+      scrambleCursor: getState().cursor + moves.length,
     });
     if (animateScramble) {
       loadPlayer(moves, 'Scramble');

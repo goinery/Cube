@@ -4,7 +4,7 @@ import { magneticEase, stepMagnet } from '@/lib/rendering/magnet';
 import { i18n,tx,useLanguage } from '@/lib/i18n';
 import { PUZZLE_DEFAULTS } from '@/puzzles/config';
 import { INITIAL_DIRECTION,INITIAL_UP } from '@/puzzles/pyraminx/camera';
-import { createModel,normals,vertices } from '@/puzzles/pyraminx/geometry';
+import { createModel,normals,vertices,quaternions } from '@/puzzles/pyraminx/geometry';
 import {
 sameLayer,
 turnsConflict,
@@ -32,6 +32,7 @@ patch,
 setAlignmentAnimator,
 setAnimator,
 setSettlingReader,
+setTransitionAnimator,
 subscribe,
 type Animation,
 type State,
@@ -515,6 +516,22 @@ export default memo(function PyraminxViewport() {
       )
         invalidate();
     }
+    setTransitionAnimator((change) => new Promise<void>((resolve) => {
+      updateModel();
+      const poses = [...model.pieces.map((piece) => piece.root.quaternion.clone()), model.core.quaternion.clone()];
+      change();
+      const puzzle = getState().puzzle;
+      const rotations = [...puzzle.rotations, puzzle.frame].map((orientation, i) =>
+        quaternions[orientation].clone().invert().multiply(poses[i]),
+      );
+      alignment?.resolve();
+      alignment = {
+        rotations, progress: 0, start: performance.now(),
+        duration: 320 / getState().settings.speed, resolve,
+      };
+      previousModel = null;
+      invalidate();
+    }));
     setAlignmentAnimator(
       (partial, duration) =>
         new Promise((resolve) => {
@@ -695,6 +712,7 @@ export default memo(function PyraminxViewport() {
       alignment?.resolve();
       setAnimator(async (a) => a.to);
       setAlignmentAnimator(async () => {});
+      setTransitionAnimator(async (change) => change());
       patch({
         ready: false,
         busy: false,

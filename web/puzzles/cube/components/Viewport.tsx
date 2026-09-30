@@ -14,6 +14,7 @@ patch,
 setAlignmentAnimator,
 setAnimator,
 setSettlingReader,
+setTransitionAnimator,
 subscribe,
 } from '@/puzzles/cube/store';
 import {
@@ -150,6 +151,31 @@ export default memo(function Viewport() {
       targetCamera: T.Vector3 | null = null,
       targetLookAt: T.Vector3 | null = null,
       animation: LayerAnimation | null = null;
+    setTransitionAnimator((change) => new Promise<void>((resolve) => {
+      const poses = new Map(getState().cube.map((piece) => {
+        const pose = basisQuaternion(piece);
+        const partial = getState().partialTurns;
+        if (partial)
+          pose.premultiply(new T.Quaternion().setFromAxisAngle(
+            new T.Vector3().setComponent(partial.axis, 1),
+            heldAngle(partial, partial.axis, piece.pos[partial.axis]),
+          ));
+        const offset = alignment?.rotations.get(piece.id);
+        if (offset) pose.multiply(offset.clone().slerp(identityRotation, alignment!.progress));
+        return [piece.id, pose];
+      }));
+      change();
+      const rotations = new Map(getState().cube.map((piece) => [
+        piece.id,
+        basisQuaternion(piece).invert().multiply(poses.get(piece.id)!),
+      ]));
+      alignment?.resolve();
+      alignment = {
+        rotations, progress: 0, start: performance.now(),
+        duration: 320 / getState().settings.speed, resolve,
+      };
+      invalidate();
+    }));
     const settlements: LayerAnimation[] = [];
     setSettlingReader(() =>
       settlements.map((a) => ({
@@ -823,6 +849,7 @@ export default memo(function Viewport() {
       disposed = true;
       alignment?.resolve();
       setAlignmentAnimator(async () => {});
+      setTransitionAnimator(async (change) => change());
       loop.dispose();
       if (animation?.layerTurn)
         finishLayerTurn(animation.axis, animation.layers[0], animation.angle!);

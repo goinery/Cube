@@ -316,7 +316,16 @@ export default function CustomizePanel({ session }: { session: Session }) {
             key={f.id}
             aria-pressed={s.editFace === f.id}
             className={s.editFace === f.id ? 'active' : ''}
-            onClick={() => session.patch({ editFace: f.id })}
+            disabled={s.solving}
+            onClick={() => {
+              session.patch({
+                editFace: f.id,
+                selected: session.def.tiles
+                  .filter((tile) => tile.face === f.id)
+                  .map((tile) => tile.id),
+              });
+              session.camera.face(f.id);
+            }}
           >
             <i style={{ background: f.color }} />
             {f.id}
