@@ -24,6 +24,7 @@ createPuzzleOptimizer,
 createRenderer,
 createStudio,
 pixelRatio,
+updateShadowQuality,
 } from '@/lib/rendering/viewport';
 import { useEffect,useRef,useState } from 'react';
 import * as T from 'three';
@@ -59,8 +60,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
     const optimizer = createPuzzleOptimizer(def.id, mechanics, caps);
     attachOptimizer(renderer, scene, key, optimizer);
     const grain = createPlasticGrain(renderer.capabilities.getMaxAnisotropy());
-    model.caps.forEach((mesh) => {
-      const material = mesh.material as T.MeshPhysicalMaterial;
+    model.capMaterials.forEach((material) => {
       material.bumpMap = grain;
       material.bumpScale = 0.0006;
     });
@@ -146,15 +146,10 @@ export default function PuzzleViewport({ session }: { session: Session }) {
             );
             const previous = textures.get(face.id);
             textures.set(face.id, texture);
-            def.tiles
-              .filter((tile) => tile.face === face.id)
-              .forEach((tile) => {
-                const mesh = model.caps.get(tile.id)!,
-                  material = mesh.material as T.MeshPhysicalMaterial;
-                material.color.set('#ffffff');
-                material.map = texture;
-                material.needsUpdate = true;
-              });
+            const material = model.capMaterials.get(face.id)!;
+            material.color.set('#ffffff');
+            material.map = texture;
+            material.needsUpdate = true;
             previous?.dispose();
           }
           initialArtSettled = true;
@@ -235,8 +230,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         boundsDirty = optimizerDirty = true;
         renderer.shadowMap.needsUpdate = true;
       }
-      model.caps.forEach((mesh, id) => {
-        const mat = mesh.material as T.MeshPhysicalMaterial;
+      model.capMaterials.forEach((mat) => {
         mat.roughness = damp(mat.roughness, settings.roughness, 10, dt);
         mat.clearcoatRoughness = 0.07 + mat.roughness * 0.25;
       });
@@ -413,6 +407,7 @@ export default function PuzzleViewport({ session }: { session: Session }) {
         height = el.clientHeight;
       if (!width || !height) return;
       const ratio = pixelRatio(session.state.settings.quality);
+      updateShadowQuality(renderer, key, def.id, session.state.settings.quality);
       if (
         width === lastWidth &&
         height === lastHeight &&

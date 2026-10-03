@@ -1,4 +1,5 @@
 import {
+BatchedMesh,
 BufferGeometry,
 Camera,
 DynamicDrawUsage,
@@ -6,6 +7,7 @@ Frustum,
 Group,
 InstancedMesh,
 Matrix4,
+type Material,
 Mesh,
 MeshBasicMaterial,
 Object3D,
@@ -24,6 +26,9 @@ interface Source {
   visible: boolean;
   localBounds: Vector3[];
   worldBounds: Vector3[];
+  center: Vector3;
+  halfAxes: Vector3[];
+  renderable: boolean;
 }
 interface Batch {
   sources: Source[];
@@ -58,6 +63,11 @@ export class RenderOptimizer {
   private readonly sources: Source[] = [];
   private readonly byMesh = new Map<Mesh, Source>();
   private readonly batches: Batch[] = [];
+  private readonly capBatches: {
+    draw: BatchedMesh;
+    sources: Source[];
+    versions: number[];
+  }[] = [];
   private readonly shadowBatches: { sources: Source[]; draw: InstancedMesh }[] =
     [];
   private readonly shadowMaterial = new MeshBasicMaterial();
@@ -77,7 +87,7 @@ export class RenderOptimizer {
   constructor(
     mechanics: Mesh[],
     private readonly caps: Mesh[],
-    options: { shadows?: boolean; occlusion?: 'coverage' } = {},
+    options: { shadows?: boolean; occlusion?: 'coverage'; batchCaps?: boolean } = {},
   ) {
     this.volumeCulling = options.occlusion !== 'coverage';
     this.group.name = 'Visible mechanical instances';
@@ -112,6 +122,9 @@ export class RenderOptimizer {
         visible: true,
         localBounds,
         worldBounds: localBounds.map(() => new Vector3()),
+        center: new Vector3(),
+        halfAxes: Array.from({ length: 3 }, () => new Vector3()),
+        renderable: true,
       };
       this.sources.push(source);
       this.byMesh.set(mesh, source);
@@ -157,6 +170,35 @@ export class RenderOptimizer {
       const draw = make();
       this.main.add(draw);
       this.batches.push({ sources, draw, previous: [], versions: [] });
+    }
+    if (options.batchCaps) {
+      const groups = new Map<Material, Source[]>();
+      for (const cap of caps) {
+        const source = this.byMesh.get(cap);
+        if (!source || Array.isArray(cap.material)) continue;
+        const sources = groups.get(cap.material) ?? [];
+        sources.push(source);
+        groups.set(cap.material, sources);
+      }
+      for (const [material, sources] of groups) {
+        const draw = new BatchedMesh(
+          sources.length,
+          sources.reduce((sum, s) => sum + s.mesh.geometry.attributes.position.count, 0),
+          sources.reduce((sum, s) => sum + (s.mesh.geometry.index?.count ?? 0), 0),
+          material,
+        );
+        draw.frustumCulled = draw.perObjectFrustumCulled = false;
+        draw.sortObjects = false;
+        draw.receiveShadow = sources[0].mesh.receiveShadow;
+        for (const source of sources) {
+          draw.addInstance(draw.addGeometry(source.mesh.geometry));
+          // Retain original nodes for picking and child selection outlines.
+          // The independent depth batches continue to own the shadow pass.
+          source.mesh.layers.set(1);
+        }
+        this.main.add(draw);
+        this.capBatches.push({ draw, sources, versions: [] });
+      }
     }
     // All cube components are opaque and cast the same depth-only silhouette.
     // Colour/photo materials do not need separate shadow submissions.
@@ -225,6 +267,9 @@ export class RenderOptimizer {
       source.worldBounds.forEach((p, i) =>
         p.copy(source.localBounds[i]).applyMatrix4(mesh.matrixWorld),
       );
+      source.center.copy(source.worldBounds[0]).add(source.worldBounds[7]).multiplyScalar(0.5);
+      for (let axis = 0; axis < 3; axis++)
+        source.halfAxes[axis].copy(source.worldBounds[1 << axis]).sub(source.worldBounds[0]).multiplyScalar(0.5);
     }
     for (const occluder of this.occluders) {
       const version = this.byMesh.get(occluder.mesh)!.version;
@@ -314,6 +359,18 @@ export class RenderOptimizer {
   }
 
   prepareCamera(camera: Camera) {
+    // Material visibility can change without a pose or camera update (minimal
+    // mode). Avoid culling hidden mechanics, but preserve visible children.
+    for (const source of this.sources) {
+      const material = source.mesh.material;
+      const renderable = (Array.isArray(material)
+        ? material.some((m) => m.visible)
+        : material.visible) || source.mesh.children.some((child) => child.visible);
+      if (renderable !== source.renderable) {
+        source.renderable = renderable;
+        this.cameraDirty = true;
+      }
+    }
     if (
       !this.cameraDirty &&
       this.lastView.equals(camera.matrixWorldInverse) &&
@@ -329,6 +386,7 @@ export class RenderOptimizer {
     for (const source of this.sources) {
       source.visible =
         source.active &&
+        source.renderable &&
         (source.mesh.children.some((child) => child.visible) ||
           (this.frustum.intersectsSphere(source.sphere) &&
             !this.occluded(source)));
@@ -364,6 +422,20 @@ export class RenderOptimizer {
       batch.draw.count = count;
       batch.draw.visible = count > 0;
     }
+    this.updateCapBatches();
+  }
+
+  private updateCapBatches(warmup = false) {
+    for (const batch of this.capBatches) {
+      for (let i = 0; i < batch.sources.length; i++) {
+        const source = batch.sources[i];
+        batch.draw.setVisibleAt(i, warmup ? source.active : source.visible);
+        if (batch.versions[i] !== source.version) {
+          batch.draw.setMatrixAt(i, source.matrix);
+          batch.versions[i] = source.version;
+        }
+      }
+    }
   }
 
   private occluded(source: Source) {
@@ -371,11 +443,13 @@ export class RenderOptimizer {
       if (volume.mesh === source.mesh) continue;
       let contained = true;
       for (const plane of volume.planes) {
-        if (
-          source.worldBounds.some(
-            (corner) => plane.distanceToPoint(corner) <= 0.0001,
-          )
-        ) {
+        const distance = plane.distanceToPoint(source.center);
+        // Exact minimum over the transformed box, including nonuniform scale
+        // and shear. Four dot products replace up to eight corner tests.
+        if (distance <= 0.0001 || distance -
+          Math.abs(plane.normal.dot(source.halfAxes[0])) -
+          Math.abs(plane.normal.dot(source.halfAxes[1])) -
+          Math.abs(plane.normal.dot(source.halfAxes[2])) <= 0.0001) {
           contained = false;
           break;
         }
@@ -405,6 +479,7 @@ export class RenderOptimizer {
       batch.previous = [];
       batch.versions = [];
     }
+    this.updateCapBatches(true);
   }
 
   isVisible(mesh: Mesh) {
@@ -419,12 +494,13 @@ export class RenderOptimizer {
     return {
       components: this.sources.length,
       visible: this.sources.filter((s) => s.visible).length,
-      batches: this.batches.filter((b) => b.draw.visible).length,
+      batches: this.batches.filter((b) => b.draw.visible).length + this.capBatches.length,
     };
   }
 
   dispose() {
     for (const batch of this.batches) batch.draw.dispose();
+    for (const batch of this.capBatches) batch.draw.dispose();
     for (const batch of this.shadowBatches) batch.draw.dispose();
     this.shadowMaterial.dispose();
   }

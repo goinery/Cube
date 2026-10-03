@@ -397,6 +397,7 @@ export function buildPuzzle(def: Definition, anisotropy: number) {
   const root = new T.Group(),
     models: PieceModel[] = [],
     caps = new Map<string, T.Mesh>(),
+    capMaterials = new Map<string, T.MeshPhysicalMaterial>(),
     materials = new Set<T.Material>(),
     geometries = new Set<T.BufferGeometry>();
   const honeycomb = honeycombTexture(anisotropy);
@@ -500,7 +501,9 @@ export function buildPuzzle(def: Definition, anisotropy: number) {
     for (const tile of def.tiles.filter((t) => t.piece === index)) {
       const face = def.faces.find((f) => f.id === tile.face)!,
         normal = v(face.normal);
-      const material = new T.MeshPhysicalMaterial({
+      let material = capMaterials.get(face.id);
+      if (!material) {
+        material = new T.MeshPhysicalMaterial({
         color: face.color,
         roughness: PUZZLE_DEFAULTS[def.id].settings.roughness,
         metalness: 0,
@@ -508,8 +511,10 @@ export function buildPuzzle(def: Definition, anisotropy: number) {
         clearcoatRoughness: 0.13,
         ior: 1.48,
         vertexColors: true,
-      });
-      materials.add(material);
+        });
+        capMaterials.set(face.id, material);
+        materials.add(material);
+      }
       const mesh = new T.Mesh(shared(capGeometry(def, tile)), material);
       mesh.userData.tile = tile.id;
       part(mesh, new T.Vector3(), normal, 0.31, { cap: true });
@@ -570,6 +575,7 @@ export function buildPuzzle(def: Definition, anisotropy: number) {
     root,
     models,
     caps,
+    capMaterials,
     core,
     dispose() {
       geometries.forEach((g) => g.dispose());

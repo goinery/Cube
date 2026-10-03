@@ -222,7 +222,28 @@ export function createPuzzleOptimizer(
   return new RenderOptimizer(mechanics, caps, {
     shadows: profile.shadows,
     occlusion: profile.occlusion === 'coverage' ? 'coverage' : undefined,
+    batchCaps: id !== 'cube' && id !== 'pyraminx',
   });
+}
+
+export function updateShadowQuality(
+  renderer: T.WebGLRenderer,
+  key: T.DirectionalLight,
+  id: StudioPuzzleId,
+  quality: Quality,
+  mobile = matchMedia(`(max-width: ${DEFAULTS.mobileWidth}px)`).matches,
+) {
+  const profile = PUZZLE_DEFAULTS[id].render;
+  const resolution = quality === 'low'
+    ? profile.lowShadowResolution
+    : quality === 'auto' && mobile
+      ? profile.mobileShadowResolution
+      : profile.shadowResolution;
+  if (key.shadow.mapSize.x === resolution && key.shadow.mapSize.y === resolution) return;
+  key.shadow.mapSize.set(resolution, resolution);
+  key.shadow.map?.dispose();
+  key.shadow.map = null;
+  renderer.shadowMap.needsUpdate = true;
 }
 
 export function renderOverlay(

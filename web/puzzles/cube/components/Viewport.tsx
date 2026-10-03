@@ -769,10 +769,10 @@ export default memo(function Viewport() {
           optimizer.updateBounds();
           optimizerBoundsDirty = false;
         }
-        optimizer.prepareCamera(camera);
       }
       const minimalMoving = minimal.update(s.settings.minimal, dt);
       renderer.shadowMap.needsUpdate ||= minimal.changed;
+      optimizer?.prepareCamera(camera);
       renderer.render(scene, camera);
       if (!firstFrameReady) {
         firstFrameReady = true;
